@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.p2p.P2PBridge;
 
 @Mixin(IntegratedServer.class)
@@ -19,6 +20,11 @@ public abstract class OpenToLanMixin {
     private void onOpenToLan(GameType gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
 
         if (cir.getReturnValue()) {
+            if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || PeerCraftConfig.MODE_CLIENT.equals(PeerCraftConfig.mode())) {
+                LOGGER.info("[PeerCraft P2P] Хост-мост не запускается в режиме {}", PeerCraftConfig.mode());
+                return;
+            }
+
             IntegratedServer server = (IntegratedServer) (Object) this;
 
             // Получаем LAN-порт, на котором поднялся мир Майнкрафта
