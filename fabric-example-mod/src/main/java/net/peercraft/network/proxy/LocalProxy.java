@@ -70,7 +70,7 @@ public class LocalProxy {
                 byte[] data = new byte[bytesRead];
                 System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                P2PBridge.INSTANCE.sendProxyDataToP2P(data);
+                p2pBridge.sendProxyDataToP2P(data);
             }
         } catch (Exception e) {
             LOGGER.warn("[LocalProxy] Соединение с клиентом Minecraft закрыто");
