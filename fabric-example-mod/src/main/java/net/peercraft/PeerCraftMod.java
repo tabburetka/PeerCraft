@@ -1,4 +1,4 @@
-package com.example;
+package net.peercraft;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -19,7 +19,7 @@ public class ExampleMod implements ModInitializer {
 	public void onInitialize() {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
 		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+		// Proceed with mild caution.fi
 
 		LOGGER.info("Hello Fabric world!");
 	}
