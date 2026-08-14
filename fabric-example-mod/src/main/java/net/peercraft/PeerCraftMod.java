@@ -4,10 +4,11 @@ import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.ResourceLocation;
 
+import net.peercraft.event.ServerLifecycleHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ExampleMod implements ModInitializer {
+public class PeerCraftMod implements ModInitializer {
 	public static final String MOD_ID = "modid";
 
 	// This logger is used to write text to the console and the log file.
@@ -22,6 +23,7 @@ public class ExampleMod implements ModInitializer {
 		// Proceed with mild caution.fi
 
 		LOGGER.info("Hello Fabric world!");
+		ServerLifecycleHandler.registerEvent();
 	}
 
 	public static ResourceLocation id(String path) {

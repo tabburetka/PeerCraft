@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "modid",
 	"version": "${version}",
-	"name": "Example Mod",
+	"name": "PeerCraft",
 	"description": "This is an example description! Tell everyone what your mod is about!",
 	"authors": [
 		"Me!"
@@ -13,13 +13,13 @@
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/modid/icon.png",
-	"environment": "*",
+	"environment": "client",
 	"entrypoints": {
 		"main": [
-			"com.example.ExampleMod"
+			"net.peercraft.PeerCraftMod"
 		],
 		"client": [
-			"com.example.client.ExampleModClient"
+			"net.peercraft.client.PeerCraftClient"
 		]
 	},
 	"mixins": [

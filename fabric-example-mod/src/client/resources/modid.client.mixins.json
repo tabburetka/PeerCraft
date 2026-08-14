@@ -1,9 +1,10 @@
 {
 	"required": true,
-	"package": "com.example.client.mixin",
+	"package": "net.peercraft.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+      "ExampleClientMixin",
+		"OpenToLanMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

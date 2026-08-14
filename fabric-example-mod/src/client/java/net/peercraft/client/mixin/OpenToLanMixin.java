@@ -1,28 +1,39 @@
-package net.peercraft.mixin;
+package net.peercraft.client.mixin;
 
 import net.minecraft.client.server.IntegratedServer;
-import net.minecraft.world.GameMode;
+import net.minecraft.world.level.GameType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.peercraft.network.p2p.P2PBridge;
 
 @Mixin(IntegratedServer.class)
 public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
 
-    @Inject(method = "openToLan", at = @At("RETURN"))
-    private void onOpenToLan(GameMode gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "publishServer", at = @At("RETURN"))
+    private void onOpenToLan(GameType gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
+
         if (cir.getReturnValue()) {
             IntegratedServer server = (IntegratedServer) (Object) this;
 
-            // Получаем реальный порт сервера
-            int lanPort = server.getServerPort();
+            // Получаем LAN-порт, на котором поднялся мир Майнкрафта
+            int lanPort = server.getPort();
 
-            LOGGER.info("[PeerCraft P2P] Ура! Мир успешно открыт для сети на порту: {}", lanPort);
+            LOGGER.info("[PeerCraft P2P] Мир успешно открыт для сети на порту: {}", lanPort);
+
+            // 1. Закрываем LocalProxy на Хосте, чтобы освободить 25565
+            if (P2PBridge.INSTANCE.getProxy() != null) {
+                P2PBridge.INSTANCE.getProxy().stop();
+                LOGGER.info("[PeerCraft P2P] localProxy закрыт на Хосте.");
+            }
+
+            // 2. Передаем LAN-порт в P2PBridge для запуска UDP-хоста
+            P2PBridge.INSTANCE.startHost(lanPort);
         }
     }
 }
