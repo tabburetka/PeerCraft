@@ -183,7 +183,7 @@ public class P2PBridge {
     }
 
     private void listenMcResponses() {
-        byte[] buffer = new byte[2048];
+        byte[] buffer = new byte[32768];
         try {
             int bytesRead;
             while (isConnectedToMc && (bytesRead = mcIn.read(buffer)) != -1) {

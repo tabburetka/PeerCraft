@@ -67,7 +67,7 @@ public class LocalProxy {
 
     private void handleClient(Socket socket) {
         this.activeClientSocket = socket;
-        byte[] buffer = new byte[2048];
+        byte[] buffer = new byte[32768];
 
         try {
             InputStream in = socket.getInputStream();

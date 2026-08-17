@@ -12,41 +12,40 @@ import java.net.DatagramSocket;
 public class P2PReceiver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
 
     private DatagramSocket socket;
     private volatile boolean running = false;
     private Thread listenThread;
     // Внутри класса P2PReceiver сделать статическое поле экземпляра:
     public static final P2PReceiver INSTANCE = new P2PReceiver();
-    public void start(int port) {
 
+    public boolean start(int port) {
+        stop();
         try {
             socket = new DatagramSocket(port);
             running = true;
-
-            int boundPort = this.socket.getLocalPort();
 
             listenThread = new Thread(this::listenLoop, "PeerCraft-UDP-Receiver");
             listenThread.setDaemon(true);
             listenThread.start();
 
-            LOGGER.info("[PeerCraft Receiver] Сокет успешно запущен на порту {}", port);
+            LOGGER.info("[PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:{}", getBoundPort());
+            return true;
         } catch (SocketException e) {
-            LOGGER.error("[PeerCraft Receiver] Не удалось запустить UDP сокет на порту {}", port, e);
-            // Здесь можно обработать ошибку (например, закрыть программу или поменять порт)
+            running = false;
+            socket = null;
+            LOGGER.error("[PeerCraft Receiver] Не удалось запустить UDP сокет на порту {}. Порт уже занят другим экземпляром PeerCraft или другой программой — задай другой -Dpeercraft.clientUdpPort/-Dpeercraft.hostUdpPort.", port, e);
+            return false;
         }
-
     }
 
     private void listenLoop() {
-        // Буфер для входящих сетевых пакетов Minecraft
-        byte[] buffer = new byte[1400];
-        DatagramPacket packet = new DatagramPacket(buffer,buffer.length);
+        byte[] buffer = new byte[MAX_UDP_PAYLOAD_SIZE];
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
         while (running) {
             try {
-                // Создай DatagramPacket(buffer, buffer.length)
-
-                // Вызови socket.receive(packet)
+                packet.setLength(buffer.length);
                 socket.receive(packet);
 
                 P2PBridge.INSTANCE.handleIncomingPacket(
@@ -56,7 +55,6 @@ public class P2PReceiver {
                         packet.getPort()
                 );
 
-                // Для теста выведи в лог, сколько байт пришло и от кого!
                 LOGGER.info("[P2PReceiver] Получено {} байт от {}:{}", packet.getLength(), packet.getAddress(), packet.getPort());
 
             } catch (Exception e) {
