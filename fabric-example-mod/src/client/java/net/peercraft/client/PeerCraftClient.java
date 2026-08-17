@@ -17,12 +17,6 @@ public class PeerCraftClient implements ClientModInitializer {
             return;
         }
 
-        LOGGER.info("[PeerCraft] Режим {}, TCP proxyPort {}, clientUdpPort {}, peer {}:{}",
-                mode,
-                PeerCraftConfig.proxyPort(),
-                PeerCraftConfig.clientUdpPort(),
-                PeerCraftConfig.peerHost(),
-                PeerCraftConfig.peerPortForClient());
         P2PBridge.INSTANCE.startProxy(PeerCraftConfig.proxyPort());
         P2PBridge.INSTANCE.startClient();
     }
