@@ -1,5 +1,6 @@
 package net.peercraft.network.p2p;
 
+import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.proxy.LocalProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,11 +23,6 @@ public class P2PBridge {
     private String targetIp;
     private int targetPort;
     private int localMinecraftPort;
-    // Сокет подключения к локальному MC-серверу (используется ХОСТОМ)
-    private Socket targetSocket;
-
-
-
     private Socket mcSocket;
     private OutputStream mcOut;
     private InputStream mcIn;
@@ -48,33 +44,43 @@ public class P2PBridge {
 
 
     public void startHost(int mcPort) {
+        int hostUdpPort = PeerCraftConfig.hostUdpPort();
+        int peerPort = PeerCraftConfig.peerPortForHost();
+        String peerHost = PeerCraftConfig.peerHost();
         this.isHost = true;
         this.localMinecraftPort = mcPort;
 
-        // 1. Если ресивер уже работал (например, на 50002), глушим его и освобождаем сокет!
-        if (this.receiver != null) {
-            this.receiver.stop();
+        if (!restartReceiver(hostUdpPort)) {
+            LOGGER.error("[P2PBridge] ХОСТ НЕ ЗАПУЩЕН: UDP порт {} занят. Освободи порт или задай другой -Dpeercraft.hostUdpPort.", hostUdpPort);
+            return;
         }
+        this.setTargetPeer(peerHost, peerPort);
 
-        // 2. Поднимаем ресивер Хоста строго на 50001
-        this.receiver.start(50001);
-
-        // 3. Указываем слать ответы на 50002 (где будет сидеть Клиент)
-        this.setTargetPeer("127.0.0.1", 50002);
-
-        LOGGER.info("[P2PBridge] ХОСТ ГОТОВ: UDP слушает на 50001, ответы шлёт на 50002");
+        LOGGER.info("[P2PBridge] ХОСТ ГОТОВ: LAN порт MC {}, UDP слушает на {}, ответы шлёт на {}:{}", mcPort, receiver.getBoundPort(), peerHost, peerPort);
     }
 
     // Вызывается на КЛИЕНТЕ
-    public void startClientTest() {
+    public void startClient() {
+        int clientUdpPort = PeerCraftConfig.clientUdpPort();
+        int peerPort = PeerCraftConfig.peerPortForClient();
+        String peerHost = PeerCraftConfig.peerHost();
         this.isHost = false;
-        // Запускаем UDP-приемник Клиента строго на порту 50002
-        this.receiver.start(50002);
 
-        // Жестко задаем Клиенту слать пакеты на UDP-порт Хоста (50001)
-        this.setTargetPeer("127.0.0.1", 50001);
+        if (!restartReceiver(clientUdpPort)) {
+            LOGGER.error("[P2PBridge] КЛИЕНТ НЕ ЗАПУЩЕН: UDP порт {} занят. Освободи порт или задай другой -Dpeercraft.clientUdpPort.", clientUdpPort);
+            return;
+        }
+        this.setTargetPeer(peerHost, peerPort);
 
-        LOGGER.info("[P2PBridge] ТЕСТ КЛИЕНТА: UDP слушает на 50002, пакеты шлет на 127.0.0.1:50001");
+        LOGGER.info("[P2PBridge] КЛИЕНТ ГОТОВ: UDP слушает на {}, пакеты шлёт на {}:{}", receiver.getBoundPort(), peerHost, peerPort);
+    }
+
+    private boolean restartReceiver(int port) {
+        if (this.receiver != null) {
+            this.receiver.stop();
+        }
+        this.receiver = new P2PReceiver();
+        return this.receiver.start(port);
     }
 
 
@@ -83,9 +89,9 @@ public class P2PBridge {
         if (this.proxy != null) {
             this.proxy.stop();
         }
-        // Передаем текущий P2PBridge через "this"
         this.proxy = new LocalProxy(this);
         this.proxy.start(port);
+        LOGGER.info("[P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:{}", port);
     }
 
     public void setTargetPeer(String ip, int port) {
@@ -123,18 +129,25 @@ public class P2PBridge {
         return this.proxy;
     }
 
+    public boolean isProxyRunning() {
+        return this.proxy != null && this.proxy.isRunning();
+    }
+
+    public int getProxyPort() {
+        return this.proxy != null ? this.proxy.getBoundPort() : 0;
+    }
+
     // Прием UDP-пакета от P2PReceiver и проброс в локальный TCP-сокет Minecraft
     public void handleIncomingPacket(byte[] data, int length, InetAddress senderAddress, int senderPort) {
         if (this.isHost) {
             // --- ЛОГИКА ХОСТА ---
             try {
-                if (this.targetSocket == null || this.targetSocket.isClosed()) {
+                if (this.mcSocket == null || this.mcSocket.isClosed() || !this.isConnectedToMc) {
                     connectToLocalMinecraft();
                 }
-                if (this.targetSocket != null && !this.targetSocket.isClosed()) {
-                    OutputStream out = this.targetSocket.getOutputStream();
-                    out.write(data, 0, length); // Используем length!
-                    out.flush();
+                if (this.mcOut != null && this.mcSocket != null && !this.mcSocket.isClosed()) {
+                    mcOut.write(data, 0, length);
+                    mcOut.flush();
                 }
             } catch (IOException e) {
                 LOGGER.error("[P2PBridge] Ошибка проброса байт в MC-сервер", e);
@@ -176,7 +189,7 @@ public class P2PBridge {
     }
 
     private void listenMcResponses() {
-        byte[] buffer = new byte[2048];
+        byte[] buffer = new byte[32768];
         try {
             int bytesRead;
             while (isConnectedToMc && (bytesRead = mcIn.read(buffer)) != -1) {

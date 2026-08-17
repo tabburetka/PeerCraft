@@ -12,6 +12,7 @@ import java.net.UnknownHostException;
 public class P2PSender {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
 
     private DatagramSocket socket;
 
@@ -26,6 +27,11 @@ public class P2PSender {
 
     public void sendData(byte[] data, String ip, int port) {
         try {
+            if (data.length > MAX_UDP_PAYLOAD_SIZE) {
+                LOGGER.error("[P2PSender] Пакет {} байт больше максимального UDP payload {} байт; отправка отменена, чтобы не повредить Minecraft stream", data.length, MAX_UDP_PAYLOAD_SIZE);
+                return;
+            }
+
             InetAddress ipAdrr = InetAddress.getByName(ip);
             LOGGER.info("[PeerCraft Sender] ip adres: {}", ipAdrr);
             DatagramPacket packet = new DatagramPacket(data, data.length, ipAdrr, port);
