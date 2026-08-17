@@ -23,28 +23,3 @@ The mod reads Java system properties first and environment variables second. If 
 4. Start the second Minecraft client with `-Dpeercraft.mode=client`. The log should contain a message like `КЛИЕНТ ГОТОВ`, local proxy port `25566`, and UDP listen port `50002`.
 5. In the second client, open **Multiplayer** and connect to `127.0.0.1:25566`. Do not connect to the LAN port shown by Minecraft; connect to the proxy port.
 6. If either port is busy, change both sides consistently. For example, run the host with `-Dpeercraft.hostUdpPort=50101 -Dpeercraft.clientUdpPort=50102` and the client with the same two values.
-
-## Troubleshooting
-
-### `finishConnect(...) failed: В соединении отказано`
-
-This error happens before the UDP bridge is used: the joining Minecraft client cannot open a TCP connection to the local proxy. Check the joining/client Minecraft log for `Локальный TCP-прокси успешно запущен на 127.0.0.1:<port>`.
-
-If that line is missing:
-
-1. Make sure the joining client is started with `-Dpeercraft.mode=client` or without a mode override. Do not use `-Dpeercraft.mode=host` on the joining client.
-2. Make sure the mod jar you just built is installed in the joining client's `mods` folder.
-3. Make sure you connect to the proxy address (`127.0.0.1:25566` by default), not to the Minecraft LAN port shown by Open to LAN.
-4. If the log says the proxy port is busy, start the joining client with another proxy port, for example `-Dpeercraft.proxyPort=25567`, and connect to `127.0.0.1:25567`.
-
-### Host log contains client entrypoint lines
-
-This is expected for the first Minecraft window: an integrated LAN server runs inside a Minecraft client process, so Fabric still loads the client entrypoint. With `-Dpeercraft.mode=host`, the log must say `effective mode='host'` and then `Клиентский TCP-прокси и UDP-клиент не запускаются`. If it starts `LocalProxy` anyway, the JVM property did not reach that launched process or an old mod jar is being used.
-
-### `Адрес уже используется`
-
-Only one process can listen on a TCP/UDP port at a time. If `25566` or `50002` is busy, another PeerCraft client is still running or another app owns the port. Close the old client or use another set of ports, for example on the joining client: `-Dpeercraft.proxyPort=25567 -Dpeercraft.clientUdpPort=50012`. If you change `clientUdpPort`, start the host with the same `-Dpeercraft.clientUdpPort=50012` so host replies to the correct client UDP port.
-
-### `DecoderException: Failed to decode packet ... minecraft:hello`
-
-This usually means the Minecraft TCP stream was corrupted while being wrapped into UDP datagrams. Older PeerCraft builds used a 1400-byte UDP receive buffer and reused `DatagramPacket` without resetting its length, so larger login/encryption packets could be truncated. Rebuild and install the latest jar on both clients; if the error remains, collect both clients' PeerCraft logs around the first `P2PReceiver` packets.

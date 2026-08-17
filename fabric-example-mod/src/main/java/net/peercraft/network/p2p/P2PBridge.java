@@ -50,10 +50,7 @@ public class P2PBridge {
         this.isHost = true;
         this.localMinecraftPort = mcPort;
 
-        if (!restartReceiver(hostUdpPort)) {
-            LOGGER.error("[P2PBridge] ХОСТ НЕ ЗАПУЩЕН: UDP порт {} занят. Освободи порт или задай другой -Dpeercraft.hostUdpPort.", hostUdpPort);
-            return;
-        }
+        restartReceiver(hostUdpPort);
         this.setTargetPeer(peerHost, peerPort);
 
         LOGGER.info("[P2PBridge] ХОСТ ГОТОВ: LAN порт MC {}, UDP слушает на {}, ответы шлёт на {}:{}", mcPort, receiver.getBoundPort(), peerHost, peerPort);
@@ -66,21 +63,18 @@ public class P2PBridge {
         String peerHost = PeerCraftConfig.peerHost();
         this.isHost = false;
 
-        if (!restartReceiver(clientUdpPort)) {
-            LOGGER.error("[P2PBridge] КЛИЕНТ НЕ ЗАПУЩЕН: UDP порт {} занят. Освободи порт или задай другой -Dpeercraft.clientUdpPort.", clientUdpPort);
-            return;
-        }
+        restartReceiver(clientUdpPort);
         this.setTargetPeer(peerHost, peerPort);
 
         LOGGER.info("[P2PBridge] КЛИЕНТ ГОТОВ: UDP слушает на {}, пакеты шлёт на {}:{}", receiver.getBoundPort(), peerHost, peerPort);
     }
 
-    private boolean restartReceiver(int port) {
+    private void restartReceiver(int port) {
         if (this.receiver != null) {
             this.receiver.stop();
         }
         this.receiver = new P2PReceiver();
-        return this.receiver.start(port);
+        this.receiver.start(port);
     }
 
 

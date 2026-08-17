@@ -13,15 +13,11 @@ public final class PeerCraftConfig {
     }
 
     public static String mode() {
-        String mode = rawMode().toLowerCase();
+        String mode = stringValue("mode", MODE_AUTO).toLowerCase();
         if (MODE_CLIENT.equals(mode) || MODE_HOST.equals(mode) || MODE_DISABLED.equals(mode)) {
             return mode;
         }
         return MODE_AUTO;
-    }
-
-    public static String rawMode() {
-        return stringValue("mode", MODE_AUTO);
     }
 
     public static int proxyPort() {
