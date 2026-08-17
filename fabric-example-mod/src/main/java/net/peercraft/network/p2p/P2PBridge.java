@@ -83,9 +83,9 @@ public class P2PBridge {
         if (this.proxy != null) {
             this.proxy.stop();
         }
-        // Передаем текущий P2PBridge через "this"
         this.proxy = new LocalProxy(this);
         this.proxy.start(port);
+        LOGGER.info("[P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:{}", port);
     }
 
     public void setTargetPeer(String ip, int port) {
@@ -121,6 +121,14 @@ public class P2PBridge {
 
     public LocalProxy getProxy() {
         return this.proxy;
+    }
+
+    public boolean isProxyRunning() {
+        return this.proxy != null && this.proxy.isRunning();
+    }
+
+    public int getProxyPort() {
+        return this.proxy != null ? this.proxy.getBoundPort() : 0;
     }
 
     // Прием UDP-пакета от P2PReceiver и проброс в локальный TCP-сокет Minecraft
