@@ -32,6 +32,13 @@ public abstract class OpenToLanMixin {
 
             LOGGER.info("[PeerCraft P2P] Мир успешно открыт для сети на порту: {}", lanPort);
 
+            // Игроки подключаются через наш UDP-мост, а не напрямую по локальной сети,
+            // поэтому у них нет возможности пройти обычную LAN-автообнаруженную сессию.
+            // Отключаем проверку сессии Mojang для этого хоста, как это по сути уже
+            // происходит для игроков, заходящих через обычное автообнаружение LAN.
+            server.setUsesAuthentication(false);
+            LOGGER.info("[PeerCraft P2P] Проверка сессии Mojang отключена для хоста PeerCraft.");
+
             // 1. Закрываем LocalProxy на Хосте, чтобы освободить 25565
             if (P2PBridge.INSTANCE.getProxy() != null) {
                 P2PBridge.INSTANCE.getProxy().stop();

@@ -13,6 +13,7 @@ public class P2PSender {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
+    private static final int SOCKET_BUFFER_SIZE_BYTES = 4 * 1024 * 1024;
 
     private DatagramSocket socket;
 
@@ -20,6 +21,7 @@ public class P2PSender {
         try {
             // new DatagramSocket() без параметров выдаёт любой случайный свободный порт
             this.socket = new DatagramSocket();
+            this.socket.setSendBufferSize(SOCKET_BUFFER_SIZE_BYTES);
         } catch (Exception e) {
             LOGGER.error("[P2PSender] Ошибка создания сокета отправки", e);
         }

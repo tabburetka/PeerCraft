@@ -3,8 +3,10 @@ package net.peercraft.network.p2p;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.net.SocketException;
-
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -14,9 +16,22 @@ public class P2PReceiver {
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
 
+    // Просим у ОС буфер приёма побольше (по умолчанию в Linux это обычно ~208KB —
+    // этого не хватает на всплеск крупных датаграмм при начальной синхронизации
+    // чанков мира, и ядро молча дропает лишние пакеты). ОС всё равно тихо обрежет
+    // значение до своего настоящего максимума (net.core.rmem_max), так что просить
+    // с запасом безопасно.
+    private static final int SOCKET_BUFFER_SIZE_BYTES = 4 * 1024 * 1024;
+    // Ёмкость очереди между потоком приёма и потоком обработки. При переполнении
+    // датаграмма отбрасывается с предупреждением — приёмный поток никогда не
+    // должен блокироваться, иначе ОС снова начнёт терять пакеты на сокете.
+    private static final int PROCESSING_QUEUE_CAPACITY = 2048;
+
     private DatagramSocket socket;
     private volatile boolean running = false;
     private Thread listenThread;
+    private Thread processingThread;
+    private final BlockingQueue<IncomingDatagram> processingQueue = new LinkedBlockingQueue<>(PROCESSING_QUEUE_CAPACITY);
     // Внутри класса P2PReceiver сделать статическое поле экземпляра:
     public static final P2PReceiver INSTANCE = new P2PReceiver();
 
@@ -24,13 +39,18 @@ public class P2PReceiver {
         stop();
         try {
             socket = new DatagramSocket(port);
+            socket.setReceiveBufferSize(SOCKET_BUFFER_SIZE_BYTES);
             running = true;
 
             listenThread = new Thread(this::listenLoop, "PeerCraft-UDP-Receiver");
             listenThread.setDaemon(true);
             listenThread.start();
 
-            LOGGER.info("[PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:{}", getBoundPort());
+            processingThread = new Thread(this::processingLoop, "PeerCraft-UDP-Processor");
+            processingThread.setDaemon(true);
+            processingThread.start();
+
+            LOGGER.info("[PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:{} (буфер приёма: {} байт)", getBoundPort(), socket.getReceiveBufferSize());
             return true;
         } catch (SocketException e) {
             running = false;
@@ -40,6 +60,9 @@ public class P2PReceiver {
         }
     }
 
+    // Только читает сокет и сразу кладёт копию в очередь — не делает ничего, что
+    // могло бы задержать следующий receive() (никакого decode/reorder/TCP-записи
+    // здесь быть не должно, иначе под нагрузкой ядро снова начнёт терять пакеты).
     private void listenLoop() {
         byte[] buffer = new byte[MAX_UDP_PAYLOAD_SIZE];
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -48,18 +71,32 @@ public class P2PReceiver {
                 packet.setLength(buffer.length);
                 socket.receive(packet);
 
-                P2PBridge.INSTANCE.handleIncomingPacket(
-                        packet.getData(),
-                        packet.getLength(),
-                        packet.getAddress(),
-                        packet.getPort()
-                );
+                byte[] data = new byte[packet.getLength()];
+                System.arraycopy(packet.getData(), 0, data, 0, packet.getLength());
 
-                LOGGER.info("[P2PReceiver] Получено {} байт от {}:{}", packet.getLength(), packet.getAddress(), packet.getPort());
+                if (!processingQueue.offer(new IncomingDatagram(data, packet.getAddress(), packet.getPort()))) {
+                    LOGGER.warn("[P2PReceiver] Очередь обработки переполнена ({} элементов) — датаграмма от {}:{} отброшена", PROCESSING_QUEUE_CAPACITY, packet.getAddress(), packet.getPort());
+                }
 
             } catch (Exception e) {
                 if (running) {
                     LOGGER.error("[P2PReceiver] Ошибка чтения UDP пакета", e);
+                }
+            }
+        }
+    }
+
+    private void processingLoop() {
+        while (running) {
+            try {
+                IncomingDatagram datagram = processingQueue.take();
+                P2PBridge.INSTANCE.handleIncomingPacket(datagram.data, datagram.data.length, datagram.address, datagram.port);
+                LOGGER.info("[P2PReceiver] Получено {} байт от {}:{}", datagram.data.length, datagram.address, datagram.port);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                if (running) {
+                    LOGGER.error("[P2PReceiver] Ошибка обработки UDP пакета", e);
                 }
             }
         }
@@ -72,6 +109,22 @@ public class P2PReceiver {
         running = false;
         if (socket != null && !socket.isClosed()) {
             socket.close();
+        }
+        if (processingThread != null) {
+            processingThread.interrupt();
+        }
+        processingQueue.clear();
+    }
+
+    private static final class IncomingDatagram {
+        final byte[] data;
+        final InetAddress address;
+        final int port;
+
+        IncomingDatagram(byte[] data, InetAddress address, int port) {
+            this.data = data;
+            this.address = address;
+            this.port = port;
         }
     }
 }

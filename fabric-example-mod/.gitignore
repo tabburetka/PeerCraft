@@ -31,6 +31,8 @@ bin/
 # fabric
 
 run/
+run-host/
+run-client/
 
 # java
 

@@ -28,6 +28,7 @@
 			"config": "modid.client.mixins.json",
 			"environment": "client"
 		}
+
 	],
 	"depends": {
 		"fabricloader": ">=0.19.3",

@@ -50,8 +50,8 @@ public class LocalProxy {
                 Socket clientSocket = serverSocket.accept();
                 LOGGER.info("[LocalProxy] Новое подключение от Minecraft клиента: {}", clientSocket.getRemoteSocketAddress());
 
-                p2pBridge.registerClientSocket(clientSocket);
-                handleClient(clientSocket);
+                long sessionId = p2pBridge.beginClientSession(clientSocket);
+                handleClient(clientSocket, sessionId);
             }
         } catch (IOException e) {
             if (running || serverSocket == null) {
@@ -65,7 +65,7 @@ public class LocalProxy {
         }
     }
 
-    private void handleClient(Socket socket) {
+    private void handleClient(Socket socket, long sessionId) {
         this.activeClientSocket = socket;
         byte[] buffer = new byte[32768];
 
@@ -78,7 +78,7 @@ public class LocalProxy {
                 byte[] data = new byte[bytesRead];
                 System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                p2pBridge.sendProxyDataToP2P(data);
+                p2pBridge.sendProxyDataToP2P(sessionId, data);
             }
         } catch (Exception e) {
             LOGGER.warn("[LocalProxy] Соединение с клиентом Minecraft закрыто");
@@ -96,6 +96,10 @@ public class LocalProxy {
         } catch (Exception e) {
             LOGGER.error("[LocalProxy] Ошибка отправки ответных байт клиенту MC", e);
         }
+    }
+
+    public void disconnectClient() {
+        closeClientSocket();
     }
 
     private void closeClientSocket() {
