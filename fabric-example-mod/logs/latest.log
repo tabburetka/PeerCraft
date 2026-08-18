@@ -1,0 +1,9 @@
+[22:41:41] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[22:41:43] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:44653
+[22:41:43] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:46917

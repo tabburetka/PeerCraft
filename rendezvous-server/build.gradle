@@ -1,0 +1,35 @@
+plugins {
+	id 'application'
+}
+
+version = '1.0.0'
+group = 'net.peercraft'
+
+repositories {
+	mavenCentral()
+}
+
+application {
+	mainClass = 'net.peercraft.rendezvous.RendezvousServer'
+}
+
+dependencies {
+	testImplementation platform('org.junit:junit-bom:5.10.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	manifest {
+		attributes 'Main-Class': application.mainClass
+	}
+}

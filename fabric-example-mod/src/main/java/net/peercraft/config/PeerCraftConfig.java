@@ -44,6 +44,25 @@ public final class PeerCraftConfig {
         return intValue("peerPort", clientUdpPort());
     }
 
+    // Master opt-in for internet play (rendezvous server + UDP hole punching) instead of
+    // the static peerHost/peerPort path. false leaves all existing local behavior unchanged.
+    public static boolean internetPlay() {
+        return boolValue("internetPlay", false);
+    }
+
+    public static String rendezvousHost() {
+        return stringValue("rendezvousHost", "127.0.0.1");
+    }
+
+    public static int rendezvousPort() {
+        return intValue("rendezvousPort", 51000);
+    }
+
+    // Joiner-only: room code obtained from the host out-of-band (e.g. shared via chat/Discord).
+    public static String roomCode() {
+        return stringValue("roomCode", "");
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         if (property != null && !property.isBlank()) {
@@ -68,6 +87,11 @@ public final class PeerCraftConfig {
         } catch (NumberFormatException ignored) {
         }
         return defaultValue;
+    }
+
+    private static boolean boolValue(String key, boolean defaultValue) {
+        String value = stringValue(key, Boolean.toString(defaultValue));
+        return "true".equalsIgnoreCase(value.trim());
     }
 
     private static String toEnvName(String key) {

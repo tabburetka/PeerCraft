@@ -2,6 +2,9 @@ package net.peercraft.network.p2p;
 
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.proxy.LocalProxy;
+import net.peercraft.network.rendezvous.PunchCoordinator;
+import net.peercraft.network.rendezvous.RendezvousClient;
+import net.peercraft.network.rendezvous.RendezvousProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +13,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,9 +55,14 @@ public class P2PBridge {
     private volatile HostConnection currentHostConnection;
     private volatile ClientSession currentClientSession;
 
+    // Активно только во время rendezvous/hole-punch фазы (RendezvousClient, затем
+    // PunchCoordinator) — до и после неё null, и handleIncomingPacket идёт по обычному
+    // FramedPacket-пути. См. startHostViaRendezvous/startClientViaRendezvous.
+    private volatile RawPacketListener rendezvousListener;
+
     private P2PBridge() {
-        this.sender = new P2PSender();
         this.receiver = new P2PReceiver();
+        this.sender = new P2PSender(null);
     }
 
     public void startHost(int mcPort) {
@@ -82,12 +91,115 @@ public class P2PBridge {
         LOGGER.info("[P2PBridge] КЛИЕНТ ГОТОВ: UDP слушает на {}, пакеты шлёт на {}:{}", receiver.getBoundPort(), peerHost, peerPort);
     }
 
+    // Вызывается на ХОСТЕ вместо startHost(...), когда включён peercraft.internetPlay:
+    // публикует комнату на сервере знакомств вместо использования статических
+    // peerHost/peerPort, затем пробивает NAT и уже потом вызывает setTargetPeer(...).
+    public void startHostViaRendezvous(int mcPort) {
+        this.isHost = true;
+        this.localMinecraftPort = mcPort;
+        restartReceiver(PeerCraftConfig.hostUdpPort());
+
+        InetAddress rendezvousAddress = resolveRendezvousAddress();
+        if (rendezvousAddress == null) {
+            return;
+        }
+        int rendezvousPort = PeerCraftConfig.rendezvousPort();
+
+        LOGGER.info("[P2PBridge] Регистрируемся на сервере знакомств {}:{}...", rendezvousAddress.getHostAddress(), rendezvousPort);
+        RendezvousClient client = new RendezvousClient(sender, rendezvousAddress, rendezvousPort);
+        this.rendezvousListener = client;
+
+        client.registerRoom(
+                code -> LOGGER.info("[P2PBridge] Комната создана! Код для второго игрока: {}", code),
+                new RendezvousClient.MatchCallback() {
+                    @Override
+                    public void onMatched(RendezvousProtocol.Address peer, long token) {
+                        beginPunch(peer, token);
+                    }
+
+                    @Override
+                    public void onFailed(String reason) {
+                        LOGGER.error("[P2PBridge] Не удалось создать комнату на сервере знакомств: {}", reason);
+                    }
+                }
+        );
+    }
+
+    // Вызывается на КЛИЕНТЕ вместо startClient(), когда включён peercraft.internetPlay:
+    // присоединяется к комнате по коду (peercraft.roomCode) вместо статических
+    // peerHost/peerPort, затем пробивает NAT и уже потом вызывает setTargetPeer(...).
+    public void startClientViaRendezvous() {
+        String code = PeerCraftConfig.roomCode();
+        if (code.isBlank()) {
+            LOGGER.error("[P2PBridge] internetPlay включён, но -Dpeercraft.roomCode не задан — присоединяться не к чему");
+            return;
+        }
+
+        this.isHost = false;
+        restartReceiver(PeerCraftConfig.clientUdpPort());
+
+        InetAddress rendezvousAddress = resolveRendezvousAddress();
+        if (rendezvousAddress == null) {
+            return;
+        }
+        int rendezvousPort = PeerCraftConfig.rendezvousPort();
+
+        LOGGER.info("[P2PBridge] Присоединяемся к комнате {} через сервер знакомств {}:{}...", code, rendezvousAddress.getHostAddress(), rendezvousPort);
+        RendezvousClient client = new RendezvousClient(sender, rendezvousAddress, rendezvousPort);
+        this.rendezvousListener = client;
+
+        client.joinRoom(code, new RendezvousClient.MatchCallback() {
+            @Override
+            public void onMatched(RendezvousProtocol.Address peer, long token) {
+                beginPunch(peer, token);
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                LOGGER.error("[P2PBridge] Не удалось присоединиться к комнате {}: {}", code, reason);
+            }
+        });
+    }
+
+    private InetAddress resolveRendezvousAddress() {
+        String host = PeerCraftConfig.rendezvousHost();
+        try {
+            return InetAddress.getByName(host);
+        } catch (UnknownHostException e) {
+            LOGGER.error("[P2PBridge] Не удалось разрешить адрес сервера знакомств {}", host, e);
+            return null;
+        }
+    }
+
+    private void beginPunch(RendezvousProtocol.Address peer, long token) {
+        LOGGER.info("[P2PBridge] Пир найден: {}:{}, начинаем hole punching...", peer.host().getHostAddress(), peer.port());
+        PunchCoordinator punch = new PunchCoordinator(sender, peer, token, new PunchCoordinator.Callback() {
+            @Override
+            public void onSuccess(String ip, int port) {
+                rendezvousListener = null;
+                setTargetPeer(ip, port);
+                LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
+            }
+
+            @Override
+            public void onFailure(String reason) {
+                rendezvousListener = null;
+                LOGGER.error("[P2PBridge] Hole punching не удался: {}", reason);
+            }
+        });
+        this.rendezvousListener = punch;
+        punch.start();
+    }
+
     private void restartReceiver(int port) {
         if (this.receiver != null) {
             this.receiver.stop();
         }
         this.receiver = new P2PReceiver();
         this.receiver.start(port);
+        // Пересоздаём отправителя на том же сокете, что и приёмник — см. комментарий
+        // в P2PSender. Без этого пробитый hole punching NAT-маппинг был бы бесполезен.
+        this.sender = new P2PSender(this.receiver.getSocket());
     }
 
     public void startProxy(int port) {
@@ -195,6 +307,17 @@ public class P2PBridge {
 
     // Приём UDP-пакета от P2PReceiver: снимаем framing и пробрасываем в локальный TCP-сокет Minecraft
     public void handleIncomingPacket(byte[] data, int length, InetAddress senderAddress, int senderPort) {
+        // Rendezvous/punch-трафик узнаётся по своему magic-байту (FramedPacket.decode
+        // в любом случае отверг бы его, т.к. первый байт не совпадает с VERSION) —
+        // отдаём его текущему rendezvous-слушателю и не трогаем обычный relay-путь.
+        if (length >= 1 && data[0] == RendezvousProtocol.MAGIC) {
+            RawPacketListener listener = this.rendezvousListener;
+            if (listener != null) {
+                listener.onPacket(data, length, senderAddress, senderPort);
+            }
+            return;
+        }
+
         FramedPacket frame = FramedPacket.decode(data, length);
         if (frame == null) {
             LOGGER.warn("[P2PBridge] Отброшен пакет: не удалось разобрать заголовок ({} байт)", length);

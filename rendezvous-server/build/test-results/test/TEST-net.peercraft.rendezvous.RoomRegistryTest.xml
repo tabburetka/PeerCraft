@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.RoomRegistryTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-08-18T18:41:16.742Z" hostname="cachyos-x8664" time="0.023">
+  <properties/>
+  <testcase name="joinFromDifferentJoinerAfterClaimedIsRejected()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="joinWithValidCodeMatchesAndIssuesToken()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="sweepRemovesExpiredUnclaimedRoom()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.003"/>
+  <testcase name="repeatedJoinFromSameJoinerIsIdempotent()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.002"/>
+  <testcase name="sweepRemovesExpiredClaimedRoomAfterLongerGracePeriod()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.002"/>
+  <testcase name="registerIsIdempotentForSameUnclaimedSource()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="joinWithInvalidCodeIsRejected()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="sweepDoesNotRemoveFreshRoom()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="registerRateLimitTriggersServerBusy()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <testcase name="registerReturnsUniqueCodesForDifferentSources()" classname="net.peercraft.rendezvous.RoomRegistryTest" time="0.001"/>
+  <system-out><![CDATA[[22:41:16.748] [RendezvousServer] JOIN NOPE12 from 127.0.0.1:53589 -> rejected (reason=1)
+[22:41:16.752] [RendezvousServer]   known rooms (0): (none)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

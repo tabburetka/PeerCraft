@@ -45,8 +45,15 @@ public abstract class OpenToLanMixin {
                 LOGGER.info("[PeerCraft P2P] localProxy закрыт на Хосте.");
             }
 
-            // 2. Передаем LAN-порт в P2PBridge для запуска UDP-хоста
-            P2PBridge.INSTANCE.startHost(lanPort);
+            // 2. Передаем LAN-порт в P2PBridge для запуска UDP-хоста — либо статически
+            // (127.0.0.1/локальный тест), либо через сервер знакомств + hole punching
+            // для реального интернет-P2P.
+            if (PeerCraftConfig.internetPlay()) {
+                LOGGER.info("[PeerCraft P2P] internetPlay=true — используем сервер знакомств, peerHost/peerPort игнорируются.");
+                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort);
+            } else {
+                P2PBridge.INSTANCE.startHost(lanPort);
+            }
         }
     }
 }

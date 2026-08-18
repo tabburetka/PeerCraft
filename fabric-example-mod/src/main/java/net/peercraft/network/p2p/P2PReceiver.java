@@ -105,6 +105,12 @@ public class P2PReceiver {
     public int getBoundPort() {
         return (this.socket != null && !this.socket.isClosed()) ? this.socket.getLocalPort() : 0;
     }
+
+    // Отдаём тот же сокет наружу, чтобы P2PSender мог слать с него же — иначе для
+    // hole punching пробитый NAT-маппинг окажется бесполезен (см. P2PBridge).
+    public DatagramSocket getSocket() {
+        return socket;
+    }
     public void stop() {
         running = false;
         if (socket != null && !socket.isClosed()) {

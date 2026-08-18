@@ -15,15 +15,20 @@ public class P2PSender {
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
     private static final int SOCKET_BUFFER_SIZE_BYTES = 4 * 1024 * 1024;
 
-    private DatagramSocket socket;
+    private final DatagramSocket socket;
 
-    public P2PSender() {
-        try {
-            // new DatagramSocket() без параметров выдаёт любой случайный свободный порт
-            this.socket = new DatagramSocket();
-            this.socket.setSendBufferSize(SOCKET_BUFFER_SIZE_BYTES);
-        } catch (Exception e) {
-            LOGGER.error("[P2PSender] Ошибка создания сокета отправки", e);
+    // Отправка идёт с того же сокета, что и приём (P2PReceiver.getSocket()), а не со
+    // своего собственного случайного порта — иначе при hole punching NAT-маппинг,
+    // пробитый на порту приёмника, окажется бесполезен: трафик реально уходил бы с
+    // другого, никогда не "пробитого" порта, и пир его бы не увидел.
+    public P2PSender(DatagramSocket socket) {
+        this.socket = socket;
+        if (socket != null) {
+            try {
+                socket.setSendBufferSize(SOCKET_BUFFER_SIZE_BYTES);
+            } catch (Exception e) {
+                LOGGER.error("[P2PSender] Не удалось увеличить буфер отправки", e);
+            }
         }
     }
 
