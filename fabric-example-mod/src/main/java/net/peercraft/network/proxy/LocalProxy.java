@@ -39,8 +39,16 @@ public class LocalProxy {
     }
 
     private void runProxy(int port) {
+        // Локальная переменная, а не поле — читается и пишется только этим потоком, так
+        // что в отличие от serverSocket/running тут в принципе нет гонки с потоком,
+        // вызывающим stop(). Раньше catch ниже проверял `serverSocket == null`, чтобы
+        // отличить настоящую ошибку от намеренной остановки — но closeServerSocket()
+        // тоже обнуляет serverSocket как часть той же остановки, так что при неудачном
+        // стечении времени намеренный stop() иногда ложно печатался как ERROR.
+        boolean bindSucceeded = false;
         try {
             serverSocket = new ServerSocket(port, 50, InetAddress.getLoopbackAddress());
+            bindSucceeded = true;
             running = true;
             boundPort = serverSocket.getLocalPort();
             LOGGER.info("[LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:{}", boundPort);
@@ -54,7 +62,7 @@ public class LocalProxy {
                 handleClient(clientSocket, sessionId);
             }
         } catch (IOException e) {
-            if (running || serverSocket == null) {
+            if (!bindSucceeded || running) {
                 LOGGER.error("[LocalProxy] Не удалось запустить TCP-прокси на 127.0.0.1:{}. Если Minecraft пишет 'Connection refused', проверь что второй клиент запущен с -Dpeercraft.mode=client и подключается именно к этому proxyPort.", port, e);
             }
         } finally {
@@ -81,9 +89,10 @@ public class LocalProxy {
                 p2pBridge.sendProxyDataToP2P(sessionId, data);
             }
         } catch (Exception e) {
-            LOGGER.warn("[LocalProxy] Соединение с клиентом Minecraft закрыто");
+            LOGGER.warn("[LocalProxy] Соединение с клиентом Minecraft закрыто: {}", e.toString());
         } finally {
             closeClientSocket();
+            p2pBridge.endClientSession(sessionId);
         }
     }
 

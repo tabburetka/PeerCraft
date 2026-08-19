@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "peercraft",
 	"version": "${version}",
 	"name": "PeerCraft",
 	"description": "This is an example description! Tell everyone what your mod is about!",
@@ -12,7 +12,7 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
+	"icon": "assets/peercraft/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"main": [
@@ -23,9 +23,9 @@
 		]
 	},
 	"mixins": [
-		"modid.mixins.json",
+		"peercraft.mixins.json",
 		{
-			"config": "modid.client.mixins.json",
+			"config": "peercraft.client.mixins.json",
 			"environment": "client"
 		}
 

@@ -26,7 +26,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * PEER_FOUND reply — sent whenever a friend actually joins, which could be minutes
  * later — gets silently dropped by the host's own NAT/firewall before it even reaches
  * this client. The keepalive exists purely to keep that mapping open, not to retry
- * anything (REGISTER is reused for it since it's already idempotent).
+ * anything (REGISTER is reused for it since it's already idempotent) — and it keeps
+ * running for the whole hosting session, not just until the first match: the server
+ * treats a room code as reusable for as long as the host keeps sending it (see
+ * RoomRegistry.ROOM_TTL_MILLIS on the server side), so a joiner reconnecting later
+ * with the same code — or a different joiner entirely — must still be able to match.
  */
 public final class RendezvousClient implements RawPacketListener {
 
@@ -42,7 +46,13 @@ public final class RendezvousClient implements RawPacketListener {
     private static final long KEEPALIVE_INTERVAL_MILLIS = 15_000;
 
     public interface RoomCallback {
-        void onRoomCreated(String code);
+        // changed=false the first time (initial registration); true if a later keepalive
+        // REGISTER comes back with a DIFFERENT code than before — meaning the room the
+        // host thought was still live actually isn't anymore (rendezvous server restarted,
+        // or the room genuinely expired despite the keepalive — e.g. a long connectivity
+        // gap) and the server minted a brand new one. Without surfacing this, the host
+        // would keep sharing a now-dead code with no indication anything changed.
+        void onRoomCreated(String code, boolean changed);
     }
 
     public interface MatchCallback {
@@ -61,13 +71,35 @@ public final class RendezvousClient implements RawPacketListener {
     private volatile MatchCallback matchCallback;
     private final AtomicBoolean resultDelivered = new AtomicBoolean(false);
 
+    // true only for registerRoom() (host side). A host's room is reusable for as long as
+    // it keeps hosting — so unlike joinRoom()'s one-shot resolve-then-punch flow, the host
+    // must keep listening for (and can legitimately receive many) further PEER_FOUND
+    // matches: a joiner reconnecting with the same code, or a different joiner entirely.
+    private volatile boolean hostMode = false;
+    // Debounces host-side match handling against the server retransmitting the same
+    // PEER_FOUND — without this, a duplicate would spawn a redundant punch attempt.
+    private volatile Long lastMatchedToken = null;
+    // Last room code we told the host about — lets handleRoomCreated notice when a later
+    // keepalive REGISTER comes back with a different code (see RoomCallback.onRoomCreated).
+    private volatile String lastKnownRoomCode = null;
+
     public RendezvousClient(P2PSender sender, InetAddress rendezvousAddress, int rendezvousPort) {
         this.sender = sender;
         this.rendezvousAddress = rendezvousAddress;
         this.rendezvousPort = rendezvousPort;
     }
 
+    // Останавливает и retry-цикл REGISTER/JOIN, и (что важнее) keepalive-цикл — без
+    // этого keepalive-поток продолжал бы слать REGISTER каждые
+    // KEEPALIVE_INTERVAL_MILLIS вечно (пока жив процесс) даже после того, как хост
+    // реально закрыл мир — именно так и родился этот метод.
+    @Override
+    public void cancel() {
+        state = State.DONE;
+    }
+
     public void registerRoom(RoomCallback roomCallback, MatchCallback matchCallback) {
+        this.hostMode = true;
         this.roomCallback = roomCallback;
         this.matchCallback = matchCallback;
         this.state = State.REGISTERING;
@@ -105,7 +137,13 @@ public final class RendezvousClient implements RawPacketListener {
     @Override
     public void onPacket(byte[] data, int length, InetAddress address, int port) {
         if (!address.equals(rendezvousAddress) || port != rendezvousPort) {
-            return; // not from the rendezvous server — ignore (peer PUNCH traffic is PunchCoordinator's job)
+            // Ожидаемо в норме (peer PUNCH-трафик — забота PunchCoordinator, а не наша), но
+            // не логировать вообще — значит потерять след, если сюда когда-нибудь придёт
+            // что-то неожиданное (например, PUNCH от пира долетел до нас раньше, чем
+            // P2PBridge переключил rendezvousListener на PunchCoordinator).
+            LOGGER.debug("[RendezvousClient] Пакет от {}:{} — не от сервера знакомств ({}:{}), игнорируем",
+                    address.getHostAddress(), port, rendezvousAddress.getHostAddress(), rendezvousPort);
+            return;
         }
 
         int type = RendezvousProtocol.messageType(data, length);
@@ -113,20 +151,35 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.TYPE_ROOM_CREATED -> handleRoomCreated(data, length);
             case RendezvousProtocol.TYPE_PEER_FOUND -> handlePeerFound(data, length);
             case RendezvousProtocol.TYPE_JOIN_FAIL -> handleJoinFail(data, length);
-            default -> { }
+            default -> LOGGER.warn("[RendezvousClient] Неизвестный тип сообщения {} от сервера знакомств {}:{} — возможно, рассинхронизация версий протокола",
+                    type, address.getHostAddress(), port);
         }
     }
 
     private void handleRoomCreated(byte[] data, int length) {
-        if (state != State.REGISTERING) {
-            return; // already past this step, or a stray retransmit of an old reply
+        if (state != State.REGISTERING && state != State.WAITING_FOR_PEER) {
+            return; // not currently hosting — stray/late reply, ignore
         }
-        state = State.WAITING_FOR_PEER;
+        boolean firstTime = state == State.REGISTERING;
+        if (firstTime) {
+            state = State.WAITING_FOR_PEER;
+            startKeepaliveLoop();
+        }
+
+        // The server replies with ROOM_CREATED to every REGISTER, including keepalive
+        // resends — normally the same code every time. If it ever comes back different
+        // (rendezvous server restarted and lost its rooms, or ours genuinely expired
+        // despite the keepalive — e.g. a long connectivity gap), the host needs to know
+        // the code they've been sharing is dead and here's the new one.
         RendezvousProtocol.RoomCreated roomCreated = RendezvousProtocol.decodeRoomCreated(data, length);
-        startKeepaliveLoop();
-        RoomCallback callback = roomCallback;
-        if (callback != null) {
-            callback.onRoomCreated(roomCreated.code());
+        String previousCode = lastKnownRoomCode;
+        boolean changed = previousCode != null && !previousCode.equals(roomCreated.code());
+        if (firstTime || changed) {
+            lastKnownRoomCode = roomCreated.code();
+            RoomCallback callback = roomCallback;
+            if (callback != null) {
+                callback.onRoomCreated(roomCreated.code(), changed);
+            }
         }
     }
 
@@ -155,8 +208,29 @@ public final class RendezvousClient implements RawPacketListener {
         if (state != State.WAITING_FOR_PEER && state != State.JOINING) {
             return;
         }
-        state = State.DONE;
         RendezvousProtocol.PeerFound peerFound = RendezvousProtocol.decodePeerFound(data, length);
+
+        if (hostMode) {
+            // The room stays reusable while we keep hosting, so this can legitimately fire
+            // more than once (a joiner reconnecting with the same code, or a different
+            // joiner) — state deliberately stays WAITING_FOR_PEER so the keepalive loop
+            // (and this listener) keeps running. Dedupe by token in case the server
+            // retransmits the same PEER_FOUND, which would otherwise spawn a redundant punch.
+            Long lastToken = lastMatchedToken;
+            if (lastToken != null && lastToken == peerFound.token()) {
+                return;
+            }
+            lastMatchedToken = peerFound.token();
+            MatchCallback callback = matchCallback;
+            if (callback != null) {
+                callback.onMatched(peerFound.peer(), peerFound.token());
+            }
+            return;
+        }
+
+        // Joiner: one-shot — resolving the peer is this attempt's entire job, punching
+        // follows and a fresh join click starts an entirely new RendezvousClient anyway.
+        state = State.DONE;
         if (resultDelivered.compareAndSet(false, true)) {
             MatchCallback callback = matchCallback;
             if (callback != null) {

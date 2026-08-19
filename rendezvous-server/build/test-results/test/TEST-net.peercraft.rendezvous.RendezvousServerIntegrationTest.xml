@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="net.peercraft.rendezvous.RendezvousServerIntegrationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-18T18:41:16.685Z" hostname="cachyos-x8664" time="0.056">
+<testsuite name="net.peercraft.rendezvous.RendezvousServerIntegrationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-19T12:58:25.074Z" hostname="cachyos-x8664" time="0.057">
   <properties/>
-  <testcase name="registerThenJoinMatchesBothPeers()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.038"/>
-  <testcase name="joinWithBadCodeGetsInvalidCodeReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
-  <system-out><![CDATA[[22:41:16.707] [RendezvousServer] Listening on UDP port 55153
-[22:41:16.725] [RendezvousServer] REGISTER from 127.0.0.1:59522 -> new room S6BENX
-[22:41:16.730] [RendezvousServer] Room S6BENX matched: 127.0.0.1:59522 <-> 127.0.0.1:42679
-[22:41:16.730] [RendezvousServer] Listening on UDP port 54940
+  <testcase name="registerThenJoinMatchesBothPeers()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.041"/>
+  <testcase name="joinWithBadCodeGetsInvalidCodeReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.012"/>
+  <system-out><![CDATA[[16:58:25.091] [RendezvousServer] Listening on UDP port 40971
+[16:58:25.115] [RendezvousServer] REGISTER from 127.0.0.1:38988 -> new room YJT6YE
+[16:58:25.121] [RendezvousServer] Listening on UDP port 56452
+[16:58:25.121] [RendezvousServer] Room YJT6YE matched: 127.0.0.1:38988 <-> 127.0.0.1:44005
 ]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,6 +1,11 @@
 package net.peercraft.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class PeerCraftConfig {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     public static final String MODE_AUTO = "auto";
     public static final String MODE_CLIENT = "client";
     public static final String MODE_HOST = "host";
@@ -14,9 +19,10 @@ public final class PeerCraftConfig {
 
     public static String mode() {
         String mode = stringValue("mode", MODE_AUTO).toLowerCase();
-        if (MODE_CLIENT.equals(mode) || MODE_HOST.equals(mode) || MODE_DISABLED.equals(mode)) {
+        if (MODE_AUTO.equals(mode) || MODE_CLIENT.equals(mode) || MODE_HOST.equals(mode) || MODE_DISABLED.equals(mode)) {
             return mode;
         }
+        LOGGER.warn("[PeerCraftConfig] Неизвестное значение peercraft.mode='{}' (допустимые: auto/client/host/disabled), использую '{}' по умолчанию", mode, MODE_AUTO);
         return MODE_AUTO;
     }
 
@@ -51,7 +57,7 @@ public final class PeerCraftConfig {
     }
 
     public static String rendezvousHost() {
-        return stringValue("rendezvousHost", "127.0.0.1");
+        return stringValue("rendezvousHost", "91.146.31.165");
     }
 
     public static int rendezvousPort() {
@@ -80,11 +86,13 @@ public final class PeerCraftConfig {
     private static int intValue(String key, int defaultValue) {
         String value = stringValue(key, Integer.toString(defaultValue));
         try {
-            int port = Integer.parseInt(value);
-            if (port >= 0 && port <= 65535) {
-                return port;
+            int parsed = Integer.parseInt(value);
+            if (parsed >= 0 && parsed <= 65535) {
+                return parsed;
             }
-        } catch (NumberFormatException ignored) {
+            LOGGER.warn("[PeerCraftConfig] peercraft.{}='{}' вне диапазона портов 0-65535, использую {} по умолчанию", key, value, defaultValue);
+        } catch (NumberFormatException e) {
+            LOGGER.warn("[PeerCraftConfig] peercraft.{}='{}' — не целое число, использую {} по умолчанию", key, value, defaultValue);
         }
         return defaultValue;
     }

@@ -107,7 +107,7 @@ class RendezvousEndToEndTest {
                 RendezvousClient hostClient = new RendezvousClient(hostSender, loopback, SERVER_PORT);
                 hostListener.set(hostClient);
                 hostClient.registerRoom(
-                        roomCode::complete,
+                        (code, changed) -> roomCode.complete(code),
                         new RendezvousClient.MatchCallback() {
                             @Override
                             public void onMatched(RendezvousProtocol.Address peer, long token) {

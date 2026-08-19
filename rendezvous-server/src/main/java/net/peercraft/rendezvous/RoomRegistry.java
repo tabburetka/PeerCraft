@@ -17,10 +17,19 @@ final class RoomRegistry {
     private static final String CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
 
-    static final long UNCLAIMED_TTL_MILLIS = 10 * 60_000L;
-    static final long CLAIMED_TTL_MILLIS = 60_000L;
+    // A room (claimed or not) stays alive as long as the host keeps sending
+    // REGISTER/keepalive within this window — it behaves like a persistent "address" for
+    // the hosted world, not a single-use pairing token. Reclaimed once the host stops
+    // refreshing it for this long (closed the world, crashed, quit the mod).
+    static final long ROOM_TTL_MILLIS = 10 * 60_000L;
+    // A JOIN from the SAME address within this window of the room's last match is treated
+    // as an in-flight retry of that same connection attempt (same token reused) — this
+    // absorbs the joiner's own ~500ms-interval UDP retries. A JOIN arriving later — even
+    // from the same address — is a genuinely new attempt (e.g. reconnecting after a
+    // disconnect) and gets a fresh token and a fresh match instead of being rejected.
+    static final long REMATCH_DEBOUNCE_MILLIS = 3_000L;
 
-    private static final int MAX_UNCLAIMED_ROOMS = 1000;
+    private static final int MAX_ROOMS = 1000;
     private static final int REGISTER_RATE_LIMIT = 5;
     private static final long REGISTER_RATE_WINDOW_MILLIS = 60_000L;
 
@@ -57,16 +66,15 @@ final class RoomRegistry {
     }
 
     RegisterResult register(RendezvousProtocol.Address hostAddress) {
-        // Idempotent retry: this exact source already has an unclaimed room — resend it as-is
-        // instead of minting a second one (UDP REGISTER has no delivery guarantee, so the host
-        // may legitimately retry before it saw the first ROOM_CREATED reply). Note this match is
-        // keyed on the full (ip, port) pair — if the host's NAT re-maps its external port between
-        // retries/keepalives, this lookup misses and a *second*, independent room gets created
-        // for the same host, silently orphaning the first one's code from the host's own point of
-        // view (it already stopped listening for a fresh ROOM_CREATED after the first one). The
-        // `reused` flag on the result exists so the caller can log this distinction and catch it.
+        long now = clock.getAsLong();
+
+        // Idempotent retry/keepalive: this host already has a room — claimed or not —
+        // refresh its lifetime and hand back the same code instead of minting a new one.
+        // This is what lets a room code stay valid (and rejoinable) for as long as the
+        // host keeps hosting, rather than being replaced the moment it's first claimed.
         for (Room existing : roomsByCode.values()) {
-            if (!existing.claimed && existing.hostAddress.equals(hostAddress)) {
+            if (existing.hostAddress.equals(hostAddress)) {
+                existing.lastSeenAt = now;
                 return new Registered(existing.code, true);
             }
         }
@@ -74,12 +82,12 @@ final class RoomRegistry {
         if (!allowRegister(hostAddress.host())) {
             return new RegisterRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         }
-        if (countUnclaimed() >= MAX_UNCLAIMED_ROOMS) {
+        if (roomsByCode.size() >= MAX_ROOMS) {
             return new RegisterRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         }
 
         String code = generateUniqueCode();
-        roomsByCode.put(code, new Room(code, hostAddress, clock.getAsLong()));
+        roomsByCode.put(code, new Room(code, hostAddress, now));
         return new Registered(code, false);
     }
 
@@ -90,35 +98,35 @@ final class RoomRegistry {
         }
 
         long now = clock.getAsLong();
-
         synchronized (room) {
-            if (!room.claimed) {
-                if (now - room.createdAt > UNCLAIMED_TTL_MILLIS) {
-                    roomsByCode.remove(code, room);
-                    return new JoinRejected(RendezvousProtocol.REASON_EXPIRED);
-                }
-                room.joinerAddress = joinerAddress;
+            if (now - room.lastSeenAt > ROOM_TTL_MILLIS) {
+                roomsByCode.remove(code, room);
+                return new JoinRejected(RendezvousProtocol.REASON_EXPIRED);
+            }
+
+            room.lastSeenAt = now;
+
+            boolean sameRecentMatch = room.claimed
+                    && joinerAddress.equals(room.joinerAddress)
+                    && (now - room.lastMatchedAt) <= REMATCH_DEBOUNCE_MILLIS;
+            if (!sameRecentMatch) {
+                // Either the first-ever claim, or a genuinely new join (different address,
+                // or the same one reconnecting well after its last match) — issue a fresh
+                // token and re-match, rather than rejecting as ALREADY_CLAIMED.
                 room.token = ThreadLocalRandom.current().nextLong();
-                room.claimedAt = now;
+                room.joinerAddress = joinerAddress;
                 room.claimed = true;
-                return new Matched(room.hostAddress, room.joinerAddress, room.token);
+                room.lastMatchedAt = now;
             }
 
-            if (room.joinerAddress.equals(joinerAddress)) {
-                // Same joiner retrying (UDP has no delivery guarantee) — same idempotent answer.
-                return new Matched(room.hostAddress, room.joinerAddress, room.token);
-            }
+            return new Matched(room.hostAddress, room.joinerAddress, room.token);
         }
-
-        return new JoinRejected(RendezvousProtocol.REASON_ALREADY_CLAIMED);
     }
 
     /** Called periodically (see RendezvousServer) to bound memory — not on the request path. */
     void sweepExpired() {
         long now = clock.getAsLong();
-        roomsByCode.values().removeIf(room -> room.claimed
-                ? now - room.claimedAt > CLAIMED_TTL_MILLIS
-                : now - room.createdAt > UNCLAIMED_TTL_MILLIS);
+        roomsByCode.values().removeIf(room -> now - room.lastSeenAt > ROOM_TTL_MILLIS);
     }
 
     int roomCount() {
@@ -131,15 +139,12 @@ final class RoomRegistry {
         java.util.List<String> lines = new java.util.ArrayList<>();
         for (Room room : roomsByCode.values()) {
             String state = room.claimed
-                    ? "claimed " + (now - room.claimedAt) + "ms ago"
-                    : "unclaimed, created " + (now - room.createdAt) + "ms ago";
-            lines.add(room.code + " (host=" + room.hostAddress.host().getHostAddress() + ":" + room.hostAddress.port() + ", " + state + ")");
+                    ? "claimed, last matched " + (now - room.lastMatchedAt) + "ms ago"
+                    : "unclaimed";
+            lines.add(room.code + " (host=" + room.hostAddress.host().getHostAddress() + ":" + room.hostAddress.port()
+                    + ", " + state + ", last seen " + (now - room.lastSeenAt) + "ms ago)");
         }
         return lines;
-    }
-
-    private long countUnclaimed() {
-        return roomsByCode.values().stream().filter(r -> !r.claimed).count();
     }
 
     private boolean allowRegister(InetAddress ip) {

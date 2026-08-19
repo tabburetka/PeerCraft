@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
       "ExampleClientMixin",
-		"OpenToLanMixin"
+		"OpenToLanMixin",
+		"ShareToLanScreenMixin",
+		"TitleScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

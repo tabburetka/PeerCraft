@@ -65,7 +65,7 @@ class RendezvousClientTest {
 
             RendezvousClient client = new RendezvousClient(clientSender, loopback, fakeServerSocket.getLocalPort());
             CompletableFuture<String> roomCode = new CompletableFuture<>();
-            client.registerRoom(roomCode::complete, new RendezvousClient.MatchCallback() {
+            client.registerRoom((code, changed) -> roomCode.complete(code), new RendezvousClient.MatchCallback() {
                 @Override
                 public void onMatched(RendezvousProtocol.Address peer, long token) {
                 }

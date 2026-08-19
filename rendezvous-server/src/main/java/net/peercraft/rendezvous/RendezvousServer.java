@@ -67,7 +67,10 @@ public final class RendezvousServer {
                     System.arraycopy(packet.getData(), 0, data, 0, packet.getLength());
                     handle(socket, data, packet.getAddress(), packet.getPort());
                 } catch (Exception e) {
-                    logErr("Error handling packet: " + e);
+                    InetAddress fromAddr = packet.getAddress();
+                    String from = fromAddr != null ? fromAddr.getHostAddress() + ":" + packet.getPort() : "unknown sender";
+                    logErr("Error handling packet from " + from + ": " + e);
+                    e.printStackTrace();
                 }
             }
         }

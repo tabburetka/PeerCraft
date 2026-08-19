@@ -46,6 +46,14 @@ public final class PunchCoordinator implements RawPacketListener {
         punchThread.start();
     }
 
+    // Останавливает попытку пробива без вызова callback — punch-поток и так уже
+    // ограничен по времени (TIMEOUT_MILLIS), но это даёт немедленную, тихую остановку,
+    // если этого слушателя тихо заменяют новым до истечения таймаута.
+    @Override
+    public void cancel() {
+        done.set(true);
+    }
+
     private void runPunchLoop() {
         long deadline = System.currentTimeMillis() + TIMEOUT_MILLIS;
         byte[] punch = RendezvousProtocol.encodePunch(token);
@@ -73,12 +81,29 @@ public final class PunchCoordinator implements RawPacketListener {
     public void onPacket(byte[] data, int length, InetAddress address, int port) {
         int type = RendezvousProtocol.messageType(data, length);
         if (type != RendezvousProtocol.TYPE_PUNCH && type != RendezvousProtocol.TYPE_PUNCH_ACK) {
+            // Обычно безобидно (например, запоздавший повторный PEER_FOUND от сервера
+            // знакомств, пришедший уже после переключения на punch-фазу) — но след
+            // оставляем на случай, если это окажется чем-то другим.
+            LOGGER.debug("[PunchCoordinator] Получен пакет типа {} от {}:{} во время hole punching — не PUNCH/PUNCH_ACK, игнорируем", type, address.getHostAddress(), port);
             return;
         }
         if (!address.equals(peer.host()) || port != peer.port()) {
+            // Диагностика симметричного/CGNAT: пакет от пира РЕАЛЬНО дошёл, просто с
+            // другого адреса/порта, чем нам сказал сервер знакомств — значит NAT одной
+            // из сторон переназначает внешний порт под конкретное направление, и это не
+            // firewall/потеря пакетов. Без этого лога такой пакет пропадал бы бесследно.
+            LOGGER.warn("[PunchCoordinator] Получен {} от {}:{}, но сервер знакомств называл пира как {}:{} — не совпадает, пакет отброшен. "
+                            + "Похоже на симметричный NAT/CGNAT у одной из сторон: внешний порт для прямого потока к пиру отличается от того, что видел сервер знакомств.",
+                    type == RendezvousProtocol.TYPE_PUNCH ? "PUNCH" : "PUNCH_ACK", address.getHostAddress(), port,
+                    peer.host().getHostAddress(), peer.port());
             return;
         }
-        if (RendezvousProtocol.decodeToken(data, length) != token) {
+        long receivedToken = RendezvousProtocol.decodeToken(data, length);
+        if (receivedToken != token) {
+            // Правильные адрес/порт, но чужой токен — скорее всего запоздавший PUNCH из
+            // предыдущей попытки к тому же пиру (новый токен выдаётся на каждый match).
+            LOGGER.debug("[PunchCoordinator] Получен {} от {}:{} с несовпадающим токеном ({} != {}) — игнорируем",
+                    type == RendezvousProtocol.TYPE_PUNCH ? "PUNCH" : "PUNCH_ACK", address.getHostAddress(), port, receivedToken, token);
             return;
         }
 

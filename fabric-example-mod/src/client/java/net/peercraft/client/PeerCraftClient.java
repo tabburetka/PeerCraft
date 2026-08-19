@@ -19,8 +19,7 @@ public class PeerCraftClient implements ClientModInitializer {
 
         P2PBridge.INSTANCE.startProxy(PeerCraftConfig.proxyPort());
         if (PeerCraftConfig.internetPlay()) {
-            LOGGER.info("[PeerCraft] internetPlay=true — используем сервер знакомств, peerHost/peerPort игнорируются.");
-            P2PBridge.INSTANCE.startClientViaRendezvous();
+            LOGGER.info("[PeerCraft] internetPlay=true — присоединение к комнате теперь запускается кнопкой \"PeerCraft: Join\" на титульном экране, а не при старте игры.");
         } else {
             P2PBridge.INSTANCE.startClient();
         }
