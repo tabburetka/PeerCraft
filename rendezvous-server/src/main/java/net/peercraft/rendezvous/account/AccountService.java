@@ -240,7 +240,7 @@ public final class AccountService {
         return new Result.Ok<>(new RenameOutcomeInfo(newName));
     }
 
-    // ---- Friends (Фаза 3) ----
+    // ---- Friends (Phase 3) ----
 
     public Result<FriendCodeLookupInfo> lookupFriendCode(byte[] sessionToken, String friendCode) {
         if (sessions.validate(sessionToken).isEmpty()) {
@@ -337,7 +337,7 @@ public final class AccountService {
 
     /**
      * Never fails outright, same as {@link #listIncomingRequests}. {@code status}/{@code roomCode}
-     * are always OFFLINE/empty until Фаза 4 wires in {@code PresenceRegistry}.
+     * are always OFFLINE/empty until Phase 4 wires in {@code PresenceRegistry}.
      */
     public List<FriendInfo> listFriends(byte[] sessionToken) {
         Optional<Account> account = sessions.validate(sessionToken).flatMap(store::byId);
@@ -354,7 +354,7 @@ public final class AccountService {
         return result;
     }
 
-    // ---- Presence (Фаза 4) ----
+    // ---- Presence (Phase 4) ----
 
     /**
      * Used by RendezvousServer.handleRegister to verify a REGISTER's self-reported accountId

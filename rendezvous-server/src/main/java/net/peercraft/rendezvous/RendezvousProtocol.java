@@ -46,11 +46,11 @@ public final class RendezvousProtocol {
     public record RoomCreated(String code, Address hostAddress) {
     }
 
-    /** {@code sessionToken} present (Фаза 5) lets the server resolve — and only the server, from a token only the real owner could have — the joiner's accountId to relay to the host for save-data identity injection. */
+    /** {@code sessionToken} present (Phase 5) lets the server resolve — and only the server, from a token only the real owner could have — the joiner's accountId to relay to the host for save-data identity injection. */
     public record Join(String code, Optional<byte[]> sessionToken) {
     }
 
-    /** {@code account} is present only when the host is logged into a PeerCraft account (Фаза 4) — see encodeRegisterWithAccount. */
+    /** {@code account} is present only when the host is logged into a PeerCraft account (Phase 4) — see encodeRegisterWithAccount. */
     public record Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account) {
     }
 
@@ -58,7 +58,7 @@ public final class RendezvousProtocol {
     public record AccountRef(UUID accountId, byte[] sessionToken) {
     }
 
-    /** {@code joinerAccountId} present (Фаза 5) only in the copy sent to the HOST, and only when the joiner attached a valid session to their JOIN — see RendezvousServer.handleJoin. */
+    /** {@code joinerAccountId} present (Phase 5) only in the copy sent to the HOST, and only when the joiner attached a valid session to their JOIN — see RendezvousServer.handleJoin. */
     public record PeerFound(Address peer, long token, Optional<UUID> joinerAccountId) {
     }
 
@@ -99,7 +99,7 @@ public final class RendezvousProtocol {
     // payload: [maxPlayers:1][currentPlayerCount:1] — currentPlayerCount is resent on every
     // 15s keepalive (see RendezvousClient) so the server's room capacity check self-corrects
     // within one keepalive interval of a player leaving, without a dedicated "player left"
-    // message. Optional account trailer (Фаза 4): [hasAccount:1][accountId:16][sessionToken:16]
+    // message. Optional account trailer (Phase 4): [hasAccount:1][accountId:16][sessionToken:16]
     // — lets a logged-in host's room show up as "hosting" in their friends' presence, see
     // encodeRegisterWithAccount. The 4-byte anonymous form is untouched (old pin tests still
     // pass) — decodeRegister just checks the payload length to tell the two apart.
@@ -163,7 +163,7 @@ public final class RendezvousProtocol {
     }
 
     // ---- JOIN: joiner -> server ----
-    // Optional trailer (Фаза 5): [hasToken:1][sessionToken:16] — see Join's doc comment.
+    // Optional trailer (Phase 5): [hasToken:1][sessionToken:16] — see Join's doc comment.
     // The anonymous 3+codeLen-byte form is untouched (old pin tests still pass).
 
     public static byte[] encodeJoin(String code) {
@@ -218,7 +218,7 @@ public final class RendezvousProtocol {
     }
 
     // ---- PEER_FOUND: server -> both matched peers ----
-    // Optional trailer (Фаза 5): [hasAccount:1][accountId:16] — only ever sent to the HOST
+    // Optional trailer (Phase 5): [hasAccount:1][accountId:16] — only ever sent to the HOST
     // (see PeerFound's doc comment); the anonymous form is untouched (old pin tests still pass).
 
     public static byte[] encodePeerFound(Address peer, long token) {

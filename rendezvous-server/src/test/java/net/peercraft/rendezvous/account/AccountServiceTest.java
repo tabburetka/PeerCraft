@@ -323,7 +323,7 @@ class AccountServiceTest {
         assertEquals(AccountProtocol.REASON_RATE_LIMITED, ((AccountService.Result.Fail<?>) second).reason());
     }
 
-    // ---- friends (Фаза 3) ----
+    // ---- friends (Phase 3) ----
 
     @Test
     void lookupFriendCodeFindsExistingAccount(@TempDir Path tempDir) throws UnknownHostException {
@@ -521,7 +521,7 @@ class AccountServiceTest {
         assertEquals(AccountProtocol.REASON_RATE_LIMITED, ((AccountService.Result.Fail<?>) second).reason());
     }
 
-    // ---- presence (Фаза 4) ----
+    // ---- presence (Phase 4) ----
 
     @Test
     void resolveSessionReturnsAccountIdForValidToken(@TempDir Path tempDir) throws UnknownHostException {

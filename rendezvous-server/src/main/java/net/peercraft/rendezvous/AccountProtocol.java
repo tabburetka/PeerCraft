@@ -13,11 +13,11 @@ import java.util.UUID;
  * project and the mod exactly like RendezvousProtocol — keep both copies byte-for-byte compatible;
  * both have pinned-byte tests to catch drift early.
  *
- * Auth (0x20-0x2B, Фаза 1) and friends (0x30-0x3B, Фаза 3) are implemented. Presence (0x40-0x41)
- * type bytes are reserved here to lock in numbering for Фаза 4, but have no encode/decode methods
+ * Auth (0x20-0x2B, Phase 1) and friends (0x30-0x3B, Phase 3) are implemented. Presence (0x40-0x41)
+ * type bytes are reserved here to lock in numbering for Phase 4, but have no encode/decode methods
  * yet. {@code TYPE_FRIEND_LIST_REPLY}'s per-friend {@code status}/{@code roomCode} fields are part
  * of the wire format already (so it doesn't need to break again later) but are always
- * offline/empty until Фаза 4 wires in real presence data.
+ * offline/empty until Phase 4 wires in real presence data.
  */
 public final class AccountProtocol {
 

@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"id": "peercraft",
+	"version": "${version}",
+	"name": "PeerCraft",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC-BY-NC-4.0",
+	"icon": "assets/peercraft/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"net.peercraft.PeerCraftMod"
+		],
+		"client": [
+			"net.peercraft.client.PeerCraftClient"
+		]
+	},
+	"mixins": [
+		"peercraft.mixins.json",
+		{
+			"config": "peercraft.client.mixins.json",
+			"environment": "client"
+		}
+
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

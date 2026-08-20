@@ -13,7 +13,7 @@ import java.util.function.LongSupplier;
  * start of each attempt and the client echoes back on the final step. Entries are consumed
  * (removed) on first successful completion — a lost reply means the client must restart the
  * whole handshake from BEGIN with a fresh requestId rather than retry the final step, which is
- * an accepted simplification (see Фаза 1 plan notes).
+ * an accepted simplification (see Phase 1 plan notes).
  */
 final class PendingAuthRegistry {
 

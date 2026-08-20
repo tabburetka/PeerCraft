@@ -139,7 +139,7 @@ class AccountProtocolTest {
         assertEquals("NewNick", decoded.appliedName());
     }
 
-    // ---- friends (Фаза 3) ----
+    // ---- friends (Phase 3) ----
 
     @Test
     void friendCodeLookupRoundTrips() {

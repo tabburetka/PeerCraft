@@ -187,7 +187,7 @@ class RendezvousServerIntegrationTest {
     }
 
     /**
-     * Фаза 5: a joiner who attaches their session to JOIN must have the host's PEER_FOUND
+     * Phase 5: a joiner who attaches their session to JOIN must have the host's PEER_FOUND
      * carry their real accountId — resolved server-side from the session token itself, never
      * trusted from anything the joiner could just claim (there's no client-supplied accountId
      * on JOIN at all, unlike REGISTER's account trailer).

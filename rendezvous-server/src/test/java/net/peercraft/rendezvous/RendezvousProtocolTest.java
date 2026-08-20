@@ -55,7 +55,7 @@ class RendezvousProtocolTest {
 
     @Test
     void anonymousRegisterStillDecodesCorrectlyAlongsideTheAccountForm() {
-        // Regression guard: extending REGISTER for Фаза 4 must not disturb the original
+        // Regression guard: extending REGISTER for Phase 4 must not disturb the original
         // 4-byte anonymous form still used by every host without an account.
         byte[] encoded = RendezvousProtocol.encodeRegister(8, 3);
         assertEquals(4, encoded.length);
