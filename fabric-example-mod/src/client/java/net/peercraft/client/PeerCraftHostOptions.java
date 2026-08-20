@@ -9,6 +9,13 @@ import net.peercraft.config.PeerCraftConfig;
 // всегда хостит через интернет, но не заставляет к этому.
 public final class PeerCraftHostOptions {
     public static volatile boolean internetPlayRequested = PeerCraftConfig.internetPlay();
+    public static volatile int maxPlayers = PeerCraftConfig.maxPlayers();
+    // true (default) preserves the mod's original behavior — both licensed and unlicensed
+    // ("pirate") clients can join. false leaves the IntegratedServer's Mojang authentication
+    // enabled (it's already on by default at world startup, see IntegratedServer.initServer —
+    // OpenToLanMixin previously always turned it off unconditionally) so only players who can
+    // actually pass the real Mojang session handshake get in.
+    public static volatile boolean allowUnlicensedPlayers = true;
 
     private PeerCraftHostOptions() {
     }

@@ -37,12 +37,20 @@ public abstract class OpenToLanMixin {
 
             LOGGER.info("[PeerCraft P2P] Мир успешно открыт для сети на порту: {}", lanPort);
 
-            // Игроки подключаются через наш UDP-мост, а не напрямую по локальной сети,
-            // поэтому у них нет возможности пройти обычную LAN-автообнаруженную сессию.
-            // Отключаем проверку сессии Mojang для этого хоста, как это по сути уже
-            // происходит для игроков, заходящих через обычное автообнаружение LAN.
-            server.setUsesAuthentication(false);
-            LOGGER.info("[PeerCraft P2P] Проверка сессии Mojang отключена для хоста PeerCraft.");
+            // Игроки подключаются через наш UDP-мост, а не напрямую по локальной сети, но
+            // P2PBridge реле прозрачно для байт — настоящий зашифрованный Mojang-handshake
+            // проходит сквозь туннель как есть. IntegratedServer.initServer() уже включает
+            // аутентификацию (setUsesAuthentication(true)) при старте мира по умолчанию —
+            // publishServer() это не трогает, так что если хост НЕ разрешил пиратов, ничего
+            // делать не нужно вообще, аутентификация просто остаётся включённой. Если хост
+            // явно разрешил нелицензионных игроков — отключаем её, как раньше.
+            if (PeerCraftHostOptions.allowUnlicensedPlayers) {
+                server.setUsesAuthentication(false);
+                LOGGER.info("[PeerCraft P2P] Проверка сессии Mojang отключена для хоста PeerCraft (разрешены нелицензионные игроки).");
+            } else {
+                server.setUsesAuthentication(true);
+                LOGGER.info("[PeerCraft P2P] Проверка сессии Mojang включена — только лицензионные игроки смогут подключиться.");
+            }
 
             // 1. Закрываем LocalProxy на Хосте, чтобы освободить 25565
             if (P2PBridge.INSTANCE.getProxy() != null) {
@@ -55,8 +63,8 @@ public abstract class OpenToLanMixin {
             // для реального интернет-P2P. Решение — флажок "PeerCraft: через интернет"
             // на этом же экране (ShareToLanScreenMixin), а не launch-флаг.
             if (PeerCraftHostOptions.internetPlayRequested) {
-                LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств, peerHost/peerPort игнорируются.");
-                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, new P2PBridge.HostListener() {
+                LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
+                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, new P2PBridge.HostListener() {
                     @Override
                     public void onRoomCreated(String code, boolean changed) {
                         if (changed) {

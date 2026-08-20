@@ -6,7 +6,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 /**
  * Talks to the rendezvous server to either publish a room (host) or join one by code
@@ -77,8 +81,22 @@ public final class RendezvousClient implements RawPacketListener {
     // matches: a joiner reconnecting with the same code, or a different joiner entirely.
     private volatile boolean hostMode = false;
     // Debounces host-side match handling against the server retransmitting the same
-    // PEER_FOUND — without this, a duplicate would spawn a redundant punch attempt.
-    private volatile Long lastMatchedToken = null;
+    // PEER_FOUND — keyed per-peer, not a single field, since several different joiners can
+    // legitimately be mid-match at once: a single shared token would fail to dedupe a late
+    // retransmit for peer A once a newer match for peer B has overwritten it.
+    private final Map<RendezvousProtocol.Address, Long> lastMatchedTokenByPeer = new ConcurrentHashMap<>();
+    // Host-role only (Фаза 5) — the joinerAccountId attached to each peer's most recent
+    // PEER_FOUND, so P2PBridge.beginHostPunch can look it up by peer address right after
+    // onMatched fires. Keyed the same way as lastMatchedTokenByPeer, for the same reason
+    // (several joiners can legitimately be mid-match at once).
+    private final Map<RendezvousProtocol.Address, java.util.UUID> lastMatchedAccountIdByPeer = new ConcurrentHashMap<>();
+    private volatile int maxPlayers = 1;
+    private volatile IntSupplier currentPlayerCountSupplier = () -> 0;
+    // null = anonymous host (unchanged pre-Фаза-4 behavior). Set only via the account-aware
+    // registerRoom overload — lets a logged-in host's room show up as "hosting" in their
+    // friends' presence (see AccountService.setHosting on the server).
+    private volatile java.util.UUID accountId;
+    private volatile byte[] accountSessionToken;
     // Last room code we told the host about — lets handleRoomCreated notice when a later
     // keepalive REGISTER comes back with a different code (see RoomCallback.onRoomCreated).
     private volatile String lastKnownRoomCode = null;
@@ -98,27 +116,65 @@ public final class RendezvousClient implements RawPacketListener {
         state = State.DONE;
     }
 
-    public void registerRoom(RoomCallback roomCallback, MatchCallback matchCallback) {
+    public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, RoomCallback roomCallback, MatchCallback matchCallback) {
+        registerRoom(maxPlayers, currentPlayerCountSupplier, null, null, roomCallback, matchCallback);
+    }
+
+    /** As {@link #registerRoom(int, IntSupplier, RoomCallback, MatchCallback)}, but attaches the host's account so the room shows up as "hosting" in their friends' presence (Фаза 4). */
+    public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
+                              RoomCallback roomCallback, MatchCallback matchCallback) {
         this.hostMode = true;
+        this.maxPlayers = maxPlayers;
+        this.currentPlayerCountSupplier = currentPlayerCountSupplier;
+        this.accountId = accountId;
+        this.accountSessionToken = accountSessionToken;
         this.roomCallback = roomCallback;
         this.matchCallback = matchCallback;
         this.state = State.REGISTERING;
-        startRetryLoop(RendezvousProtocol.encodeRegister(), State.REGISTERING);
+        startRetryLoop(this::encodeCurrentRegister, State.REGISTERING);
+    }
+
+    private byte[] encodeCurrentRegister() {
+        int count = this.currentPlayerCountSupplier.getAsInt();
+        java.util.UUID accId = this.accountId;
+        byte[] token = this.accountSessionToken;
+        if (accId != null && token != null) {
+            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token);
+        }
+        return RendezvousProtocol.encodeRegister(this.maxPlayers, count);
     }
 
     public void joinRoom(String code, MatchCallback matchCallback) {
         this.matchCallback = matchCallback;
         this.state = State.JOINING;
-        startRetryLoop(RendezvousProtocol.encodeJoin(code), State.JOINING);
+        byte[] payload = RendezvousProtocol.encodeJoin(code);
+        startRetryLoop(() -> payload, State.JOINING);
     }
 
-    /** Resends {@code payload} only while we're still in {@code activeState} — stops the moment we move past it. */
-    private void startRetryLoop(byte[] payload, State activeState) {
+    /** As {@link #joinRoom(String, MatchCallback)}, but attaches the joiner's account so the host can identify them for save-data isolation (Фаза 5). */
+    public void joinRoom(String code, byte[] accountSessionToken, MatchCallback matchCallback) {
+        this.matchCallback = matchCallback;
+        this.state = State.JOINING;
+        byte[] payload = RendezvousProtocol.encodeJoinWithAccount(code, accountSessionToken);
+        startRetryLoop(() -> payload, State.JOINING);
+    }
+
+    /**
+     * Host-role only: the joinerAccountId the server attached to the most recent PEER_FOUND
+     * for this peer, if the joiner was logged in when they joined — see beginHostPunch's use
+     * of this in P2PBridge. Empty for anonymous joiners.
+     */
+    public java.util.Optional<java.util.UUID> accountIdForPeer(RendezvousProtocol.Address peer) {
+        return java.util.Optional.ofNullable(lastMatchedAccountIdByPeer.get(peer));
+    }
+
+    /** Resends the supplier's current payload only while we're still in {@code activeState} — stops the moment we move past it. */
+    private void startRetryLoop(Supplier<byte[]> payloadSupplier, State activeState) {
         Thread retryThread = new Thread(() -> {
             long deadline = System.currentTimeMillis() + CONNECT_TIMEOUT_MILLIS;
             String host = rendezvousAddress.getHostAddress();
             while (state == activeState && System.currentTimeMillis() < deadline) {
-                sender.sendData(payload, host, rendezvousPort);
+                sender.sendData(payloadSupplier.get(), host, rendezvousPort);
                 try {
                     Thread.sleep(RETRY_INTERVAL_MILLIS);
                 } catch (InterruptedException e) {
@@ -186,7 +242,6 @@ public final class RendezvousClient implements RawPacketListener {
     /** Keeps the host's NAT mapping to the rendezvous server open while it waits for a joiner — see class docs. */
     private void startKeepaliveLoop() {
         Thread keepaliveThread = new Thread(() -> {
-            byte[] payload = RendezvousProtocol.encodeRegister();
             String host = rendezvousAddress.getHostAddress();
             while (state == State.WAITING_FOR_PEER) {
                 try {
@@ -196,6 +251,11 @@ public final class RendezvousClient implements RawPacketListener {
                     return;
                 }
                 if (state == State.WAITING_FOR_PEER) {
+                    // Re-encoded fresh on every tick (not once, outside the loop) so
+                    // currentPlayerCount reflects who's actually connected right now — this is
+                    // what lets a slot freed up by a leaving player become joinable again
+                    // within one keepalive interval.
+                    byte[] payload = encodeCurrentRegister();
                     sender.sendData(payload, host, rendezvousPort);
                 }
             }
@@ -212,15 +272,21 @@ public final class RendezvousClient implements RawPacketListener {
 
         if (hostMode) {
             // The room stays reusable while we keep hosting, so this can legitimately fire
-            // more than once (a joiner reconnecting with the same code, or a different
-            // joiner) — state deliberately stays WAITING_FOR_PEER so the keepalive loop
-            // (and this listener) keeps running. Dedupe by token in case the server
-            // retransmits the same PEER_FOUND, which would otherwise spawn a redundant punch.
-            Long lastToken = lastMatchedToken;
+            // more than once — for several DIFFERENT joiners concurrently, or the same
+            // joiner reconnecting — state deliberately stays WAITING_FOR_PEER so the
+            // keepalive loop (and this listener) keeps running. Dedupe per-peer in case the
+            // server retransmits the same PEER_FOUND, which would otherwise spawn a
+            // redundant punch; peers are told apart by address, so this can't accidentally
+            // dedupe a real second joiner against a first one's token.
+            if (peerFound.joinerAccountId().isPresent()) {
+                lastMatchedAccountIdByPeer.put(peerFound.peer(), peerFound.joinerAccountId().get());
+            } else {
+                lastMatchedAccountIdByPeer.remove(peerFound.peer());
+            }
+            Long lastToken = lastMatchedTokenByPeer.put(peerFound.peer(), peerFound.token());
             if (lastToken != null && lastToken == peerFound.token()) {
                 return;
             }
-            lastMatchedToken = peerFound.token();
             MatchCallback callback = matchCallback;
             if (callback != null) {
                 callback.onMatched(peerFound.peer(), peerFound.token());

@@ -14,6 +14,8 @@ application {
 }
 
 dependencies {
+	implementation 'com.google.code.gson:gson:2.11.0'
+
 	testImplementation platform('org.junit:junit-bom:5.10.2')
 	testImplementation 'org.junit.jupiter:junit-jupiter'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -28,8 +30,17 @@ java {
 	targetCompatibility = JavaVersion.VERSION_21
 }
 
+// Fat jar built by hand (no shadow-plugin dependency, which had breaking incompatibilities
+// with this Gradle version's `application` plugin) — bundles the runtime classpath (Gson)
+// straight into build/libs/rendezvous-server-1.0.0.jar so `java -jar ...` and the mod's
+// RendezvousEndToEndTest (which launches this exact jar as a subprocess) keep working
+// unchanged now that the server has a runtime dependency.
 jar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 	manifest {
 		attributes 'Main-Class': application.mainClass
+	}
+	from {
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
 	}
 }

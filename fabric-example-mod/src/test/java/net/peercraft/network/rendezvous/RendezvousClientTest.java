@@ -65,7 +65,7 @@ class RendezvousClientTest {
 
             RendezvousClient client = new RendezvousClient(clientSender, loopback, fakeServerSocket.getLocalPort());
             CompletableFuture<String> roomCode = new CompletableFuture<>();
-            client.registerRoom((code, changed) -> roomCode.complete(code), new RendezvousClient.MatchCallback() {
+            client.registerRoom(4, () -> 0, (code, changed) -> roomCode.complete(code), new RendezvousClient.MatchCallback() {
                 @Override
                 public void onMatched(RendezvousProtocol.Address peer, long token) {
                 }
@@ -108,6 +108,189 @@ class RendezvousClientTest {
 
             assertEquals(countRightAfterRoomCreated, countAfterWaiting,
                     "no further REGISTER packets should be sent once ROOM_CREATED has been received");
+        }
+    }
+
+    /**
+     * A host's RendezvousClient must be able to match several DIFFERENT joiners
+     * concurrently — before the fix this dedup'd on a single shared lastMatchedToken
+     * field, so a second joiner's PEER_FOUND would overwrite the first's token and a
+     * late retransmit for the first joiner would then wrongly slip past the dedup check
+     * and spawn a redundant punch.
+     */
+    @Test
+    @Timeout(15)
+    void matchesForDifferentPeersDoNotCrossDedupe() throws Exception {
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+        try (DatagramSocket fakeServerSocket = new DatagramSocket();
+             DatagramSocket clientSocket = new DatagramSocket()) {
+
+            P2PSender clientSender = new P2PSender(clientSocket);
+            RendezvousClient client = new RendezvousClient(clientSender, loopback, fakeServerSocket.getLocalPort());
+
+            java.util.List<RendezvousProtocol.Address> matchedPeers = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+            CompletableFuture<Void> roomCreated = new CompletableFuture<>();
+            client.registerRoom(4, () -> 0, (code, changed) -> roomCreated.complete(null), new RendezvousClient.MatchCallback() {
+                @Override
+                public void onMatched(RendezvousProtocol.Address peer, long token) {
+                    matchedPeers.add(peer);
+                }
+
+                @Override
+                public void onFailed(String reason) {
+                    roomCreated.completeExceptionally(new AssertionError("unexpected failure: " + reason));
+                }
+            });
+
+            Thread fakeServer = new Thread(() -> {
+                byte[] buffer = new byte[64];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        fakeServerSocket.receive(packet);
+                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                            RendezvousProtocol.Address observed = new RendezvousProtocol.Address(packet.getAddress(), packet.getPort());
+                            byte[] reply = RendezvousProtocol.encodeRoomCreated("ABCDEF", observed);
+                            fakeServerSocket.send(new DatagramPacket(reply, reply.length, packet.getAddress(), packet.getPort()));
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "fake-rendezvous-server");
+            fakeServer.setDaemon(true);
+            fakeServer.start();
+
+            Thread clientRecvLoop = new Thread(() -> {
+                byte[] buffer = new byte[64];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        clientSocket.receive(packet);
+                        byte[] data = new byte[packet.getLength()];
+                        System.arraycopy(packet.getData(), 0, data, 0, packet.getLength());
+                        client.onPacket(data, data.length, packet.getAddress(), packet.getPort());
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "test-client-recv-loop");
+            clientRecvLoop.setDaemon(true);
+            clientRecvLoop.start();
+
+            roomCreated.get(5, TimeUnit.SECONDS);
+
+            RendezvousProtocol.Address peerA = new RendezvousProtocol.Address(loopback, 40001);
+            RendezvousProtocol.Address peerB = new RendezvousProtocol.Address(loopback, 40002);
+
+            sendPeerFound(fakeServerSocket, loopback, clientSocket.getLocalPort(), peerA, 111L);
+            sendPeerFound(fakeServerSocket, loopback, clientSocket.getLocalPort(), peerB, 222L);
+            // Late retransmit of peer A's original match — must NOT fire onMatched again.
+            sendPeerFound(fakeServerSocket, loopback, clientSocket.getLocalPort(), peerA, 111L);
+
+            Thread.sleep(500);
+
+            fakeServer.interrupt();
+            clientRecvLoop.interrupt();
+
+            assertEquals(2, matchedPeers.size(), "expected exactly one onMatched call per distinct peer, not per PEER_FOUND datagram");
+            assertTrue(matchedPeers.contains(peerA));
+            assertTrue(matchedPeers.contains(peerB));
+        }
+    }
+
+    private static void sendPeerFound(DatagramSocket from, InetAddress toAddress, int toPort, RendezvousProtocol.Address peer, long token) throws Exception {
+        byte[] msg = RendezvousProtocol.encodePeerFound(peer, token);
+        from.send(new DatagramPacket(msg, msg.length, toAddress, toPort));
+    }
+
+    /**
+     * Фаза 5: a host must be able to look up which joiner (by accountId) matched at which
+     * peer address — this is what P2PBridge.beginHostPunch threads through to
+     * PlayerIdentityRegistry for save-data isolation. Anonymous joiners (no account attached
+     * to their PEER_FOUND) must not leave a stale entry behind.
+     */
+    @Test
+    @Timeout(15)
+    void accountIdForPeerTracksTheMostRecentPeerFoundPerPeer() throws Exception {
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+        try (DatagramSocket fakeServerSocket = new DatagramSocket();
+             DatagramSocket clientSocket = new DatagramSocket()) {
+
+            P2PSender clientSender = new P2PSender(clientSocket);
+            RendezvousClient client = new RendezvousClient(clientSender, loopback, fakeServerSocket.getLocalPort());
+
+            CompletableFuture<Void> roomCreated = new CompletableFuture<>();
+            client.registerRoom(4, () -> 0, (code, changed) -> roomCreated.complete(null), new RendezvousClient.MatchCallback() {
+                @Override
+                public void onMatched(RendezvousProtocol.Address peer, long token) {
+                }
+
+                @Override
+                public void onFailed(String reason) {
+                    roomCreated.completeExceptionally(new AssertionError("unexpected failure: " + reason));
+                }
+            });
+
+            Thread fakeServer = new Thread(() -> {
+                byte[] buffer = new byte[64];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        fakeServerSocket.receive(packet);
+                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                            RendezvousProtocol.Address observed = new RendezvousProtocol.Address(packet.getAddress(), packet.getPort());
+                            byte[] reply = RendezvousProtocol.encodeRoomCreated("ABCDEF", observed);
+                            fakeServerSocket.send(new DatagramPacket(reply, reply.length, packet.getAddress(), packet.getPort()));
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "fake-rendezvous-server");
+            fakeServer.setDaemon(true);
+            fakeServer.start();
+
+            Thread clientRecvLoop = new Thread(() -> {
+                byte[] buffer = new byte[64];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        clientSocket.receive(packet);
+                        byte[] data = new byte[packet.getLength()];
+                        System.arraycopy(packet.getData(), 0, data, 0, packet.getLength());
+                        client.onPacket(data, data.length, packet.getAddress(), packet.getPort());
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "test-client-recv-loop");
+            clientRecvLoop.setDaemon(true);
+            clientRecvLoop.start();
+
+            roomCreated.get(5, TimeUnit.SECONDS);
+
+            RendezvousProtocol.Address peerWithAccount = new RendezvousProtocol.Address(loopback, 40001);
+            RendezvousProtocol.Address anonymousPeer = new RendezvousProtocol.Address(loopback, 40002);
+            java.util.UUID accountId = java.util.UUID.randomUUID();
+
+            byte[] withAccount = RendezvousProtocol.encodePeerFoundWithAccount(peerWithAccount, 111L, accountId);
+            fakeServerSocket.send(new DatagramPacket(withAccount, withAccount.length, loopback, clientSocket.getLocalPort()));
+            sendPeerFound(fakeServerSocket, loopback, clientSocket.getLocalPort(), anonymousPeer, 222L);
+
+            Thread.sleep(500);
+
+            fakeServer.interrupt();
+            clientRecvLoop.interrupt();
+
+            assertEquals(java.util.Optional.of(accountId), client.accountIdForPeer(peerWithAccount));
+            assertEquals(java.util.Optional.empty(), client.accountIdForPeer(anonymousPeer));
         }
     }
 }

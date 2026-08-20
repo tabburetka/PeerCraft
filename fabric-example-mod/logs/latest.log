@@ -1,9 +1,27 @@
-[22:41:41] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[22:41:43] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:44653
-[22:41:43] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:46917
+[15:26:31] [Test worker/WARN]: [AccountStorage] Не удалось прочитать /tmp/junit17545955010375393306/account.json — начинаем без сохранённого аккаунта: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 9 path $.this
+[15:26:35] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:35] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:37] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [test-host-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:49669
+[15:26:38] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:38] [test-host-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:34344
+[15:26:38] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:49669
+[15:26:38] [test-host-demux-loop/WARN]: [PunchCoordinator] Получен PUNCH от 127.0.0.1:34344, но сервер знакомств называл пира как 127.0.0.1:55806 — не совпадает, пакет отброшен. Похоже на симметричный NAT/CGNAT у одной из сторон: внешний порт для прямого потока к пиру отличается от того, что видел сервер знакомств.
+[15:26:38] [test-host-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:55806
+[15:26:39] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [PeerCraft-Punch/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [test-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [test-host-demux-loop/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[15:26:39] [test-host-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:57116
+[15:26:39] [test-demux-loop/INFO]: [PunchCoordinator] Пробили NAT до 127.0.0.1:43700

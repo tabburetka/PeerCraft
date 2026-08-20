@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.CodeGeneratorTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:52.367Z" hostname="cachyos-x8664" time="0.013">
+  <properties/>
+  <testcase name="generateProducesCodeOfRequestedLength()" classname="net.peercraft.rendezvous.CodeGeneratorTest" time="0.001"/>
+  <testcase name="generateUniqueRetriesUntilPredicateReportsCandidateAsFree()" classname="net.peercraft.rendezvous.CodeGeneratorTest" time="0.001"/>
+  <testcase name="generateOnlyUsesSymbolSafeAlphabetCharacters()" classname="net.peercraft.rendezvous.CodeGeneratorTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

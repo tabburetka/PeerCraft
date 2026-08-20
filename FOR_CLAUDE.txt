@@ -1,24 +1,40 @@
 PeerCraft — handoff notes for a fresh Claude session
 =====================================================
-Written: 2026-08-18. HEAD commit: 1c1d1ab "UDP hole punching first realization"
-(prior: 51fbb2a "multiplayer on localhost is done").
+Written: 2026-08-19. HEAD commit: 050fdb4 "GUI connect room realization"
+(prior: 1c1d1ab "UDP hole punching first realization", 51fbb2a "multiplayer
+on localhost is done").
+
+IMPORTANT: as of this writing, there are SIGNIFICANT UNCOMMITTED changes on
+top of HEAD implementing multi-player rooms (see "CURRENT STATUS" below) —
+do not assume HEAD alone describes the working tree. Run `git status` /
+`git diff --stat` first. If those changes are still uncommitted when you
+read this, either the user hasn't asked for a commit yet, or a session
+ended before committing — check with the user rather than assuming either.
 
 WHAT THIS PROJECT IS
 ---------------------
 A Fabric Minecraft mod (early-stage alternative to Essential/LabyMod-style P2P
-multiplayer) that lets two players connect directly to each other's world without
-either running a real dedicated server or opening router ports on their own
-machines. It works by tunneling the raw Minecraft TCP protocol over a custom
-framed UDP relay between two mod instances, with real internet peers found via a
-small rendezvous server + UDP hole punching.
+multiplayer) that lets several players connect directly to one host's world
+without anyone running a real dedicated server or opening router ports. It
+works by tunneling the raw Minecraft TCP protocol over a custom framed UDP
+relay between mod instances, with real internet peers found via a small
+rendezvous server + UDP hole punching. The host chooses a max-player count
+when opening their world to the network; multiple joiners can be connected
+to the same room concurrently, and a slot freed up by a leaving player
+becomes available again within ~15 seconds (see ARCHITECTURE below).
 
-CURRENT STATUS: WORKING, INCLUDING REAL CROSS-INTERNET P2P.
-The user just confirmed a successful UDP hole-punch connection with a friend on a
-genuinely different network — the full pipeline (rendezvous → punch → relay →
-Minecraft join) has been validated end-to-end outside of loopback/LAN testing.
-This is the first time that's been confirmed; prior sessions only had local
-(same-machine) testing fully validated, plus one earlier failed real-world attempt
-that led to two real bugs being found and fixed (see "Bugs found and fixed" below).
+CURRENT STATUS: WORKING, MULTI-PLAYER ROOMS JUST IMPLEMENTED (UNCOMMITTED).
+Prior sessions validated: local (same-machine) relay, and one confirmed
+real cross-internet hole-punch with exactly one joiner. THIS session added
+support for MULTIPLE joiners per room with a host-configurable limit —
+fully implemented, both projects build clean (`./gradlew build`), and every
+automated test passes (including a new end-to-end test that punches two
+real joiners through a real rendezvous-server subprocess concurrently).
+NOT YET VALIDATED: an actual in-game session with 2+ real Minecraft clients
+joining one host simultaneously (i.e. only automated/unit-level testing has
+run so far for the multi-player-specific code paths — the underlying
+single-peer relay was already real-world validated in prior sessions and
+is structurally unchanged for the host's single active peer case).
 
 REPO LAYOUT — TWO INDEPENDENT GRADLE PROJECTS, SAME REPO
 ----------------------------------------------------------
@@ -29,198 +45,317 @@ REPO LAYOUT — TWO INDEPENDENT GRADLE PROJECTS, SAME REPO
                            dependency at all. Its own gradlew; `./gradlew jar`
                            produces one runnable jar meant to be copied to a
                            separate always-on machine (currently: user's old
-                           laptop, port-forwarded, same way they'd forwarded a
-                           port for a vanilla MC server before).
+                           laptop, port-forwarded).
 
-These are deliberately NOT a multi-module build (no root settings.gradle) — kept
-independent so the mod's Loom toolchain and the server's plain-Java build never
-interfere. Downside: RendezvousProtocol.java (the wire codec) is hand-duplicated
-between the two projects — both copies have a `fixedEncodingMatchesModCopy`/
-`fixedEncodingMatchesServerCopy` unit test pinning exact wire bytes so drift is
-caught immediately if either copy is edited without the other.
+Still deliberately NOT a multi-module build (no root settings.gradle) — see
+prior notes. RendezvousProtocol.java (the wire codec) is STILL hand-
+duplicated between the two projects — both copies changed together this
+session (REGISTER payload gained [maxPlayers][currentPlayerCount], see
+below) and both copies' pinned-byte tests were updated in lockstep. If you
+ever touch this protocol, touch BOTH copies and re-run both test suites —
+`fixedEncodingMatchesModCopy`/`fixedEncodingMatchesServerCopy` will catch
+drift immediately if you forget.
 
 ARCHITECTURE — TWO LAYERS
 ---------------------------
 
-1) THE RELAY (fully working, extensively validated, do not casually rewrite):
+1) THE RELAY (now multi-peer on the host side — see this session's changes):
    MC client (TCP) -> LocalProxy (TCP, 127.0.0.1:25566) -> P2PBridge -> UDP ->
    [network] -> UDP -> P2PBridge -> TCP -> IntegratedServer (host's real world)
 
    Key files (fabric-example-mod/src/main/java/net/peercraft/network/p2p/):
    - FramedPacket.java   — wire format: [version=2][type][flags][sessionId:8][seq:8]
-                            + payload. type 0=DATA, 1=NACK. flags bit0=FIN.
-   - ReorderBuffer.java  — per-direction reassembly. Returns a Result{deliverable,
-                            requestSeq}: on a gap it signals which seq to NACK
-                            (debounced ~200ms) instead of just timing out. A
-                            3s-since-last-progress SessionBrokenException is the
-                            last-resort "give up and close cleanly" path.
-   - P2PBridge.java      — the orchestrator singleton (P2PBridge.INSTANCE). Owns
-                            HostConnection/ClientSession nested classes (sessionId,
-                            seq counter, ReorderBuffer, a bounded 256-entry
-                            retransmit ring buffer keyed by seq for honoring
-                            NACKs). MAX_CHUNK_SIZE=8000 — large TCP reads get split
-                            into multiple ≤8000-byte UDP datagrams before sending,
-                            because this dev machine's firewall was empirically
-                            found to hard-drop UDP datagrams >~16.3KB on the
-                            relay's specific ports (not a general internet limit,
-                            but capping chunk size sidesteps needing to know the
-                            local threshold, and is good practice for real
-                            internet MTU/NAT robustness anyway).
-   - P2PSender.java / P2PReceiver.java — thin DatagramSocket wrappers. IMPORTANT:
-                            they now share ONE socket (P2PReceiver binds it,
-                            P2PSender takes it via constructor + getSocket()) —
-                            this was a real bug fix: sending from a *different*
-                            ephemeral port than the one whose NAT mapping got
-                            punched would silently break real internet P2P (was
-                            invisible on loopback). P2PReceiver decouples the
-                            socket-read loop from packet processing via a
-                            bounded queue + worker thread so a slow downstream
-                            write can never stall socket draining.
-   - RawPacketListener.java — tiny interface P2PBridge dispatches non-FramedPacket
-                            (rendezvous/punch, magic byte 0xE1) datagrams to.
+                            + payload. Unchanged this session.
+   - ReorderBuffer.java  — per-direction, per-session reassembly. Unchanged
+                            this session; the host now owns ONE instance PER
+                            JOINER instead of one for the whole bridge (see
+                            HostConnection below), but the class itself is
+                            the same.
+   - PeerAddress.java    — NEW this session. record PeerAddress(InetAddress
+                            host, int port) — routing key used throughout
+                            P2PBridge to tell joiners apart.
+   - P2PBridge.java      — the orchestrator singleton (P2PBridge.INSTANCE).
+                            REWORKED this session for multiple concurrent
+                            host-side peers:
+                              * hostConnectionsBySessionId / hostConnectionsByAddress
+                                (both ConcurrentHashMap) replace the old single
+                                `currentHostConnection` field — one HostConnection
+                                object per joiner, keyed both ways (sessionId
+                                is still the trust anchor; address is for fast
+                                admission + live player-count).
+                              * authorizedPeers (Set<PeerAddress>) — NEW
+                                admission gate: a HostConnection can only be
+                                opened for an address that actually completed
+                                a hole punch. This also closes a latent gap
+                                that existed before this session: previously
+                                ANY UDP sender who guessed the host's relay
+                                port and crafted a seq==0 frame could open a
+                                live TCP session to the host's local MC
+                                server without ever punching or knowing the
+                                room code.
+                              * activePunches (Map<PeerAddress, PunchCoordinator>)
+                                — replaces the old single rendezvousListener
+                                slot ON THE HOST ONLY; several punches to
+                                different joiners now run concurrently
+                                without cancelling each other. The JOINER
+                                role still uses a single rendezvousListener
+                                slot (unchanged, correct — a joiner only ever
+                                talks to one host).
+                              * clientTargetPeer (PeerAddress) replaces the
+                                old targetIp/targetPort pair — joiner-role
+                                only now (the host never had a single target
+                                peer conceptually, that was always the actual
+                                bug being fixed).
+                              * currentPlayerCount() = hostConnectionsByAddress.size()
+                                — fed into RendezvousClient.registerRoom(...)
+                                as an IntSupplier, re-read on every 15s
+                                keepalive. THIS is the entire mechanism behind
+                                "a slot freed up by a leaving player becomes
+                                available again" — no dedicated "player left"
+                                wire message was added; the host just keeps
+                                self-reporting its live count.
+                              * sendEncoded/sendFramed/sendChunked/etc. now
+                                all take an explicit PeerAddress destination
+                                parameter instead of reading a bridge-wide
+                                field — host call sites pass
+                                conn.peerAddress, joiner call sites pass
+                                clientTargetPeer.
+   - P2PSender.java / P2PReceiver.java — thin DatagramSocket wrappers, UNCHANGED
+                            this session. Still share ONE socket (critical for
+                            NAT punch to remain valid — see prior notes).
+   - RawPacketListener.java — UNCHANGED.
 
    fabric-example-mod/src/main/java/net/peercraft/network/proxy/LocalProxy.java —
-   the local TCP proxy the *joining* MC client actually connects to
-   (127.0.0.1:25566, not the LAN port).
+   UNCHANGED this session. Runs only on the joiner; one instance for the
+   whole client lifetime, correctly reusable across sequential Join attempts
+   to DIFFERENT rooms (verified by tracing, not by a new automated test —
+   see a Q&A about this in the conversation history if this file is stale).
 
-2) INTERNET P2P — rendezvous + hole punching (new this session, now confirmed working):
+2) RENDEZVOUS + HOLE PUNCHING (protocol extended this session for room capacity):
    fabric-example-mod/src/main/java/net/peercraft/network/rendezvous/:
-   - RendezvousProtocol.java — wire codec for [magic=0xE1][type]+payload control
-     messages: REGISTER, ROOM_CREATED, JOIN, JOIN_FAIL, PEER_FOUND (server-facing)
-     and PUNCH/PUNCH_ACK (peer-to-peer, server never sees these).
-   - RendezvousClient.java — talks to the rendezvous server. Host calls
-     registerRoom(...), gets a 6-char room code back (alphabet excludes
-     0/O/1/I/L). Joiner calls joinRoom(code, ...). Retries REGISTER/JOIN every
-     500ms but ONLY while still on that specific step (bug fix history below);
-     once the host has its code (WAITING_FOR_PEER), a separate 15s keepalive
-     (resending REGISTER, idempotent) keeps its NAT mapping to the rendezvous
-     server open indefinitely while waiting for a friend to join — no client-side
-     timeout for that wait, only the server's own 10-minute unclaimed-room TTL.
-   - PunchCoordinator.java — once PEER_FOUND gives a peer address+token, sends
-     PUNCH{token} every 300ms for up to 10s, watching for PUNCH/PUNCH_ACK back
-     from exactly that address+token. On success calls
-     P2PBridge.setTargetPeer(ip, port) — the EXACT SAME method the old static-
-     config path used, so everything in layer (1) above runs completely
-     unchanged after a successful punch. No TURN/relay fallback on failure —
-     deliberate v1 scope decision (a home-hosted rendezvous server's uplink
-     can't sustain relaying full game traffic for multiple pairs); failure is
-     just a clean log message.
+   - RendezvousProtocol.java — wire codec. REGISTER changed this session:
+     was `[magic=0xE1][type]` (2 bytes, no payload); now
+     `[magic=0xE1][type][maxPlayers:1][currentPlayerCount:1]` (4 bytes).
+     This is a HARD wire-format break — both mod and rendezvous-server must
+     be rebuilt and redeployed together (deliberate call, project isn't
+     released widely, no version negotiation was added). New
+     Register(int maxPlayers, int currentPlayerCount) record +
+     decodeRegister(...). No new REASON_* wire constant was added — "room
+     full" reuses the previously-dead REASON_ALREADY_CLAIMED(=2), whose
+     existing Russian client-facing string ("комната уже занята") already
+     reads correctly for this case.
+   - RendezvousClient.java — REWORKED this session:
+       * registerRoom(...) now takes (int maxPlayers, IntSupplier
+         currentPlayerCountSupplier, RoomCallback, MatchCallback) instead of
+         just (RoomCallback, MatchCallback). The keepalive loop re-encodes
+         REGISTER fresh on every 15s tick using the supplier's CURRENT value
+         — this is what makes the live player count actually live.
+       * REAL BUG FOUND AND FIXED: host-mode match dedup used to be a single
+         `Long lastMatchedToken` field — with only one joiner this was fine,
+         but with two+ concurrent joiners, matching joiner B would overwrite
+         the field, and a late retransmitted PEER_FOUND for joiner A would
+         then incorrectly look "new" (fail to dedupe) and spawn a redundant
+         punch attempt. Fixed: `Map<Address, Long> lastMatchedTokenByPeer`.
+         A regression test for this now exists
+         (RendezvousClientTest.matchesForDifferentPeersDoNotCrossDedupe).
+   - PunchCoordinator.java — UNCHANGED this session (confirmed by design
+     review that it was already safe to run several instances concurrently
+     sharing one P2PSender — the ONLY thing making concurrent punches unsafe
+     before was P2PBridge's single-slot bookkeeping, fixed above).
 
    rendezvous-server/src/main/java/net/peercraft/rendezvous/:
-   - RendezvousServer.java — single-threaded UDP receive/dispatch loop + a
-     30s-interval sweep thread for expiring old rooms. All log lines now
-     timestamped (HH:mm:ss.SSS) and fairly verbose (every REGISTER logged
-     including idempotent/keepalive resends; on INVALID_CODE it dumps every
-     room it currently knows about) — this was added mid-session while
-     debugging a real "room code went invalid" incident, see below.
-   - RoomRegistry.java — in-memory only, no persistence (rooms are pairing
-     handshakes, not accounts). 6-char codes, unclaimed TTL 10 min, claimed TTL
-     60s (grace window for a joiner's own UDP-retried JOIN to get the same
-     idempotent answer), per-IP REGISTER rate limit (5/60s), global unclaimed-
-     room cap (1000) — all as SERVER_BUSY-style rejection, not silent drops.
-   - Room.java — mutable per-code state, package-private, only touched while
-     `synchronized` on the Room instance itself (see RoomRegistry.join()).
+   - RendezvousServer.java — handleRegister now decodes the new payload and
+     passes maxPlayers/currentPlayerCount into RoomRegistry.register(...).
+     handleJoin is structurally UNCHANGED (a JOIN was already handled one
+     joiner at a time; the single-joiner-per-room assumption lived entirely
+     in RoomRegistry/Room, not here).
+   - RoomRegistry.java — register(...) now takes maxPlayers/currentPlayerCount,
+     clamps maxPlayers server-side to [1,32] independent of what the client
+     sends (server never trusts the mod's own clamp). join(...) REWORKED:
+     capacity is checked (room.currentPlayerCount >= room.maxPlayers) ONLY
+     for a genuinely new joiner address — an address the room has seen
+     before (reconnecting after the debounce window) is always let back in
+     regardless of the reported count, since it isn't a new admission.
+   - Room.java — REWORKED: the old single joinerAddress/token/claimed/
+     lastMatchedAt fields are gone, replaced by
+     `Map<Address, JoinerSlot> joiners` (one slot per distinct joiner) plus
+     new `int maxPlayers` / `int currentPlayerCount` fields (self-reported
+     by the host, see above — RoomRegistry is NOT the authority on who's
+     actually connected, P2PBridge on the host is; RoomRegistry's check is
+     advisory/first-line, saving a wasted punch attempt in the common case).
 
-   Integration points on the client:
-   - P2PBridge.startHostViaRendezvous(mcPort) / startClientViaRendezvous() — new
-     entry points, parallel to the old startHost()/startClient(). Wire up
-     RendezvousClient -> (on match) PunchCoordinator -> (on punch success)
-     setTargetPeer(...). The rendezvousListener field is swapped between the
-     RendezvousClient and PunchCoordinator instances as the flow progresses;
-     handleIncomingPacket demuxes on the first byte (0xE1) before ever reaching
-     FramedPacket.decode.
-   - OpenToLanMixin.java / PeerCraftClient.java — branch on
-     PeerCraftConfig.internetPlay(): call the ViaRendezvous variants instead of
-     the static ones. mode (host/client/auto/disabled) is UNCHANGED and still
-     required — internetPlay is an orthogonal opt-in layered on top, not a
-     replacement.
+   Integration points on the client (fabric-example-mod):
+   - P2PBridge.startHostViaRendezvous(mcPort, maxPlayers, HostListener) — the
+     maxPlayers parameter is NEW this session (was previously implicit/absent
+     — the method used to only take mcPort + listener).
+   - ShareToLanScreenMixin.java / PeerCraftHostOptions.java / OpenToLanMixin.java
+     — a CycleButton "Макс. игроков" (values 1..8) was added next to the
+     existing "PeerCraft: через интернет" checkbox; its value is stored in
+     PeerCraftHostOptions.maxPlayers (volatile int, mirrors the existing
+     internetPlayRequested field's pattern) and threaded through to
+     startHostViaRendezvous(...) in OpenToLanMixin.
 
-CONFIG (PeerCraftConfig.java) — all via -Dpeercraft.<key> or PEERCRAFT_<KEY> env,
-same convention throughout, see its own doc comments and fabric-example-mod/README.md:
+GUI STATUS: NO LONGER "log-only" (this used to be true as of the previous
+handoff note, before commit 050fdb4 — that gap is now closed and further
+extended this session):
+  - TitleScreen gets a "PeerCraft: Join" button (hidden in disabled/host mode)
+    -> opens PeerCraftJoinScreen (room code entry, optional rendezvous-server
+    address override, live status line) -> on success, silently redirects
+    into vanilla ConnectScreen against the local proxy port.
+  - ShareToLanScreen (vanilla "Open to LAN") gets a "через интернет" checkbox
+    PLUS (new this session) a "Макс. игроков" stepper.
+  - Room code and failures are shown in the host's in-game chat
+    (OpenToLanMixin), not just the log file.
+
+CONFIG (PeerCraftConfig.java) — all via -Dpeercraft.<key> or PEERCRAFT_<KEY>
+env, same convention throughout:
   mode, proxyPort, clientUdpPort, hostUdpPort, peerHost, peerPort   (original, local path)
-  internetPlay (bool, default false), rendezvousHost, rendezvousPort, roomCode  (new)
+  internetPlay, rendezvousHost, rendezvousPort, roomCode            (rendezvous path)
+  maxPlayers (NEW this session, default 4, range [1,32] — GUI default/launch-flag value only,
+              the real per-session value comes from the GUI stepper, see PeerCraftHostOptions)
 
-NO IN-GAME UI YET for any of this — room codes are only ever visible in the log
-file / console (`Комната создана! Код для второго игрока: XXXXXX`), and the
-joiner must be given the code out-of-band (chat, Discord, etc.) and pass it via
--Dpeercraft.roomCode at launch. This is a known, deliberate v1 gap.
-
-BUGS FOUND AND FIXED THIS SESSION (useful history, don't reintroduce)
+BUGS FOUND AND FIXED (cumulative history, don't reintroduce)
 ------------------------------------------------------------------------
-1. P2PSender/P2PReceiver used two different sockets — fatal for hole punching
-   (see above). Fixed by sharing one socket.
-2. RendezvousClient's retry loop kept resending REGISTER every 500ms for the
-   full 10s window even after ROOM_CREATED had already arrived (checked "not
-   done yet" instead of "still on this specific step") — flooded the server for
-   no reason AND would have spuriously timed out a healthy WAITING_FOR_PEER room
-   if a friend took >10s to join. Fixed: retry loop is now scoped to the exact
-   state it started in.
-3. Discovered via a real failed cross-network attempt: after fix #2 removed the
-   spam, the host sent NOTHING while waiting for a joiner — and a home router's
-   UDP NAT mapping to the rendezvous server closes after a period of inactivity
-   (commonly 30-60s), so a PEER_FOUND reply arriving after that silently gets
-   dropped by the host's own NAT/firewall. Fixed with a 15s keepalive (chosen
-   specifically for safety margin) — resends REGISTER (idempotent) while in
-   WAITING_FOR_PEER, stops once matched/failed.
-4. One real cross-network test hit "неверный код комнаты" (INVALID_CODE) for a
-   room that should still have been valid (well within the 10-min TTL, server
-   not restarted) — root cause NOT fully confirmed yet. Leading theory: the
-   host's NAT re-mapped its external port between the original REGISTER and a
-   later keepalive, so RoomRegistry's idempotency check (keyed on the full
-   (ip,port) pair) missed and silently created a second, orphaned room the host
-   never learned about (RendezvousClient stops listening for ROOM_CREATED after
-   the first one). Added diagnostic logging (see RendezvousServer changes above)
-   to catch this with hard evidence next time it happens, rather than guessing
-   further. NOT YET CONFIRMED OR DISPROVEN — worth watching for.
-   NOTE: the very next test after this (the one that just succeeded with the
-   user's friend) apparently worked fine, so this may have been a one-off or
-   specific to that network path — but the diagnostic logging is still in place
-   and worth checking if it recurs.
+From earlier sessions (still relevant, unchanged code paths):
+1. P2PSender/P2PReceiver used two different sockets — fatal for hole
+   punching. Fixed by sharing one socket. (STILL the design — do not split
+   them again.)
+2. RendezvousClient's retry loop used to keep resending REGISTER for the
+   full timeout window even after the relevant reply had arrived. Fixed:
+   retry loop scoped to the exact state it started in. (This session's
+   startRetryLoop rework — payload became a Supplier<byte[]> instead of a
+   fixed byte[] — preserved this fix; re-verify if you touch it again.)
+3. Host NAT mapping to the rendezvous server can close from inactivity while
+   WAITING_FOR_PEER — fixed with a 15s keepalive. This session REUSED that
+   exact keepalive tick to also carry the live player count (see above) —
+   if you ever remove/slow down the keepalive, you'd also break the
+   live-slot-freeing mechanism, not just the original NAT-mapping fix.
+4. One real cross-network test hit a spurious INVALID_CODE — root cause
+   NOT confirmed (see RendezvousServer's diagnostic describeAllRooms() log
+   dump on that error path). Never recurred since. Still unconfirmed either
+   way — watch for it if it happens again.
+
+From THIS session (multi-player rooms):
+5. The core pre-existing limitation this whole session addressed: P2PBridge
+   had exactly one target-peer field, one HostConnection, one
+   rendezvousListener slot for the ENTIRE bridge — a second real joiner
+   would silently evict the first (new HostConnection replacing the old one
+   under startNewHostConnection, second PunchCoordinator cancelling the
+   first's punch). Comprehensively fixed — see ARCHITECTURE above.
+6. RendezvousClient's host-mode match dedup (single lastMatchedToken field)
+   was subtly wrong once two+ concurrent joiners were possible — fixed, see
+   ARCHITECTURE above (item under RendezvousClient.java).
+7. Latent (not previously flagged) admission gap: before this session's
+   authorizedPeers gate, any UDP sender who guessed the host's relay port
+   and sent a well-formed seq==0 frame could open a live TCP session to the
+   host's own local Minecraft server, with no proof they'd ever punched or
+   knew a room code. Closed as a side effect of adding multi-peer admission
+   control, not the original goal, but worth knowing it's now closed.
+
+KNOWN GAP, NOT YET FIXED (came up mid-session, low priority, flagged for
+awareness): if a UDP port (hostUdpPort/clientUdpPort/proxyPort) is already
+occupied when the mod tries to bind it, the mod does NOT crash — but it
+fails SILENTLY at the socket layer (P2PReceiver.start() logs an ERROR and
+returns false, but P2PBridge.restartReceiver(...) never checks that return
+value, so P2PSender ends up wrapping a null socket and every subsequent
+send is a silent no-op). The user only sees a generic, MISLEADING failure
+10 seconds later ("сервер знакомств не ответил") that doesn't point at the
+real (local, not remote) cause — the real cause is only in the log file.
+Also: the two local IDE run configs for testing multiple joiners on ONE
+machine (run-client/run-client2, see below) both default to the SAME
+clientUdpPort (50002) unless one is given an explicit
+-Dpeercraft.clientUdpPort override in its VM_PARAMETERS — this WILL collide
+if you try to run both simultaneously without fixing that. Neither of these
+was fixed this session (out of scope, flagged for the user, not yet
+actioned as of this writing) — worth doing if a future session has time and
+the user wants clearer diagnostics / an easier local 3-instance test setup.
 
 TESTING
 -------
-- fabric-example-mod: `./gradlew test` — includes FramedPacketTest,
-  ReorderBufferTest (local relay), RendezvousProtocolTest (wire round-trip +
-  fixed-byte pin), RendezvousClientTest (regression test for bug #2 above),
-  RendezvousEndToEndTest (spins up the REAL rendezvous-server jar as a
-  subprocess and drives real RendezvousClient/PunchCoordinator through a full
-  register->join->punch flow on loopback — self-skips if the server jar hasn't
-  been built yet; build it first with `cd rendezvous-server && ./gradlew jar`).
-- rendezvous-server: `./gradlew test` — RendezvousProtocolTest, RoomRegistryTest
-  (uses a package-private LongSupplier-clock constructor seam for deterministic
-  TTL/grace-window tests without sleeping), RendezvousServerIntegrationTest
-  (real server subprocess-free, in-JVM, driven by raw DatagramSockets).
-- Local two-instance MC testing: see fabric-example-mod/README.md — separate
-  `run-host/`/`run-client/` working directories (IDE run configs "Minecraft
-  Client (host)" / "Minecraft Client (join)" already set up this way) so their
-  logs/latest.log files don't interleave. Also documents the reconnect
-  regression test and the full internet-play test procedure.
-- IMPORTANT environment note: this dev machine's `java-21-openjdk` package was
-  originally JRE-only (no javac) — full JDK had to be installed
-  (`jdk21-openjdk`) for `./gradlew build`/`test` to work at all. If a fresh
-  session hits "does not provide the required capabilities: [JAVA_COMPILER]",
-  that's the same issue (stale Gradle daemon started before the JDK was
-  installed) — `./gradlew --stop` then retry usually fixes it.
+- fabric-example-mod: `./gradlew test` — FramedPacketTest, ReorderBufferTest
+  (unchanged), RendezvousProtocolTest (pinned-byte test updated for the new
+  REGISTER payload), RendezvousClientTest (original retry-loop regression +
+  NEW cross-peer-dedup regression test), RendezvousEndToEndTest (spins up
+  the REAL rendezvous-server jar as a subprocess; NOW has both the original
+  single-joiner test AND a new hostAndTwoJoinersPunchThroughConcurrently
+  test — self-skips if the server jar hasn't been built yet, build it first
+  with `cd rendezvous-server && ./gradlew jar`).
+- rendezvous-server: `./gradlew test` — RendezvousProtocolTest (byte-pinned
+  twin of the mod's copy), RoomRegistryTest (multi-joiner capacity, per-
+  address debounce, live slot-freeing, reconnect-exemption-from-capacity —
+  all NEW test cases this session, plus the original TTL/idempotency ones),
+  RendezvousServerIntegrationTest (raw-socket, real server; NEW
+  twoJoinersCanMatchTheSameRoomConcurrently and
+  thirdJoinerBeyondMaxPlayersGetsRoomFullReply tests).
+- ALL tests green as of this writing, both `./gradlew build` (mod and
+  server) succeed clean, including the client-only mixin source set
+  (`compileClientJava`).
+- Local multi-instance MC testing: fabric-example-mod/README.md documents
+  the original run-host/run-client pattern. This session ADDED a third IDE
+  run config, "Minecraft Client (join 2)" (.idea/runConfigurations/
+  Minecraft_Client_2.xml, working dir run-client2/) specifically to test 2+
+  simultaneous joiners on one machine — BUT see the port-collision gap
+  above, it needs a distinct -Dpeercraft.clientUdpPort before it's actually
+  usable alongside run-client.
+- NOT YET DONE: an actual in-game run with 2-3 real Minecraft clients
+  joining one host room simultaneously. This is the main outstanding
+  verification item — see "LIKELY NEXT STEPS".
 
-WHAT'S DELIBERATELY OUT OF SCOPE FOR NOW (don't build unless asked)
+WHAT'S DELIBERATELY OUT OF SCOPE (don't build unless asked)
 ------------------------------------------------------------------
-- TURN/relay fallback when hole punching fails.
-- Symmetric-NAT/CGNAT port prediction (punch only tries the exact server-
-  observed address, no guessing).
-- Accounts, persistent lobbies/friend lists, server browser — user has said
-  they want these eventually but explicitly wanted a simple v1 first.
-- Rendezvous protocol auth/encryption — plaintext UDP, fine for a self-hosted
-  low-value-target server for now, flagged as a real gap if ever exposed wider.
-- In-game UI for room codes (currently log-only).
-- IPv6 (address encoding allows it, untested).
+- Mesh P2P between joiners — architecture stays a star: every joiner only
+  ever talks to the host, never to each other. Explicitly confirmed still
+  out of scope when this session's plan was designed.
+- TURN/relay fallback when hole punching fails (unchanged from before —
+  a home-hosted rendezvous server's uplink can't sustain relaying full game
+  traffic for multiple pairs).
+- Symmetric-NAT/CGNAT port prediction (unchanged).
+- Accounts, persistent lobbies/friend lists, server browser (unchanged).
+- Rendezvous protocol auth/encryption — still plaintext UDP.
+- IPv6 (still untested, though the address encoding allows it).
+- Extending the STATIC/local-test path (startHost()/startClient(),
+  peerHost/peerPort config) to multiple peers — deliberately left
+  single-peer, it's a dev-only loopback testing path, not the real feature.
+  If someone ever wants multi-instance LOCAL (no rendezvous server) testing
+  with more than 2 mod instances, that's a small separate follow-up, not
+  done here.
+- Wire-format backward compatibility for the REGISTER change above — no
+  version negotiation was added; old and new REGISTER encodings are NOT
+  interoperable. Deliberate, not an oversight (project isn't released
+  widely yet, user controls both deploy targets).
 
 LIKELY NEXT STEPS (not yet requested, just obvious candidates)
 ----------------------------------------------------------------
-- Confirm/refute bug #4's root cause if "invalid code" recurs, using the new
-  server diagnostic logs.
-- Basic in-game UX: show the room code in chat (not just logs) on the host side;
-  maybe a simple screen/prompt for the joiner to paste a code instead of a JVM
-  flag.
+- The big one: an actual in-game validation with 2-3 real Minecraft clients
+  against one host room (local first via run-host/run-client/run-client2,
+  then real cross-internet with actual friends if possible) — confirm no
+  cross-talk between joiners, confirm a freed slot becomes joinable again
+  within ~15s of a player leaving, confirm a 4th joiner against a 3-max room
+  gets rejected cleanly with a visible "комната уже занята" message.
+- Fix the clientUdpPort collision between run-client/run-client2 (give
+  run-client2's VM_PARAMETERS an explicit -Dpeercraft.clientUdpPort=50003)
+  so the new local 3-instance test setup actually works out of the box.
+- Consider surfacing the REAL cause of a local port-bind failure through to
+  the user-visible error message instead of the current generic "сервер
+  знакомств не ответил" (see "KNOWN GAP, NOT YET FIXED" above) — currently
+  requires reading the log file to find the true cause.
+- Confirm/refute the still-unconfirmed bug #4 (spurious INVALID_CODE) if it
+  recurs, using RendezvousServer's diagnostic logging.
 - Consider whether the mod's own name/group ("modid"/"com.example" in
-  fabric.mod.json / gradle.properties) should finally be renamed — still
-  template defaults, flagged early on, never addressed.
+  fabric.mod.json / gradle.properties, and PeerCraftMod.MOD_ID = "modid")
+  should finally be renamed — still template defaults, flagged multiple
+  sessions running now, never addressed. Low priority, purely cosmetic/
+  technical-debt.
+
+OTHER USEFUL ARTIFACT FROM THIS SESSION
+------------------------------------------------------------------------
+/home/ikuku/desktop/PeerCraft/ОПИСАНИЕ_КОДА_МОДА.txt — a very detailed,
+Russian-language, method-by-method walkthrough of literally every class in
+both projects, written for the human user (who is a Java beginner), with a
+36-entry glossary of Java/Fabric-Mixin concepts at the end. NOT meant as a
+handoff doc for a future Claude session (different audience/purpose than
+this file) — but if you (a future Claude session) need the exact behavior
+of some method and this file's ARCHITECTURE section isn't detailed enough,
+that file has a plain-language description of every single method that may
+be faster to consult than re-reading the source, since it's already up to
+date with everything described above.

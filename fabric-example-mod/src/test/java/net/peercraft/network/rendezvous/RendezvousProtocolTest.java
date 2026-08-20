@@ -27,8 +27,42 @@ class RendezvousProtocolTest {
 
     @Test
     void registerRoundTrip() {
-        byte[] encoded = RendezvousProtocol.encodeRegister();
+        byte[] encoded = RendezvousProtocol.encodeRegister(4, 2);
         assertEquals(RendezvousProtocol.TYPE_REGISTER, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertEquals(4, decoded.maxPlayers());
+        assertEquals(2, decoded.currentPlayerCount());
+        assertTrue(decoded.account().isEmpty());
+    }
+
+    @Test
+    void registerWithAccountRoundTrips() {
+        java.util.UUID accountId = java.util.UUID.randomUUID();
+        byte[] sessionToken = new byte[16];
+        for (int i = 0; i < sessionToken.length; i++) {
+            sessionToken[i] = (byte) i;
+        }
+        byte[] encoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken);
+
+        assertEquals(RendezvousProtocol.TYPE_REGISTER, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertEquals(4, decoded.maxPlayers());
+        assertEquals(2, decoded.currentPlayerCount());
+        assertTrue(decoded.account().isPresent());
+        assertEquals(accountId, decoded.account().get().accountId());
+        assertArrayEquals(sessionToken, decoded.account().get().sessionToken());
+    }
+
+    @Test
+    void anonymousRegisterStillDecodesCorrectlyAlongsideTheAccountForm() {
+        // Regression guard: extending REGISTER for Фаза 4 must not disturb the original
+        // 4-byte anonymous form still used by every host without an account.
+        byte[] encoded = RendezvousProtocol.encodeRegister(8, 3);
+        assertEquals(4, encoded.length);
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertEquals(8, decoded.maxPlayers());
+        assertEquals(3, decoded.currentPlayerCount());
+        assertTrue(decoded.account().isEmpty());
     }
 
     @Test
@@ -49,6 +83,22 @@ class RendezvousProtocolTest {
         assertEquals(RendezvousProtocol.TYPE_JOIN, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
         RendezvousProtocol.Join decoded = RendezvousProtocol.decodeJoin(encoded, encoded.length);
         assertEquals("XYZ789", decoded.code());
+        assertTrue(decoded.sessionToken().isEmpty());
+    }
+
+    @Test
+    void joinWithAccountRoundTrips() {
+        byte[] sessionToken = new byte[16];
+        for (int i = 0; i < sessionToken.length; i++) {
+            sessionToken[i] = (byte) (i + 1);
+        }
+        byte[] encoded = RendezvousProtocol.encodeJoinWithAccount("XYZ789", sessionToken);
+
+        assertEquals(RendezvousProtocol.TYPE_JOIN, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+        RendezvousProtocol.Join decoded = RendezvousProtocol.decodeJoin(encoded, encoded.length);
+        assertEquals("XYZ789", decoded.code());
+        assertTrue(decoded.sessionToken().isPresent());
+        assertArrayEquals(sessionToken, decoded.sessionToken().get());
     }
 
     @Test
@@ -68,6 +118,20 @@ class RendezvousProtocolTest {
         RendezvousProtocol.PeerFound decoded = RendezvousProtocol.decodePeerFound(encoded, encoded.length);
         assertEquals(peer, decoded.peer());
         assertEquals(0x1122334455667788L, decoded.token());
+        assertTrue(decoded.joinerAccountId().isEmpty());
+    }
+
+    @Test
+    void peerFoundWithAccountRoundTrips() throws UnknownHostException {
+        RendezvousProtocol.Address peer = addr("198.51.100.9", 54321);
+        java.util.UUID joinerAccountId = java.util.UUID.randomUUID();
+        byte[] encoded = RendezvousProtocol.encodePeerFoundWithAccount(peer, 0x1122334455667788L, joinerAccountId);
+
+        assertEquals(RendezvousProtocol.TYPE_PEER_FOUND, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+        RendezvousProtocol.PeerFound decoded = RendezvousProtocol.decodePeerFound(encoded, encoded.length);
+        assertEquals(peer, decoded.peer());
+        assertEquals(0x1122334455667788L, decoded.token());
+        assertEquals(java.util.Optional.of(joinerAccountId), decoded.joinerAccountId());
     }
 
     @Test
@@ -89,8 +153,8 @@ class RendezvousProtocolTest {
      */
     @Test
     void fixedEncodingMatchesServerCopy() throws UnknownHostException {
-        byte[] register = RendezvousProtocol.encodeRegister();
-        assertArrayEquals(new byte[]{(byte) 0xE1, 0x01}, register);
+        byte[] register = RendezvousProtocol.encodeRegister(4, 2);
+        assertArrayEquals(new byte[]{(byte) 0xE1, 0x01, 0x04, 0x02}, register);
 
         byte[] join = RendezvousProtocol.encodeJoin("ABCDEF");
         assertArrayEquals(new byte[]{(byte) 0xE1, 0x03, 0x06, 'A', 'B', 'C', 'D', 'E', 'F'}, join);

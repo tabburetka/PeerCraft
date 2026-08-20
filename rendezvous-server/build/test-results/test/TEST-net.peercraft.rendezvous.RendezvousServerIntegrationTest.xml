@@ -1,12 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="net.peercraft.rendezvous.RendezvousServerIntegrationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-19T12:58:25.074Z" hostname="cachyos-x8664" time="0.057">
+<testsuite name="net.peercraft.rendezvous.RendezvousServerIntegrationTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:52.553Z" hostname="cachyos-x8664" time="0.079">
   <properties/>
-  <testcase name="registerThenJoinMatchesBothPeers()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.041"/>
+  <testcase name="thirdJoinerBeyondMaxPlayersGetsRoomFullReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.024"/>
+  <testcase name="registerThenJoinMatchesBothPeers()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
   <testcase name="joinWithBadCodeGetsInvalidCodeReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.012"/>
-  <system-out><![CDATA[[16:58:25.091] [RendezvousServer] Listening on UDP port 40971
-[16:58:25.115] [RendezvousServer] REGISTER from 127.0.0.1:38988 -> new room YJT6YE
-[16:58:25.121] [RendezvousServer] Listening on UDP port 56452
-[16:58:25.121] [RendezvousServer] Room YJT6YE matched: 127.0.0.1:38988 <-> 127.0.0.1:44005
+  <testcase name="twoJoinersCanMatchTheSameRoomConcurrently()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
+  <testcase name="joinWithAccountMakesHostSidePeerFoundCarryTheJoinersAccountId()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
+  <system-out><![CDATA[[15:19:52.556] [RendezvousServer] Listening on UDP port 48807
+[15:19:52.567] [RendezvousServer] REGISTER from 127.0.0.1:53050 -> new room HP4SXE
+[15:19:52.575] [RendezvousServer] Room HP4SXE matched: 127.0.0.1:53050 <-> 127.0.0.1:42366
+[15:19:52.576] [RendezvousServer] REGISTER from 127.0.0.1:53050 -> existing room HP4SXE (idempotent resend/keepalive)
+[15:19:52.581] [RendezvousServer] Listening on UDP port 60095
+[15:19:52.583] [RendezvousServer] JOIN HP4SXE from 127.0.0.1:39123 -> rejected (reason=2)
+[15:19:52.591] [RendezvousServer] REGISTER from 127.0.0.1:37576 -> new room HF3Q54
+[15:19:52.592] [RendezvousServer] Room HF3Q54 matched: 127.0.0.1:37576 <-> 127.0.0.1:47925
+[15:19:52.594] [RendezvousServer] Listening on UDP port 40930
+[15:19:52.604] [RendezvousServer] JOIN NOPE12 from 127.0.0.1:39823 -> rejected (reason=1)
+[15:19:52.605] [RendezvousServer]   known rooms (0): (none)
+[15:19:52.606] [RendezvousServer] Listening on UDP port 39321
+[15:19:52.617] [RendezvousServer] REGISTER from 127.0.0.1:47073 -> new room 8S5XHG
+[15:19:52.618] [RendezvousServer] Room 8S5XHG matched: 127.0.0.1:47073 <-> 127.0.0.1:46148
+[15:19:52.618] [RendezvousServer] Room 8S5XHG matched: 127.0.0.1:47073 <-> 127.0.0.1:43250
+[15:19:52.621] [RendezvousServer] Listening on UDP port 53398
+[15:19:52.632] [RendezvousServer] REGISTER from 127.0.0.1:57646 -> new room W8P28Z
+[15:19:52.632] [RendezvousServer] Room W8P28Z matched: 127.0.0.1:57646 <-> 127.0.0.1:54783
 ]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

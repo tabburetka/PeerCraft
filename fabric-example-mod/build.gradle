@@ -44,6 +44,17 @@ test {
 	useJUnitPlatform()
 }
 
+// Loom's splitEnvironmentSourceSets() gives us `main`/`client` source sets but doesn't wire
+// `test` to see `client`'s output — needed so tests can exercise client-side classes (e.g.
+// AccountStorageTest against net.peercraft.client.account.AccountStorage) without requiring
+// a bootstrapped FabricLoader/Minecraft runtime just to compile against them.
+sourceSets {
+	test {
+		compileClasspath += sourceSets.client.output
+		runtimeClasspath += sourceSets.client.output
+	}
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version

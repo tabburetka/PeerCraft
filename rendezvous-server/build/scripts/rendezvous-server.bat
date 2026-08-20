@@ -70,7 +70,7 @@ echo location of your Java installation. 1>&2
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\rendezvous-server-1.0.0.jar
+set CLASSPATH=%APP_HOME%\lib\rendezvous-server-1.0.0.jar;%APP_HOME%\lib\gson-2.11.0.jar;%APP_HOME%\lib\error_prone_annotations-2.27.0.jar
 
 
 @rem Execute rendezvous-server

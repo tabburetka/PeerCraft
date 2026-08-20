@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="net.peercraft.rendezvous.RendezvousProtocolTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-08-19T12:58:25.011Z" hostname="cachyos-x8664" time="0.059">
+<testsuite name="net.peercraft.rendezvous.RendezvousProtocolTest" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:52.525Z" hostname="cachyos-x8664" time="0.028">
   <properties/>
-  <testcase name="roomCreatedRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.029"/>
-  <testcase name="joinRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.002"/>
-  <testcase name="fixedEncodingMatchesModCopy()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.002"/>
-  <testcase name="joinFailRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.0"/>
+  <testcase name="roomCreatedRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.012"/>
+  <testcase name="joinRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="fixedEncodingMatchesModCopy()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="joinFailRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="registerWithAccountRoundTrips()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
   <testcase name="messageTypeRejectsTooShort()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="joinWithAccountRoundTrips()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
   <testcase name="messageTypeRejectsWrongMagic()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="anonymousRegisterStillDecodesCorrectlyAlongsideTheAccountForm()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
   <testcase name="punchAndPunchAckRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
-  <testcase name="registerRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.0"/>
+  <testcase name="registerRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
   <testcase name="peerFoundRoundTrip()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
+  <testcase name="peerFoundWithAccountRoundTrips()" classname="net.peercraft.rendezvous.RendezvousProtocolTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

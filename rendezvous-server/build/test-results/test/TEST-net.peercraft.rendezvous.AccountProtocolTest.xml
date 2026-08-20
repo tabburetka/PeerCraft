@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.AccountProtocolTest" tests="27" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:52.300Z" hostname="cachyos-x8664" time="0.065">
+  <properties/>
+  <testcase name="loginResponseRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.012"/>
+  <testcase name="friendRequestListReplyRoundTripsWhenEmpty()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="authFailRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="loginRememberRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.002"/>
+  <testcase name="accountRegisterRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendRequestRespondRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.002"/>
+  <testcase name="fixedEncodingMatchesModCopy()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.0"/>
+  <testcase name="friendRequestListReplyRoundTripsWithMultipleEntries()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="authOkRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendRequestAckRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="renameAckRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendRequestSendRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.002"/>
+  <testcase name="loginBeginByFriendCodeRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="licensedConfirmRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="serverIdChallengeRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="searchAccountsRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendCodeLookupRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.0"/>
+  <testcase name="friendListReplyRoundTripsWithOfflineEmptyRoomCode()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="accountRenameRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendCodeLookupReplyRoundTripsWhenNotFound()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="searchAccountsReplyRoundTripsSortedLicensedFirst()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="licensedBeginRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendListReplyRoundTripsWithHostingStatusAndRoomCode()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="friendRemoveRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <testcase name="loginBeginByAccountIdRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.0"/>
+  <testcase name="friendCodeLookupReplyRoundTripsWhenFound()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.0"/>
+  <testcase name="loginChallengeRoundTrips()" classname="net.peercraft.rendezvous.AccountProtocolTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -69,6 +69,14 @@ public final class PeerCraftConfig {
         return stringValue("roomCode", "");
     }
 
+    // Host-only: default maximum number of players for a room opened via the rendezvous
+    // path — the GUI (ShareToLanScreenMixin) lets the host override this per-session; this
+    // is just the initial/launch-flag value. Range must match RoomRegistry's own clamp on
+    // the server side ([1, 32]) so a launch-flag override can't silently get clamped away.
+    public static int maxPlayers() {
+        return intValueInRange("maxPlayers", 4, 1, 32);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         if (property != null && !property.isBlank()) {
@@ -84,13 +92,17 @@ public final class PeerCraftConfig {
     }
 
     private static int intValue(String key, int defaultValue) {
+        return intValueInRange(key, defaultValue, 0, 65535);
+    }
+
+    private static int intValueInRange(String key, int defaultValue, int min, int max) {
         String value = stringValue(key, Integer.toString(defaultValue));
         try {
             int parsed = Integer.parseInt(value);
-            if (parsed >= 0 && parsed <= 65535) {
+            if (parsed >= min && parsed <= max) {
                 return parsed;
             }
-            LOGGER.warn("[PeerCraftConfig] peercraft.{}='{}' вне диапазона портов 0-65535, использую {} по умолчанию", key, value, defaultValue);
+            LOGGER.warn("[PeerCraftConfig] peercraft.{}='{}' вне диапазона {}-{}, использую {} по умолчанию", key, value, min, max, defaultValue);
         } catch (NumberFormatException e) {
             LOGGER.warn("[PeerCraftConfig] peercraft.{}='{}' — не целое число, использую {} по умолчанию", key, value, defaultValue);
         }

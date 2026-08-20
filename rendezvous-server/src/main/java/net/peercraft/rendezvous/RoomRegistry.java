@@ -1,8 +1,6 @@
 package net.peercraft.rendezvous;
 
 import java.net.InetAddress;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -14,7 +12,6 @@ import java.util.function.LongSupplier;
  */
 final class RoomRegistry {
 
-    private static final String CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     private static final int CODE_LENGTH = 6;
 
     // A room (claimed or not) stays alive as long as the host keeps sending
@@ -32,10 +29,13 @@ final class RoomRegistry {
     private static final int MAX_ROOMS = 1000;
     private static final int REGISTER_RATE_LIMIT = 5;
     private static final long REGISTER_RATE_WINDOW_MILLIS = 60_000L;
+    private static final int MIN_MAX_PLAYERS = 1;
+    private static final int MAX_MAX_PLAYERS = 32;
 
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
-    private final Map<InetAddress, Deque<Long>> registerTimestampsByIp = new ConcurrentHashMap<>();
     private final LongSupplier clock;
+    private final CodeGenerator codeGenerator = new CodeGenerator(CODE_LENGTH);
+    private final RateLimiter<InetAddress> registerRateLimiter;
 
     RoomRegistry() {
         this(System::currentTimeMillis);
@@ -44,6 +44,7 @@ final class RoomRegistry {
     /** Package-private seam so tests can control TTL/grace-window behavior deterministically. */
     RoomRegistry(LongSupplier clock) {
         this.clock = clock;
+        this.registerRateLimiter = new RateLimiter<>(REGISTER_RATE_LIMIT, REGISTER_RATE_WINDOW_MILLIS, clock);
     }
 
     interface RegisterResult {
@@ -65,29 +66,38 @@ final class RoomRegistry {
     record JoinRejected(byte reason) implements JoinResult {
     }
 
-    RegisterResult register(RendezvousProtocol.Address hostAddress) {
+    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount) {
         long now = clock.getAsLong();
+        int clampedMaxPlayers = clamp(maxPlayers, MIN_MAX_PLAYERS, MAX_MAX_PLAYERS);
 
         // Idempotent retry/keepalive: this host already has a room — claimed or not —
         // refresh its lifetime and hand back the same code instead of minting a new one.
         // This is what lets a room code stay valid (and rejoinable) for as long as the
         // host keeps hosting, rather than being replaced the moment it's first claimed.
+        // Also self-corrects maxPlayers/currentPlayerCount on every keepalive — this is
+        // what lets a slot freed up by a leaving player become joinable again within one
+        // keepalive interval, without a dedicated "player left" message.
         for (Room existing : roomsByCode.values()) {
             if (existing.hostAddress.equals(hostAddress)) {
                 existing.lastSeenAt = now;
+                existing.maxPlayers = clampedMaxPlayers;
+                existing.currentPlayerCount = currentPlayerCount;
                 return new Registered(existing.code, true);
             }
         }
 
-        if (!allowRegister(hostAddress.host())) {
+        if (!registerRateLimiter.allow(hostAddress.host())) {
             return new RegisterRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         }
         if (roomsByCode.size() >= MAX_ROOMS) {
             return new RegisterRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         }
 
-        String code = generateUniqueCode();
-        roomsByCode.put(code, new Room(code, hostAddress, now));
+        String code = codeGenerator.generateUnique(roomsByCode::containsKey);
+        Room room = new Room(code, hostAddress, now);
+        room.maxPlayers = clampedMaxPlayers;
+        room.currentPlayerCount = currentPlayerCount;
+        roomsByCode.put(code, room);
         return new Registered(code, false);
     }
 
@@ -106,21 +116,31 @@ final class RoomRegistry {
 
             room.lastSeenAt = now;
 
-            boolean sameRecentMatch = room.claimed
-                    && joinerAddress.equals(room.joinerAddress)
-                    && (now - room.lastMatchedAt) <= REMATCH_DEBOUNCE_MILLIS;
-            if (!sameRecentMatch) {
-                // Either the first-ever claim, or a genuinely new join (different address,
-                // or the same one reconnecting well after its last match) — issue a fresh
-                // token and re-match, rather than rejecting as ALREADY_CLAIMED.
-                room.token = ThreadLocalRandom.current().nextLong();
-                room.joinerAddress = joinerAddress;
-                room.claimed = true;
-                room.lastMatchedAt = now;
+            Room.JoinerSlot slot = room.joiners.get(joinerAddress);
+            boolean sameRecentMatch = slot != null && (now - slot.lastMatchedAt) <= REMATCH_DEBOUNCE_MILLIS;
+            if (sameRecentMatch) {
+                return new Matched(room.hostAddress, joinerAddress, slot.token);
             }
 
-            return new Matched(room.hostAddress, room.joinerAddress, room.token);
+            // A genuinely new address counts against the room's capacity — a joiner this
+            // room has seen before (reconnecting after a gap longer than the debounce
+            // window) is always let back in regardless of maxPlayers, since it isn't a new
+            // admission. currentPlayerCount is self-reported by the host (see register())
+            // and only advisory here — P2PBridge on the host is the real authority and
+            // enforces this again once actual relay traffic arrives.
+            if (slot == null && room.currentPlayerCount >= room.maxPlayers) {
+                return new JoinRejected(RendezvousProtocol.REASON_ALREADY_CLAIMED);
+            }
+
+            long token = ThreadLocalRandom.current().nextLong();
+            room.joiners.put(joinerAddress, new Room.JoinerSlot(joinerAddress, token, now));
+
+            return new Matched(room.hostAddress, joinerAddress, token);
         }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     /** Called periodically (see RendezvousServer) to bound memory — not on the request path. */
@@ -138,44 +158,12 @@ final class RoomRegistry {
         long now = clock.getAsLong();
         java.util.List<String> lines = new java.util.ArrayList<>();
         for (Room room : roomsByCode.values()) {
-            String state = room.claimed
-                    ? "claimed, last matched " + (now - room.lastMatchedAt) + "ms ago"
-                    : "unclaimed";
+            String state = room.joiners.isEmpty()
+                    ? "unclaimed"
+                    : "joined by " + room.joiners.size() + "/" + room.maxPlayers + " (self-reported: " + room.currentPlayerCount + ")";
             lines.add(room.code + " (host=" + room.hostAddress.host().getHostAddress() + ":" + room.hostAddress.port()
                     + ", " + state + ", last seen " + (now - room.lastSeenAt) + "ms ago)");
         }
         return lines;
-    }
-
-    private boolean allowRegister(InetAddress ip) {
-        Deque<Long> timestamps = registerTimestampsByIp.computeIfAbsent(ip, k -> new ArrayDeque<>());
-        long now = clock.getAsLong();
-        synchronized (timestamps) {
-            while (!timestamps.isEmpty() && now - timestamps.peekFirst() > REGISTER_RATE_WINDOW_MILLIS) {
-                timestamps.pollFirst();
-            }
-            if (timestamps.size() >= REGISTER_RATE_LIMIT) {
-                return false;
-            }
-            timestamps.addLast(now);
-            return true;
-        }
-    }
-
-    private String generateUniqueCode() {
-        String code;
-        do {
-            code = randomCode();
-        } while (roomsByCode.containsKey(code));
-        return code;
-    }
-
-    private static String randomCode() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        StringBuilder sb = new StringBuilder(CODE_LENGTH);
-        for (int i = 0; i < CODE_LENGTH; i++) {
-            sb.append(CODE_ALPHABET.charAt(random.nextInt(CODE_ALPHABET.length())));
-        }
-        return sb.toString();
     }
 }

@@ -1,0 +1,101 @@
+package net.peercraft.client.gui;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.peercraft.client.account.AccountSessionHolder;
+import net.peercraft.network.account.AccountClient;
+
+/** Rename for unlicensed accounts only — see AccountService.rename, which rejects licensed accounts server-side too. */
+public class PeerCraftRenameScreen extends Screen {
+
+    private final Screen lastScreen;
+
+    private EditBox newNameBox;
+    private Button saveButton;
+    private Component statusMessage = Component.empty();
+
+    public PeerCraftRenameScreen(Screen lastScreen) {
+        super(Component.literal("PeerCraft — изменить ник"));
+        this.lastScreen = lastScreen;
+    }
+
+    @Override
+    protected void init() {
+        int centerX = this.width / 2;
+        int y = this.height / 2 - 30;
+
+        this.newNameBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.literal("New nickname"));
+        this.newNameBox.setMaxLength(16);
+        AccountClient.AccountSession session = AccountSessionHolder.current();
+        if (session != null) {
+            this.newNameBox.setValue(session.displayName());
+        }
+        this.addRenderableWidget(this.newNameBox);
+        this.setInitialFocus(this.newNameBox);
+
+        y += 26;
+        this.saveButton = this.addRenderableWidget(Button.builder(Component.literal("Сохранить"), b -> onSave())
+                .bounds(centerX - 100, y, 200, 20).build());
+
+        y += 26;
+        this.addRenderableWidget(Button.builder(Component.literal("Назад"), b -> this.minecraft.setScreen(this.lastScreen))
+                .bounds(centerX - 100, y, 200, 20).build());
+    }
+
+    private void onSave() {
+        String newName = this.newNameBox.getValue().trim();
+        if (newName.length() < 3 || newName.length() > 16) {
+            this.statusMessage = Component.literal("Ник должен быть от 3 до 16 символов, без пробелов");
+            return;
+        }
+
+        this.saveButton.active = false;
+        this.statusMessage = Component.literal("Сохраняем...");
+        AccountClient.INSTANCE.renameDisplayName(newName, new AccountClient.RenameCallback() {
+            @Override
+            public void onSuccess(String appliedName) {
+                runOnClientThread(() -> {
+                    if (!stillOnThisScreen()) {
+                        return;
+                    }
+                    AccountClient.AccountSession updated = AccountSessionHolder.current();
+                    if (updated != null) {
+                        AccountSessionHolder.persist(updated);
+                    }
+                    minecraft.setScreen(new PeerCraftAccountScreen(lastScreen));
+                });
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                runOnClientThread(() -> {
+                    if (!stillOnThisScreen()) {
+                        return;
+                    }
+                    statusMessage = Component.literal(reason);
+                    saveButton.active = true;
+                });
+            }
+        });
+    }
+
+    private void runOnClientThread(Runnable action) {
+        Minecraft.getInstance().execute(action);
+    }
+
+    private boolean stillOnThisScreen() {
+        return Minecraft.getInstance().screen == this;
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 60, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 40, 0xFFFF55);
+    }
+}

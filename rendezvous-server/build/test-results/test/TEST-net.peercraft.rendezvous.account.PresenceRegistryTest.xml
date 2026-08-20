@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.account.PresenceRegistryTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:53.987Z" hostname="cachyos-x8664" time="0.006">
+  <properties/>
+  <testcase name="sweepExpiredRemovesOnlyStaleEntries()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.001"/>
+  <testcase name="stopImmediatelyMakesAccountOffline()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.001"/>
+  <testcase name="unknownAccountIsOffline()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.0"/>
+  <testcase name="repeatedSetHostingWithinHostTtlKeepsHostingStatusFresh()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.0"/>
+  <testcase name="setHostingReportsHostingWithRoomCode()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.001"/>
+  <testcase name="hostingDecaysToOnlineAfterHostTtlEvenIfGenericHeartbeatKeepsComing()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.001"/>
+  <testcase name="heartbeatMakesAccountOnline()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.0"/>
+  <testcase name="onlineExpiresToOfflineAfterPresenceTtlWithoutHeartbeat()" classname="net.peercraft.rendezvous.account.PresenceRegistryTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

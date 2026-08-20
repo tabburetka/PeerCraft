@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.account.AccountServiceTest" tests="43" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:19:52.655Z" hostname="cachyos-x8664" time="0.587">
+  <properties/>
+  <testcase name="listIncomingRequestsAndListFriendsReturnEmptyForInvalidSessionRatherThanFailing(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.01"/>
+  <testcase name="passwordLoginRejectsLicensedAccountsTargetedByFriendCode(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.003"/>
+  <testcase name="confirmLicensedAuthFailsWhenMojangDoesNotConfirm(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="passwordLoginFailsWithWrongPassword(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.23"/>
+  <testcase name="searchIsRateLimitedPerAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="searchSortsLicensedAccountsBeforeUnlicensedRegardlessOfNameOrder(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.003"/>
+  <testcase name="beginPasswordLoginFailsForUnknownFriendCode(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="listFriendsShowsOfflineByDefault(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="passwordLoginByAccountIdSucceeds(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.148"/>
+  <testcase name="searchExcludesTheSearchingAccountItself(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="removeFriendMakesBothSidesForgetEachOther(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="registerCreatesNewUnlicensedAccountAndIssuesSession(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="friendRequestIsRateLimitedPerAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.003"/>
+  <testcase name="confirmLicensedAuthFailsForUnknownRequestId(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="lookupFriendCodeFindsExistingAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="sendFriendRequestThenAcceptMakesBothAccountsMutualFriends(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="pendingLicensedAttemptExpiresAfterTtl(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="removeFriendOnNonFriendIsIdempotentNoOp(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="renameRejectedForUnknownSession(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="resolveSessionReturnsEmptyForUnknownToken(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="loginRememberedFailsForUnknownAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="respondToRequestFailsWhenNoSuchRequestExists(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="licensedLoginResyncsDisplayNameOnRename(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="lookupFriendCodeReportsNotFoundForUnknownCode(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="heartbeatMakesFriendShowAsOnline(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="resolveSessionReturnsAccountIdForValidToken(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="passwordLoginByFriendCodeSucceedsWithCorrectResponse(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.102"/>
+  <testcase name="registerRejectsTooShortUsername(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="sendFriendRequestRejectsSelfTarget(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="registerRejectsUsernameWithWhitespace(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="renameRejectedForTooShortName(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="listFriendsReflectsHostingStatusAfterSetHosting(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="registerIsRateLimitedPerSourceIp(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="loginRememberedFailsWithWrongToken(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.0"/>
+  <testcase name="sendFriendRequestThenDeclineLeavesNoFriendshipOrPendingRequest(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="licensedLoginCreatesAccountUsingMojangUuidAndName(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.001"/>
+  <testcase name="sendFriendRequestIsIdempotentForARepeatedRequest(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="loginRememberedSucceedsWithCorrectTokenAndRotatesIt(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="sendFriendRequestRejectsWhenAlreadyFriends(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="renameSucceedsForUnlicensedAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="renameIsRateLimitedPerAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="stopPresenceMakesFriendShowAsOfflineImmediately(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <testcase name="renameRejectedForLicensedAccount(Path)" classname="net.peercraft.rendezvous.account.AccountServiceTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

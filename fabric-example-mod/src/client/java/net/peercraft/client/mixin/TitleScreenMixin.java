@@ -4,6 +4,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
+import net.peercraft.client.gui.PeerCraftAccountScreen;
 import net.peercraft.client.gui.PeerCraftJoinScreen;
 import net.peercraft.config.PeerCraftConfig;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,15 +20,27 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void peercraft$addJoinButton(CallbackInfo ci) {
+    private void peercraft$addButtons(CallbackInfo ci) {
         String mode = PeerCraftConfig.mode();
-        if (PeerCraftConfig.MODE_DISABLED.equals(mode) || PeerCraftConfig.MODE_HOST.equals(mode)) {
+        if (PeerCraftConfig.MODE_DISABLED.equals(mode)) {
             return;
         }
 
-        this.addRenderableWidget(Button.builder(Component.literal("PeerCraft: Join"),
-                        b -> this.minecraft.setScreen(new PeerCraftJoinScreen(this)))
-                .bounds(this.width / 2 - 100, this.height - 28, 200, 20)
+        int y = this.height - 28;
+        if (!PeerCraftConfig.MODE_HOST.equals(mode)) {
+            this.addRenderableWidget(Button.builder(Component.literal("PeerCraft: Join"),
+                            b -> this.minecraft.setScreen(new PeerCraftJoinScreen(this)))
+                    .bounds(this.width / 2 - 100, y, 200, 20)
+                    .build());
+            y -= 24;
+        }
+
+        // Account/friends button — shown in every non-disabled mode (including host), unlike
+        // Join above: a host can still want an account for the friends system even though
+        // they don't need to manually join a room by code.
+        this.addRenderableWidget(Button.builder(Component.literal("PeerCraft: Аккаунт"),
+                        b -> this.minecraft.setScreen(new PeerCraftAccountScreen(this)))
+                .bounds(this.width / 2 - 100, y, 200, 20)
                 .build());
     }
 }
