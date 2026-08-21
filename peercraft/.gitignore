@@ -28,11 +28,12 @@ bin/
 
 *.DS_Store
 
-# fabric
+# fabric / neoforge
 
 run/
 run-host/
 run-client/
+runs/
 
 # java
 

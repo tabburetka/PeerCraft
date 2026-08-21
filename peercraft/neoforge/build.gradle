@@ -1,0 +1,26 @@
+plugins {
+	id 'multiloader-loader'
+	id 'net.neoforged.moddev'
+}
+
+neoForge {
+	version = project.neoforge_version
+
+	mods {
+		"${project.mod_id}" {
+			sourceSet sourceSets.main
+		}
+	}
+
+	runs {
+		configureEach {
+			systemProperty('neoforge.enabledGameTestNamespaces', project.mod_id)
+		}
+		client {
+			client()
+		}
+		server {
+			server()
+		}
+	}
+}

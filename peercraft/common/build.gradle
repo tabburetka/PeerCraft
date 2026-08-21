@@ -1,0 +1,49 @@
+plugins {
+	id 'multiloader-common'
+	// ModDevGradle gives common a plain deobfuscated (NeoForm) Minecraft to compile against,
+	// without pulling in either loader's own API — it's only used here for the classpath.
+	id 'net.neoforged.moddev'
+}
+
+neoForge {
+	neoFormVersion = project.neo_form_version
+}
+
+dependencies {
+	// Mixin classes (net.peercraft.mixin / net.peercraft.client.mixin) live in common, so the
+	// annotations need to resolve here at compile time; each loader applies them at runtime
+	// through its own bundled Mixin.
+	compileOnly group: 'org.spongepowered', name: 'mixin', version: '0.8.5'
+
+	// These are on the compile classpath transitively (via Minecraft's own libraries, pulled in
+	// by ModDevGradle), but not on the plain JUnit `test` task's runtime classpath — both loaders
+	// provide their own copies at actual game runtime, so these are test-only. Versions match
+	// what Minecraft 1.21.1 itself bundles.
+	testImplementation 'org.slf4j:slf4j-api:2.0.16'
+	testImplementation 'com.google.code.gson:gson:2.10.1'
+	testImplementation 'com.mojang:authlib:6.0.54'
+
+	testImplementation platform('org.junit:junit-bom:5.10.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+}
+
+configurations {
+	commonJava {
+		canBeResolved = false
+		canBeConsumed = true
+	}
+	commonResources {
+		canBeResolved = false
+		canBeConsumed = true
+	}
+}
+
+artifacts {
+	commonJava sourceSets.main.java.sourceDirectories.singleFile
+	commonResources sourceSets.main.resources.sourceDirectories.singleFile
+}

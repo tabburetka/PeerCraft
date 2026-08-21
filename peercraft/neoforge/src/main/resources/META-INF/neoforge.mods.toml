@@ -1,0 +1,31 @@
+modLoader = "javafml"
+loaderVersion = "${neoforge_loader_version_range}"
+license = "CC-BY-NC-4.0"
+
+[[mods]]
+modId = "peercraft"
+version = "${version}"
+displayName = "PeerCraft"
+logoFile = "assets/peercraft/icon.png"
+authors = "_i_kukumber_"
+description = '''This is an example description! Tell everyone what your mod is about!'''
+
+[[mixins]]
+config = "peercraft.mixins.json"
+
+[[mixins]]
+config = "peercraft.client.mixins.json"
+
+[[dependencies.peercraft]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoforge_version},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.peercraft]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "BOTH"
