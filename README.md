@@ -29,16 +29,23 @@ No dedicated server, no always-on hosting machine, no router configuration on ei
 
 ## Requirements
 
-- Minecraft **1.21.1**
-- [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer
-- [Fabric API](https://modrinth.com/mod/fabric-api)
+- Minecraft **1.21.1 – 1.21.11** (the full 1.21.x line — see the version table below for per-version loader availability)
+- [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, with [Fabric API](https://modrinth.com/mod/fabric-api) — **or** [NeoForge](https://neoforged.net/)
 - Java 21
+
+Both loaders ship a separate jar per Minecraft version (e.g. `peercraft-fabric-1.21.7-1.0.0.jar`, `peercraft-neoforge-1.21.7-1.0.0.jar`) — pick the one matching your game version and loader.
+
+| Minecraft | Fabric | NeoForge |
+|---|---|---|
+| 1.21.1 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ |
+| 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (NeoForge only ever shipped a `-beta`-tagged build for these — still a real, working release, just never marked stable) |
+| 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version at all — it moved straight to 1.21.3, released the next day) |
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 1.21.1.
-2. Download **Fabric API** and **PeerCraft** and drop both `.jar` files into your `.minecraft/mods` folder.
-3. Launch the game using the Fabric profile.
+1. Install [Fabric Loader](https://fabricmc.net/use/) or [NeoForge](https://neoforged.net/) for your Minecraft version.
+2. Fabric: download **Fabric API** and **PeerCraft** (the `-fabric-` jar matching your version) into `.minecraft/mods`. NeoForge: download the `-neoforge-` jar matching your version into `.minecraft/mods` — no separate API mod needed.
+3. Launch the game using the matching profile.
 
 ## FAQ
 
