@@ -88,7 +88,7 @@ class PresenceServerIntegrationTest {
 
             // Host opens a room, attaching their account — same wire message a real
             // RendezvousClient.registerRoom(...) with a logged-in session would send.
-            byte[] registerReq = RendezvousProtocol.encodeRegisterWithAccount(4, 0, host.accountId(), host.sessionToken());
+            byte[] registerReq = RendezvousProtocol.encodeRegisterWithAccount(4, 0, host.accountId(), host.sessionToken(), false);
             byte[] registerReply = sendAndReceive(hostSocket, loopback, port, registerReq);
             RendezvousProtocol.RoomCreated roomCreated = RendezvousProtocol.decodeRoomCreated(registerReply, registerReply.length);
 
@@ -125,7 +125,7 @@ class PresenceServerIntegrationTest {
             sendAndReceive(friendSocket, loopback, port, AccountProtocol.encodeFriendRequestRespond(friend.sessionToken(), victim.accountId(), true));
 
             // Attacker claims victim's accountId but uses their OWN sessionToken.
-            byte[] spoofed = RendezvousProtocol.encodeRegisterWithAccount(4, 0, victim.accountId(), attacker.sessionToken());
+            byte[] spoofed = RendezvousProtocol.encodeRegisterWithAccount(4, 0, victim.accountId(), attacker.sessionToken(), false);
             sendAndReceive(attackerSocket, loopback, port, spoofed);
 
             byte[] friendsReply = sendAndReceive(friendSocket, loopback, port, AccountProtocol.encodeFriendListQuery(friend.sessionToken()));

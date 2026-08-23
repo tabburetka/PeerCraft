@@ -16,13 +16,34 @@ import net.minecraft.util.FormattedCharSequence;
  */
 final class PeerCraftUi {
 
-    static final int TEXT_TITLE = 0xFFFFFF;
-    static final int TEXT_MUTED = 0xAAAAAA;
-    static final int TEXT_ERROR = 0xFF5555;
-    static final int TEXT_SUCCESS = 0x55FF55;
-    static final int TEXT_ACCENT = 0xFFD966;
+    // Fully opaque (0xFF alpha) — GuiGraphics.drawString() since 1.21.6 silently skips rendering
+    // entirely when a color's alpha byte is 0, which every one of these was before.
+    static final int TEXT_TITLE = 0xFFFFFFFF;
+    static final int TEXT_MUTED = 0xFFAAAAAA;
+    static final int TEXT_ERROR = 0xFFFF5555;
+    static final int TEXT_SUCCESS = 0xFF55FF55;
+    static final int TEXT_ACCENT = 0xFFFFD966;
 
     private PeerCraftUi() {
+    }
+
+    /**
+     * ASCII letters, digits and underscore only — mirrors the server's authoritative check
+     * (AccountService.isValidUsername) so the field rejects an invalid nickname immediately
+     * instead of round-tripping to the server first. Keeping this in sync matters: it's also
+     * what stops a player from typing "✓" or other lookalike glyphs into their own nickname to
+     * spoof the licensed badge drawn by {@link #badgeText}.
+     */
+    static boolean isValidUsername(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            boolean digit = c >= '0' && c <= '9';
+            if (!letter && !digit && c != '_') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Renders as dots instead of the real characters, without changing what {@code getValue()} returns. */

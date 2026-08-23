@@ -116,6 +116,9 @@ public class PeerCraftFriendRequestsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
+        // again here double-fires the (now once-per-frame) blur effect and crashes.
+        //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;

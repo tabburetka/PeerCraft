@@ -33,7 +33,9 @@ public abstract class ShareToLanScreenMixin extends Screen {
         // ShareToLanScreen.init) — everything here must stay clear of that. Stacked
         // vertically (not side-by-side like before) so the long "Allow unlicensed
         // players" label has room without needing to share a row with the max-players button.
-        int y = this.height - 104;
+        // Base shifted up by one more 26px row (was height-104) to fit the "Open to Friends"
+        // checkbox below allowUnlicensedCheckbox while keeping a clear gap above height-28.
+        int y = this.height - 130;
 
         int initialMaxPlayers = MAX_PLAYERS_OPTIONS.contains(PeerCraftHostOptions.maxPlayers) ? PeerCraftHostOptions.maxPlayers : MAX_PLAYERS_OPTIONS.get(MAX_PLAYERS_OPTIONS.size() - 1);
         // CycleButton.builder(Function) lost its no-initial-value overload in 1.21.11 —
@@ -55,10 +57,23 @@ public abstract class ShareToLanScreenMixin extends Screen {
                 .onValueChange((checkbox, value) -> PeerCraftHostOptions.allowUnlicensedPlayers = value)
                 .build();
 
-        // Both only make sense when hosting through PeerCraft's internet path at all — hidden
-        // (not just disabled) whenever that's off, and re-shown live as the checkbox toggles.
+        // Requires being logged into a PeerCraft account — with no account there's no friends
+        // list to gate against, so the checkbox is shown but disabled rather than hidden (so
+        // players discover the feature exists and know why it's unavailable).
+        boolean loggedIn = net.peercraft.network.account.AccountClient.INSTANCE.getCurrentSession() != null;
+        Checkbox friendsOnlyCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.friends_only"), this.font)
+                .pos(this.width / 2 - 155, y + 78)
+                .selected(PeerCraftHostOptions.friendsOnly)
+                .onValueChange((checkbox, value) -> PeerCraftHostOptions.friendsOnly = value)
+                .build();
+        friendsOnlyCheckbox.active = loggedIn;
+
+        // All three only make sense when hosting through PeerCraft's internet path at all —
+        // hidden (not just disabled) whenever that's off, and re-shown live as the checkbox
+        // toggles.
         maxPlayersButton.visible = PeerCraftHostOptions.internetPlayRequested;
         allowUnlicensedCheckbox.visible = PeerCraftHostOptions.internetPlayRequested;
+        friendsOnlyCheckbox.visible = PeerCraftHostOptions.internetPlayRequested;
 
         Checkbox internetCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.internet_play"), this.font)
                 .pos(this.width / 2 - 155, y)
@@ -67,11 +82,13 @@ public abstract class ShareToLanScreenMixin extends Screen {
                     PeerCraftHostOptions.internetPlayRequested = value;
                     maxPlayersButton.visible = value;
                     allowUnlicensedCheckbox.visible = value;
+                    friendsOnlyCheckbox.visible = value;
                 })
                 .build();
 
         this.addRenderableWidget(internetCheckbox);
         this.addRenderableWidget(maxPlayersButton);
         this.addRenderableWidget(allowUnlicensedCheckbox);
+        this.addRenderableWidget(friendsOnlyCheckbox);
     }
 }

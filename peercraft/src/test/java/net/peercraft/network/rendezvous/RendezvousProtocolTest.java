@@ -42,7 +42,7 @@ class RendezvousProtocolTest {
         for (int i = 0; i < sessionToken.length; i++) {
             sessionToken[i] = (byte) i;
         }
-        byte[] encoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken);
+        byte[] encoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken, true);
 
         assertEquals(RendezvousProtocol.TYPE_REGISTER, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
         RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
@@ -51,6 +51,38 @@ class RendezvousProtocolTest {
         assertTrue(decoded.account().isPresent());
         assertEquals(accountId, decoded.account().get().accountId());
         assertArrayEquals(sessionToken, decoded.account().get().sessionToken());
+        assertTrue(decoded.friendsOnly());
+    }
+
+    @Test
+    void registerWithAccountNotFriendsOnlyRoundTrips() {
+        java.util.UUID accountId = java.util.UUID.randomUUID();
+        byte[] sessionToken = new byte[16];
+        for (int i = 0; i < sessionToken.length; i++) {
+            sessionToken[i] = (byte) i;
+        }
+        byte[] encoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken, false);
+
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertFalse(decoded.friendsOnly());
+    }
+
+    @Test
+    void oldAccountRegisterPayloadWithoutFriendsOnlyByteStillDecodes() {
+        // Regression guard: a REGISTER encoded before Phase 6 (20 bytes, no trailing
+        // friendsOnly byte) must still decode — friendsOnly just defaults to false.
+        java.util.UUID accountId = java.util.UUID.randomUUID();
+        byte[] sessionToken = new byte[16];
+        for (int i = 0; i < sessionToken.length; i++) {
+            sessionToken[i] = (byte) i;
+        }
+        byte[] fullEncoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken, true);
+        byte[] oldStyleEncoded = java.util.Arrays.copyOfRange(fullEncoded, 0, fullEncoded.length - 1);
+
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(oldStyleEncoded, oldStyleEncoded.length);
+        assertTrue(decoded.account().isPresent());
+        assertEquals(accountId, decoded.account().get().accountId());
+        assertFalse(decoded.friendsOnly());
     }
 
     @Test

@@ -97,6 +97,10 @@ public final class RendezvousClient implements RawPacketListener {
     // friends' presence (see AccountService.setHosting on the server).
     private volatile java.util.UUID accountId;
     private volatile byte[] accountSessionToken;
+    // Phase 6 — only meaningful together with accountId/accountSessionToken above (a room
+    // can't be gated to "friends" with no account owning the friends list); see
+    // registerRoom's account-aware overload.
+    private volatile boolean friendsOnly = false;
     // Last room code we told the host about — lets handleRoomCreated notice when a later
     // keepalive REGISTER comes back with a different code (see RoomCallback.onRoomCreated).
     private volatile String lastKnownRoomCode = null;
@@ -123,11 +127,18 @@ public final class RendezvousClient implements RawPacketListener {
     /** As {@link #registerRoom(int, IntSupplier, RoomCallback, MatchCallback)}, but attaches the host's account so the room shows up as "hosting" in their friends' presence (Phase 4). */
     public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
                               RoomCallback roomCallback, MatchCallback matchCallback) {
+        registerRoom(maxPlayers, currentPlayerCountSupplier, accountId, accountSessionToken, false, roomCallback, matchCallback);
+    }
+
+    /** As the account-aware {@link #registerRoom}, but also gates JOIN to the host's friends list (Phase 6) — see RoomRegistry.join() on the server. Has no effect if accountId/accountSessionToken are null (nothing to own a friends list). */
+    public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
+                              boolean friendsOnly, RoomCallback roomCallback, MatchCallback matchCallback) {
         this.hostMode = true;
         this.maxPlayers = maxPlayers;
         this.currentPlayerCountSupplier = currentPlayerCountSupplier;
         this.accountId = accountId;
         this.accountSessionToken = accountSessionToken;
+        this.friendsOnly = friendsOnly;
         this.roomCallback = roomCallback;
         this.matchCallback = matchCallback;
         this.state = State.REGISTERING;
@@ -139,7 +150,7 @@ public final class RendezvousClient implements RawPacketListener {
         java.util.UUID accId = this.accountId;
         byte[] token = this.accountSessionToken;
         if (accId != null && token != null) {
-            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token);
+            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly);
         }
         return RendezvousProtocol.encodeRegister(this.maxPlayers, count);
     }
@@ -329,6 +340,7 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_ALREADY_CLAIMED -> "комната уже занята";
             case RendezvousProtocol.REASON_EXPIRED -> "код комнаты истёк";
             case RendezvousProtocol.REASON_SERVER_BUSY -> "сервер знакомств перегружен, попробуйте позже";
+            case RendezvousProtocol.REASON_NOT_FRIEND -> "вы не в списке друзей хозяина комнаты";
             default -> "неизвестная ошибка сервера знакомств (" + reason + ")";
         };
     }

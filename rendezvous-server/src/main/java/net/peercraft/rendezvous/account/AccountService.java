@@ -375,6 +375,17 @@ public final class AccountService {
         sessions.validate(sessionToken).ifPresent(presence::heartbeat);
     }
 
+    /**
+     * Phase 6: is {@code otherAccountId} on {@code accountId}'s friends list? No session
+     * involved — both ids must already be trustworthy by the time this is called (the host's
+     * verified via its REGISTER sessionToken, the joiner's via its JOIN sessionToken — see
+     * RendezvousServer). Friendship is symmetric, so either id may be passed as either
+     * argument.
+     */
+    public boolean isFriend(UUID accountId, UUID otherAccountId) {
+        return store.byId(accountId).map(a -> a.friends.contains(otherAccountId)).orElse(false);
+    }
+
     public void stopPresence(byte[] sessionToken) {
         sessions.validate(sessionToken).ifPresent(presence::stop);
     }
@@ -423,13 +434,21 @@ public final class AccountService {
         return friendCodeGenerator.generateUnique(store::friendCodeTaken);
     }
 
+    /**
+     * ASCII letters, digits and underscore only — same alphabet Mojang enforces for licensed
+     * usernames, so a player can never pick an unlicensed nickname that visually spoofs the
+     * client's "✓ licensed" badge (see PeerCraftUi.badgeText) or any other special-character
+     * trick (lookalike glyphs, zero-width characters, etc.).
+     */
     private static boolean isValidUsername(String name) {
         if (name == null || name.length() < 3 || name.length() > 16) {
             return false;
         }
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
-            if (c < 0x21 || c > 0x7E) { // printable ASCII, no whitespace
+            boolean letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            boolean digit = c >= '0' && c <= '9';
+            if (!letter && !digit && c != '_') {
                 return false;
             }
         }

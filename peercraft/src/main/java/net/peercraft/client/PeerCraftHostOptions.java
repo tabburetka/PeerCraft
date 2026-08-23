@@ -16,6 +16,12 @@ public final class PeerCraftHostOptions {
     // OpenToLanMixin previously always turned it off unconditionally) so only players who can
     // actually pass the real Mojang session handshake get in.
     public static volatile boolean allowUnlicensedPlayers = true;
+    // false (default): access to the room is via room code alone, as before. true: JOIN is
+    // additionally gated to accounts on the host's PeerCraft friends list, even if the
+    // joiner knows a valid code — see RoomRegistry.join() on the rendezvous server. Only
+    // takes effect when the host is logged into a PeerCraft account (see
+    // ShareToLanScreenMixin, which disables the checkbox otherwise).
+    public static volatile boolean friendsOnly = false;
 
     private PeerCraftHostOptions() {
     }

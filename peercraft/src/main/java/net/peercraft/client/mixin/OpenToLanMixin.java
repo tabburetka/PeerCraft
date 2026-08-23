@@ -68,7 +68,7 @@ public abstract class OpenToLanMixin {
             // checkbox on this same screen (ShareToLanScreenMixin), not a launch flag.
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
-                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, new P2PBridge.HostListener() {
+                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly, new P2PBridge.HostListener() {
                     @Override
                     public void onRoomCreated(String code, boolean changed) {
                         String prefixKey = changed

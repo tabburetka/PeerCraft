@@ -2,6 +2,8 @@ package net.peercraft.rendezvous;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /** Mutable pairing state for one room code. Package-private — only {@link RoomRegistry} touches it. */
 final class Room {
@@ -9,6 +11,15 @@ final class Room {
     final String code;
     final RendezvousProtocol.Address hostAddress;
     final long createdAt;
+
+    // Self-reported (and server-verified against the REGISTER's sessionToken — see
+    // RendezvousServer.handleRegister) on every REGISTER, same self-correcting keepalive
+    // pattern as maxPlayers/currentPlayerCount below. Empty for an anonymous host.
+    Optional<UUID> hostAccountId = Optional.empty();
+    // Phase 6: when true, JOIN is gated to accounts on hostAccountId's friends list — see
+    // RoomRegistry.join(). Only ever true together with a present hostAccountId (enforced by
+    // RendezvousServer.handleRegister, not here).
+    volatile boolean friendsOnly = false;
 
     // Refreshed on every REGISTER (host keepalive) or JOIN — drives RoomRegistry's
     // sweepExpired(). A room stays alive indefinitely, claimed or not, as long as the

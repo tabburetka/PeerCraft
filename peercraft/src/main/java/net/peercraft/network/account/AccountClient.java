@@ -595,7 +595,7 @@ public final class AccountClient {
     private static String describeAuthFailReason(byte reason) {
         return switch (reason) {
             case AccountProtocol.REASON_MOJANG_VERIFICATION_FAILED -> "не удалось подтвердить лицензию через Mojang";
-            case AccountProtocol.REASON_USERNAME_INVALID -> "недопустимый ник (3-16 символов, без пробелов)";
+            case AccountProtocol.REASON_USERNAME_INVALID -> "недопустимый ник (3-16 символов: латинские буквы, цифры и _)";
             case AccountProtocol.REASON_BAD_CREDENTIALS -> "неверный код дружбы или пароль";
             case AccountProtocol.REASON_UNKNOWN_ACCOUNT -> "аккаунт не найден";
             case AccountProtocol.REASON_RATE_LIMITED -> "слишком много попыток, попробуйте позже";
@@ -607,7 +607,7 @@ public final class AccountClient {
 
     private static String describeRenameFailReason(byte reason) {
         return switch (reason) {
-            case AccountProtocol.REASON_NAME_INVALID -> "недопустимый ник (3-16 символов, без пробелов)";
+            case AccountProtocol.REASON_NAME_INVALID -> "недопустимый ник (3-16 символов: латинские буквы, цифры и _)";
             case AccountProtocol.REASON_LICENSED_CANNOT_RENAME -> "у лицензионного аккаунта ник берётся из Mojang и не меняется вручную";
             case AccountProtocol.REASON_RATE_LIMITED -> "ник можно менять не так часто, попробуйте позже";
             case AccountProtocol.REASON_UNKNOWN_ACCOUNT -> "сессия истекла, войдите заново";

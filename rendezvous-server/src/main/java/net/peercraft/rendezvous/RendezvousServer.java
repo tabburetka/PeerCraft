@@ -146,7 +146,15 @@ public final class RendezvousServer {
 
     private void handleRegister(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         RendezvousProtocol.Register register = RendezvousProtocol.decodeRegister(data, data.length);
-        RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount());
+        // A REGISTER's self-reported accountId is never trusted unchecked — only linked to
+        // presence/friends if its attached sessionToken actually resolves to that exact
+        // account, closing off "claim to be hosting as someone else's account" spoofing. The
+        // same verified id is what RoomRegistry stores as the room's hostAccountId, so a
+        // friends-only gate can never end up checking against a spoofed identity.
+        java.util.Optional<java.util.UUID> verifiedAccountId = register.account().flatMap(ref ->
+                accountService.resolveSession(ref.sessionToken()).filter(resolved -> resolved.equals(ref.accountId())));
+        boolean friendsOnly = register.friendsOnly() && verifiedAccountId.isPresent();
+        RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(), verifiedAccountId, friendsOnly);
         if (result instanceof RoomRegistry.Registered registered) {
             send(socket, RendezvousProtocol.encodeRoomCreated(registered.code(), from), from);
             if (registered.reused()) {
@@ -154,12 +162,7 @@ public final class RendezvousServer {
             } else {
                 log("REGISTER from " + describe(from) + " -> new room " + registered.code());
             }
-            // A REGISTER's self-reported accountId is never trusted unchecked — only linked to
-            // presence/friends if its attached sessionToken actually resolves to that exact
-            // account, closing off "claim to be hosting as someone else's account" spoofing.
-            register.account().ifPresent(ref -> accountService.resolveSession(ref.sessionToken())
-                    .filter(resolved -> resolved.equals(ref.accountId()))
-                    .ifPresent(accountId -> accountService.setHosting(accountId, registered.code())));
+            verifiedAccountId.ifPresent(accountId -> accountService.setHosting(accountId, registered.code()));
         } else {
             RoomRegistry.RegisterRejected rejected = (RoomRegistry.RegisterRejected) result;
             send(socket, RendezvousProtocol.encodeJoinFail(rejected.reason()), from);
@@ -169,14 +172,13 @@ public final class RendezvousServer {
 
     private void handleJoin(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         RendezvousProtocol.Join join = RendezvousProtocol.decodeJoin(data, data.length);
-        RoomRegistry.JoinResult result = registry.join(join.code(), from);
+        // Resolving straight from the joiner's own sessionToken (never a client-supplied
+        // accountId) is what makes this trustworthy — only the real session owner could have
+        // that token. Reused both for the friends-only gate below and for PEER_FOUND's account
+        // trailer to the host.
+        java.util.Optional<java.util.UUID> joinerAccountId = join.sessionToken().flatMap(accountService::resolveSession);
+        RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend);
         if (result instanceof RoomRegistry.Matched matched) {
-            // Resolving straight from the joiner's own sessionToken (never a client-supplied
-            // accountId) is what makes this trustworthy — only the real session owner could
-            // have that token, so there's nothing to spoof here (unlike REGISTER's account
-            // trailer, which needs the extra equality check since it also carries a claimed
-            // accountId).
-            java.util.Optional<java.util.UUID> joinerAccountId = join.sessionToken().flatMap(accountService::resolveSession);
             byte[] hostPayload = joinerAccountId
                     .map(id -> RendezvousProtocol.encodePeerFoundWithAccount(matched.joinerAddress(), matched.token(), id))
                     .orElseGet(() -> RendezvousProtocol.encodePeerFound(matched.joinerAddress(), matched.token()));

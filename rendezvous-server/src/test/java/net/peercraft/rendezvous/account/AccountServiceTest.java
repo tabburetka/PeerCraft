@@ -459,6 +459,29 @@ class AccountServiceTest {
     }
 
     @Test
+    void isFriendReturnsTrueForMutualFriends(@TempDir Path tempDir) throws UnknownHostException {
+        AccountService service = newService(tempDir.resolve("a.json"), new AtomicLong(0));
+        AccountService.AuthOkInfo alice = registerAndGetInfo(service, "Alice");
+        AccountService.AuthOkInfo bob = registerAndGetInfo(service, "Bob");
+        service.sendFriendRequest(alice.sessionToken(), bob.accountId());
+        service.respondToRequest(bob.sessionToken(), alice.accountId(), true);
+
+        assertTrue(service.isFriend(alice.accountId(), bob.accountId()));
+        assertTrue(service.isFriend(bob.accountId(), alice.accountId()));
+    }
+
+    @Test
+    void isFriendReturnsFalseForNonFriendsAndUnknownAccounts(@TempDir Path tempDir) throws UnknownHostException {
+        AccountService service = newService(tempDir.resolve("a.json"), new AtomicLong(0));
+        AccountService.AuthOkInfo alice = registerAndGetInfo(service, "Alice");
+        AccountService.AuthOkInfo bob = registerAndGetInfo(service, "Bob");
+
+        assertFalse(service.isFriend(alice.accountId(), bob.accountId()));
+        assertFalse(service.isFriend(alice.accountId(), UUID.randomUUID()));
+        assertFalse(service.isFriend(UUID.randomUUID(), bob.accountId()));
+    }
+
+    @Test
     void listIncomingRequestsAndListFriendsReturnEmptyForInvalidSessionRatherThanFailing(@TempDir Path tempDir) {
         AccountService service = newService(tempDir.resolve("a.json"), new AtomicLong(0));
 

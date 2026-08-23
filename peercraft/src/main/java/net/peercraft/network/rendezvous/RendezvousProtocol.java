@@ -36,6 +36,9 @@ public final class RendezvousProtocol {
     public static final byte REASON_ALREADY_CLAIMED = 2;
     public static final byte REASON_EXPIRED = 3;
     public static final byte REASON_SERVER_BUSY = 4;
+    // The room is friends-only (Phase 6) and the joiner either wasn't logged in or isn't on
+    // the host's friends list — see RoomRegistry.join()'s friendChecker.
+    public static final byte REASON_NOT_FRIEND = 5;
 
     private RendezvousProtocol() {
     }
@@ -50,8 +53,13 @@ public final class RendezvousProtocol {
     public record Join(String code, Optional<byte[]> sessionToken) {
     }
 
-    /** {@code account} is present only when the host is logged into a PeerCraft account (Phase 4) — see encodeRegisterWithAccount. */
-    public record Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account) {
+    /**
+     * {@code account} is present only when the host is logged into a PeerCraft account
+     * (Phase 4) — see encodeRegisterWithAccount. {@code friendsOnly} (Phase 6) only has an
+     * effect when {@code account} is present — a room can't be gated to "friends" with no
+     * account to own the friends list.
+     */
+    public record Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly) {
     }
 
     /** {@code sessionToken} must be re-validated server-side (see RendezvousServer.handleRegister) — a REGISTER must never be trusted to self-report its own accountId unchecked. */
@@ -102,14 +110,18 @@ public final class RendezvousProtocol {
     // message. Optional account trailer (Phase 4): [hasAccount:1][accountId:16][sessionToken:16]
     // — lets a logged-in host's room show up as "hosting" in their friends' presence, see
     // encodeRegisterWithAccount. The 4-byte anonymous form is untouched (old pin tests still
-    // pass) — decodeRegister just checks the payload length to tell the two apart.
+    // pass) — decodeRegister just checks the payload length to tell the two apart. A further
+    // optional trailer byte (Phase 6, only meaningful with an account attached): [friendsOnly:1]
+    // — gates JOIN to the host's friends list, see RoomRegistry.join(). Read only if present
+    // (buf.remaining() >= 1), same incremental-trailer style as Join/PeerFound below, so an
+    // older 20-byte account payload still decodes fine with friendsOnly=false.
 
     public static byte[] encodeRegister(int maxPlayers, int currentPlayerCount) {
         return new byte[]{MAGIC, TYPE_REGISTER, (byte) maxPlayers, (byte) currentPlayerCount};
     }
 
-    public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken) {
-        ByteBuffer buf = ByteBuffer.allocate(2 + 1 + 1 + 1 + 16 + sessionToken.length);
+    public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken, boolean friendsOnly) {
+        ByteBuffer buf = ByteBuffer.allocate(2 + 1 + 1 + 1 + 16 + sessionToken.length + 1);
         buf.put(MAGIC);
         buf.put(TYPE_REGISTER);
         buf.put((byte) maxPlayers);
@@ -118,6 +130,7 @@ public final class RendezvousProtocol {
         buf.putLong(accountId.getMostSignificantBits());
         buf.putLong(accountId.getLeastSignificantBits());
         buf.put(sessionToken);
+        buf.put((byte) (friendsOnly ? 1 : 0));
         return buf.array();
     }
 
@@ -125,17 +138,18 @@ public final class RendezvousProtocol {
         int maxPlayers = data[2] & 0xFF;
         int currentPlayerCount = data[3] & 0xFF;
         if (length <= 4) {
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty());
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false);
         }
         ByteBuffer buf = ByteBuffer.wrap(data, 4, length - 4);
         boolean hasAccount = buf.get() != 0;
         if (!hasAccount) {
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty());
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false);
         }
         UUID accountId = new UUID(buf.getLong(), buf.getLong());
         byte[] sessionToken = new byte[16];
         buf.get(sessionToken);
-        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)));
+        boolean friendsOnly = buf.remaining() >= 1 && buf.get() != 0;
+        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly);
     }
 
     // ---- ROOM_CREATED: server -> host ----

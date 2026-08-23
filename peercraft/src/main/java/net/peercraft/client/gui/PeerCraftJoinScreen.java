@@ -171,9 +171,14 @@ public class PeerCraftJoinScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
+        // again here double-fires the (now once-per-frame) blur effect and crashes.
+        //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFF55);
+        // Fully opaque (0xFF alpha) — GuiGraphics.drawString() since 1.21.6 silently skips
+        // rendering entirely when a color's alpha byte is 0, which both of these were before.
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
+        graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);
     }
 }

@@ -114,6 +114,11 @@ public class PeerCraftRegisterScreen extends Screen {
             this.statusColor = PeerCraftUi.TEXT_ERROR;
             return;
         }
+        if (!PeerCraftUi.isValidUsername(nickname)) {
+            this.statusMessage = Component.translatable("peercraft.gui.register.nickname_charset_error");
+            this.statusColor = PeerCraftUi.TEXT_ERROR;
+            return;
+        }
         if (password.isEmpty()) {
             this.statusMessage = Component.translatable("peercraft.gui.register.password_required");
             this.statusColor = PeerCraftUi.TEXT_ERROR;
@@ -160,6 +165,9 @@ public class PeerCraftRegisterScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
+        // again here double-fires the (now once-per-frame) blur effect and crashes.
+        //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;

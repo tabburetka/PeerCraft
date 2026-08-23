@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -47,6 +48,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private static final int CONTENT_TOP = 58;
     private static final int MAX_ROWS_SHOWN = 6;
     private static final int ROW_HEIGHT = 20;
+
+    /** Opens the user's mail client with the recipient/subject pre-filled; no in-game form, no mail credentials shipped in the mod. */
+    private static final String FEEDBACK_MAILTO = "mailto:peercraft2@gmail.com?subject=PeerCraft%20feedback";
+    private static final String DONATE_URL = "https://boosty.to/peercraft";
+    private static final int FOOTER_BUTTON_WIDTH = 70;
+    private static final int FOOTER_BUTTON_HEIGHT = 20;
 
     private final Screen lastScreen;
     private Tab currentTab;
@@ -130,10 +137,33 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.peercraft$capturingFavorites = false;
 
         peercraft$stripFavoritesToOwnTab();
+        peercraft$addFooterButtons();
         buildTabBar();
         buildFriendsTab();
         buildDiscoverTab();
         applyTabVisibility();
+    }
+
+    /**
+     * "Feedback"/"Donate" — moved here (stacked in the bottom-left corner) from the title screen,
+     * since every PeerCraft path already funnels through this screen. Not tab-gated, same as
+     * Back/Account above: shown regardless of the currently selected tab.
+     */
+    private void peercraft$addFooterButtons() {
+        int donateY = this.height - 4 - FOOTER_BUTTON_HEIGHT;
+        int feedbackY = donateY - FOOTER_BUTTON_HEIGHT - 4;
+
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.title.feedback_button"),
+                        ConfirmLinkScreen.confirmLink(this, FEEDBACK_MAILTO))
+                .bounds(2, feedbackY, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT)
+                .tooltip(Tooltip.create(Component.translatable("peercraft.gui.title.feedback_tooltip")))
+                .build());
+
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.title.donate_button"),
+                        ConfirmLinkScreen.confirmLink(this, DONATE_URL))
+                .bounds(2, donateY, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT)
+                .tooltip(Tooltip.create(Component.translatable("peercraft.gui.title.donate_tooltip")))
+                .build());
     }
 
     /**
@@ -143,6 +173,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
      * ({@code onClose()}) is left alone since it's public/overridable and already correct.
      */
     private void peercraft$stripFavoritesToOwnTab() {
+        //? if <1.21.9 {
         // capture order from JoinMultiplayerScreen#init: list, select, direct, add, edit,
         // delete, refresh, back
         AbstractWidget list = this.favoritesWidgets.get(0);
@@ -153,13 +184,63 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.favoritesDeleteButton = (Button) this.favoritesWidgets.get(5);
         Button vanillaRefresh = (Button) this.favoritesWidgets.get(6);
         Button vanillaBack = (Button) this.favoritesWidgets.get(7);
+        //?} else {
+        /*
+        // 1.21.9 rebuilt this screen on the Layout system (HeaderAndFooterLayout) and now
+        // also runs a title StringWidget through the same addRenderableWidget capture —
+        // positional indices no longer line up with the old list. Match by button label
+        // instead (same trick TitleScreenMixin uses for the Multiplayer button), so this
+        // keeps working across future reshuffles of vanilla's widget order too.
+        //
+        // Compare via getString(), not Component equality: Button now extends
+        // AbstractWidget.WithInactiveMessage, whose getMessage() returns a differently-styled
+        // (greyed out) Component while the button is disabled — select/edit/delete all start
+        // disabled here (nothing selected in the list yet), so a raw Component.equals() against
+        // the plain translated label silently never matched them.
+        String selectLabel = Component.translatable("selectServer.select").getString();
+        String directLabel = Component.translatable("selectServer.direct").getString();
+        String addLabel = Component.translatable("selectServer.add").getString();
+        String editLabel = Component.translatable("selectServer.edit").getString();
+        String deleteLabel = Component.translatable("selectServer.delete").getString();
+        String refreshLabel = Component.translatable("selectServer.refresh").getString();
+        String backLabel = Component.translatable("gui.back").getString();
+        AbstractWidget list = null;
+        Button select = null, direct = null, add = null, edit = null, delete = null, refresh = null, back = null;
+        for (AbstractWidget w : this.favoritesWidgets) {
+            if (w instanceof net.minecraft.client.gui.components.AbstractSelectionList) {
+                list = w;
+            } else if (w instanceof Button button) {
+                String msg = button.getMessage().getString();
+                if (selectLabel.equals(msg)) select = button;
+                else if (directLabel.equals(msg)) direct = button;
+                else if (addLabel.equals(msg)) add = button;
+                else if (editLabel.equals(msg)) edit = button;
+                else if (deleteLabel.equals(msg)) delete = button;
+                else if (refreshLabel.equals(msg)) refresh = button;
+                else if (backLabel.equals(msg)) back = button;
+            }
+        }
+        this.favoritesSelectButton = select;
+        this.favoritesDirectButton = direct;
+        this.favoritesAddButton = add;
+        this.favoritesEditButton = edit;
+        this.favoritesDeleteButton = delete;
+        Button vanillaRefresh = refresh;
+        Button vanillaBack = back;
+        */
+        //?}
 
         this.favoritesList = list;
         list.setRectangle(this.width, this.height - 64 - CONTENT_TOP, 0, CONTENT_TOP);
 
         vanillaRefresh.visible = false;
+        //? if <1.21.9 {
         this.favoritesWidgets.remove(7); // back — always visible, not tab-gated
         this.favoritesWidgets.remove(6); // vanilla refresh — permanently hidden, replaced below
+        //?} else {
+        /*this.favoritesWidgets.remove(vanillaBack); // back — always visible, not tab-gated
+        this.favoritesWidgets.remove(vanillaRefresh); // vanilla refresh — permanently hidden, replaced below*/
+        //?}
 
         this.customRefreshButton = this.addRenderableWidget(Button.builder(vanillaRefresh.getMessage(),
                         b -> this.minecraft.setScreen(new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)))
@@ -206,6 +287,28 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private void switchTab(Tab tab) {
         this.currentTab = tab;
         applyTabVisibility();
+    }
+
+    // Screen.init(int,int) only runs our full init() the first time a screen instance is
+    // shown; on every later re-show of the SAME instance (e.g. "Back" from a screen that was
+    // opened with this one as lastScreen), or on a window resize, it calls repositionElements()
+    // instead. Vanilla's own override just re-lays-out the favorites list/layout — it knows
+    // nothing about our tabs, so it silently undoes applyTabVisibility()'s off-screen trick for
+    // the list, making it reappear behind whatever tab was actually selected. Reapplying our own
+    // visibility state here keeps it in sync whenever vanilla decides to reposition instead of
+    // fully reinit.
+    //
+    // Guarded on favoritesList being set: vanilla's own JoinMultiplayerScreen#init() calls
+    // repositionElements() itself as its last step — which reenters here from inside our own
+    // init()'s super.init() call, before peercraft$stripFavoritesToOwnTab() has populated any of
+    // these fields yet. Skip in that case; init() runs applyTabVisibility() itself once it's
+    // actually ready.
+    @Override
+    protected void repositionElements() {
+        super.repositionElements();
+        if (this.favoritesList != null) {
+            applyTabVisibility();
+        }
     }
 
     private void applyTabVisibility() {

@@ -79,6 +79,11 @@ public class PeerCraftRenameScreen extends Screen {
             this.statusColor = PeerCraftUi.TEXT_ERROR;
             return;
         }
+        if (!PeerCraftUi.isValidUsername(newName)) {
+            this.statusMessage = Component.translatable("peercraft.gui.register.nickname_charset_error");
+            this.statusColor = PeerCraftUi.TEXT_ERROR;
+            return;
+        }
 
         this.saveButton.active = false;
         this.statusMessage = Component.translatable("peercraft.gui.rename.saving");
@@ -122,6 +127,9 @@ public class PeerCraftRenameScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
+        // again here double-fires the (now once-per-frame) blur effect and crashes.
+        //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 60, PeerCraftUi.TEXT_TITLE);

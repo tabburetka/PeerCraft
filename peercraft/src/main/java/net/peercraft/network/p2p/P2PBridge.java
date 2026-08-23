@@ -188,6 +188,11 @@ public class P2PBridge {
     }
 
     public void startHostViaRendezvous(int mcPort, int maxPlayers, HostListener listener) {
+        startHostViaRendezvous(mcPort, maxPlayers, false, listener);
+    }
+
+    /** As {@link #startHostViaRendezvous(int, int, HostListener)}, but additionally gates JOIN to the host's PeerCraft friends list (Phase 6, no-op if the host isn't logged into an account — see RendezvousClient.registerRoom). */
+    public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, HostListener listener) {
         this.isHost = true;
         this.localMinecraftPort = mcPort;
         this.maxPlayers = maxPlayers;
@@ -215,6 +220,7 @@ public class P2PBridge {
                 this::currentPlayerCount,
                 session != null ? session.accountId() : null,
                 session != null ? session.sessionToken() : null,
+                friendsOnly,
                 (code, changed) -> {
                     if (changed) {
                         LOGGER.warn("[P2PBridge] Код комнаты изменился! Новый код для второго игрока: {}", code);

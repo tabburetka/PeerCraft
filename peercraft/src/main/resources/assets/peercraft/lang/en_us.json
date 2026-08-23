@@ -29,6 +29,7 @@
   "peercraft.gui.register.submit": "Register",
   "peercraft.gui.register.code_copied": "Copied to clipboard",
   "peercraft.gui.register.nickname_length_error": "Nickname must be 3-16 characters, no spaces",
+  "peercraft.gui.register.nickname_charset_error": "Nickname may only contain Latin letters, digits and _",
   "peercraft.gui.register.password_required": "Enter a password",
   "peercraft.gui.register.registering": "Registering...",
   "peercraft.gui.register.success_title": "Account created!",
@@ -95,6 +96,7 @@
   "peercraft.mixin.share_to_lan.max_players": "Max players",
   "peercraft.mixin.share_to_lan.allow_unlicensed": "Allow unlicensed players",
   "peercraft.mixin.share_to_lan.internet_play": "PeerCraft: play over the internet",
+  "peercraft.mixin.share_to_lan.friends_only": "Open to Friends",
 
   "peercraft.mixin.open_to_lan.room_code_changed_prefix": "PeerCraft: the old room code stopped working (the rendezvous server lost the room) — new code: ",
   "peercraft.mixin.open_to_lan.room_code_prefix": "PeerCraft: room code for the second player — ",

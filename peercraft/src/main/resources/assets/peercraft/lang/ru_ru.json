@@ -29,6 +29,7 @@
   "peercraft.gui.register.submit": "Зарегистрироваться",
   "peercraft.gui.register.code_copied": "Скопировано в буфер обмена",
   "peercraft.gui.register.nickname_length_error": "Ник должен быть от 3 до 16 символов, без пробелов",
+  "peercraft.gui.register.nickname_charset_error": "Ник может содержать только латинские буквы, цифры и знак _",
   "peercraft.gui.register.password_required": "Введите пароль",
   "peercraft.gui.register.registering": "Регистрируем...",
   "peercraft.gui.register.success_title": "Аккаунт создан!",
@@ -95,6 +96,7 @@
   "peercraft.mixin.share_to_lan.max_players": "Макс. игроков",
   "peercraft.mixin.share_to_lan.allow_unlicensed": "Разрешить нелицензионных игроков",
   "peercraft.mixin.share_to_lan.internet_play": "PeerCraft: через интернет",
+  "peercraft.mixin.share_to_lan.friends_only": "Открыть для друзей",
 
   "peercraft.mixin.open_to_lan.room_code_changed_prefix": "PeerCraft: старый код комнаты больше не работает (сервер знакомств потерял комнату) — новый код: ",
   "peercraft.mixin.open_to_lan.room_code_prefix": "PeerCraft: код комнаты для второго игрока — ",

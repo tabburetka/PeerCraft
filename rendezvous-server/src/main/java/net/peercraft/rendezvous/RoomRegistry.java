@@ -2,8 +2,11 @@ package net.peercraft.rendezvous;
 
 import java.net.InetAddress;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiPredicate;
 import java.util.function.LongSupplier;
 
 /**
@@ -66,7 +69,8 @@ final class RoomRegistry {
     record JoinRejected(byte reason) implements JoinResult {
     }
 
-    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount) {
+    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
+                             Optional<UUID> hostAccountId, boolean friendsOnly) {
         long now = clock.getAsLong();
         int clampedMaxPlayers = clamp(maxPlayers, MIN_MAX_PLAYERS, MAX_MAX_PLAYERS);
 
@@ -74,14 +78,16 @@ final class RoomRegistry {
         // refresh its lifetime and hand back the same code instead of minting a new one.
         // This is what lets a room code stay valid (and rejoinable) for as long as the
         // host keeps hosting, rather than being replaced the moment it's first claimed.
-        // Also self-corrects maxPlayers/currentPlayerCount on every keepalive — this is
-        // what lets a slot freed up by a leaving player become joinable again within one
-        // keepalive interval, without a dedicated "player left" message.
+        // Also self-corrects maxPlayers/currentPlayerCount/hostAccountId/friendsOnly on every
+        // keepalive — this is what lets a slot freed up by a leaving player become joinable
+        // again within one keepalive interval, without a dedicated "player left" message.
         for (Room existing : roomsByCode.values()) {
             if (existing.hostAddress.equals(hostAddress)) {
                 existing.lastSeenAt = now;
                 existing.maxPlayers = clampedMaxPlayers;
                 existing.currentPlayerCount = currentPlayerCount;
+                existing.hostAccountId = hostAccountId;
+                existing.friendsOnly = friendsOnly;
                 return new Registered(existing.code, true);
             }
         }
@@ -97,11 +103,20 @@ final class RoomRegistry {
         Room room = new Room(code, hostAddress, now);
         room.maxPlayers = clampedMaxPlayers;
         room.currentPlayerCount = currentPlayerCount;
+        room.hostAccountId = hostAccountId;
+        room.friendsOnly = friendsOnly;
         roomsByCode.put(code, room);
         return new Registered(code, false);
     }
 
-    JoinResult join(String code, RendezvousProtocol.Address joinerAddress) {
+    /**
+     * {@code friendChecker} decides "is otherAccountId a friend of hostAccountId" — kept as a
+     * plain function so RoomRegistry doesn't need a compile-time dependency on AccountService
+     * (same reasoning as the {@code clock}/{@code codeGenerator} seams elsewhere in this
+     * class). Only ever invoked when the room is friends-only.
+     */
+    JoinResult join(String code, RendezvousProtocol.Address joinerAddress, Optional<UUID> joinerAccountId,
+                     BiPredicate<UUID, UUID> friendChecker) {
         Room room = roomsByCode.get(code);
         if (room == null) {
             return new JoinRejected(RendezvousProtocol.REASON_INVALID_CODE);
@@ -112,6 +127,17 @@ final class RoomRegistry {
             if (now - room.lastSeenAt > ROOM_TTL_MILLIS) {
                 roomsByCode.remove(code, room);
                 return new JoinRejected(RendezvousProtocol.REASON_EXPIRED);
+            }
+
+            // Checked before any capacity/debounce bookkeeping below — a rejected non-friend
+            // must never consume a room slot or a rematch-debounce entry just for guessing (or
+            // having previously been given, then losing) a valid code.
+            if (room.friendsOnly) {
+                boolean isFriend = joinerAccountId.isPresent() && room.hostAccountId.isPresent()
+                        && friendChecker.test(room.hostAccountId.get(), joinerAccountId.get());
+                if (!isFriend) {
+                    return new JoinRejected(RendezvousProtocol.REASON_NOT_FRIEND);
+                }
             }
 
             room.lastSeenAt = now;

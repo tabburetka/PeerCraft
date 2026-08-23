@@ -1,4 +1,4 @@
-[16:57:38] [Test worker/WARN]: [AccountStorage] Не удалось прочитать /tmp/junit15511342686492659869/account.json — начинаем без сохранённого аккаунта: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 9 path $.this
-[16:57:43] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[16:57:44] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
-[16:57:46] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[18:34:27] [Test worker/WARN]: [AccountStorage] Не удалось прочитать /tmp/junit12768124631826034080/account.json — начинаем без сохранённого аккаунта: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 9 path $.this
+[18:34:33] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[18:34:34] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
+[18:34:36] [PeerCraft-Rendezvous/INFO]: [PeerCraft Sender] ip adres: /127.0.0.1
