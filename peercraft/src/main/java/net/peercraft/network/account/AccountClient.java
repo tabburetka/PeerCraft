@@ -82,6 +82,13 @@ public final class AccountClient {
         void onTimeout();
     }
 
+    /** Phase 7: public game browser — deliberately no login requirement, see {@link #listPublicGames}. */
+    public interface PublicGameListCallback {
+        void onResult(java.util.List<PublicGameInfo> games);
+
+        void onTimeout();
+    }
+
     public record AccountSession(UUID accountId, byte[] sessionToken, byte[] rememberToken, boolean licensed,
                                   String friendCode, String displayName) {
     }
@@ -94,6 +101,10 @@ public final class AccountClient {
     }
 
     public record SearchResult(UUID accountId, boolean licensed, String displayName) {
+    }
+
+    /** One row of the public game browser (Phase 7) — {@code hostDisplayName} is "" for an anonymous host; {@code mcVersion} is the host's running Minecraft version (e.g. "1.21.1"). */
+    public record PublicGameInfo(String code, int maxPlayers, int currentPlayerCount, String hostDisplayName, String worldName, String mcVersion) {
     }
 
     private static final long PRESENCE_HEARTBEAT_INTERVAL_MILLIS = 20_000;
@@ -516,6 +527,39 @@ public final class AccountClient {
                     results.add(new SearchResult(r.accountId(), r.licensed(), r.displayName()));
                 }
                 cb.onResult(results);
+                return true;
+            }
+
+            @Override
+            public void onTimeout() {
+                cb.onTimeout();
+            }
+        });
+    }
+
+    // ---- public game browser (Phase 7) ----
+
+    /**
+     * Lists rooms currently hosted with "Open to Everyone" — no login required, unlike every
+     * other query in this class: the whole point of this feature is that any player with the
+     * mod can browse and join, with no account and no friendship. Reuses this class's existing
+     * persistent anonymous-capable socket (see the class docs) rather than opening a new one.
+     */
+    public void listPublicGames(PublicGameListCallback cb) {
+        ensureSocketStarted();
+        byte[] payload = RendezvousProtocol.encodeRoomList();
+        sendRequest(payload, new ReplyHandler() {
+            @Override
+            public boolean handle(int type, byte[] data, int length) {
+                if (type != RendezvousProtocol.TYPE_ROOM_LIST_REPLY) {
+                    return false;
+                }
+                RendezvousProtocol.RoomListReply reply = RendezvousProtocol.decodeRoomListReply(data, length);
+                java.util.List<PublicGameInfo> games = new java.util.ArrayList<>();
+                for (RendezvousProtocol.PublicRoom r : reply.rooms()) {
+                    games.add(new PublicGameInfo(r.code(), r.maxPlayers(), r.currentPlayerCount(), r.hostDisplayName(), r.worldName(), r.mcVersion()));
+                }
+                cb.onResult(games);
                 return true;
             }
 

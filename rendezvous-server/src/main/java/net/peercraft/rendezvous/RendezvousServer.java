@@ -45,6 +45,19 @@ public final class RendezvousServer {
     private final RoomRegistry registry;
     private final AccountService accountService;
     private volatile DatagramSocket socket;
+    // Anonymous, unauthenticated poll (Phase 7, TYPE_ROOM_LIST) — anyone can ask, so it needs
+    // its own throttle independent of the account/friends rate limiters (which all key off a
+    // validated session or account id this endpoint deliberately doesn't require). Keyed by
+    // IP, not account — so it must have enough headroom for several players (or several game
+    // instances) legitimately sharing one IP (household/NAT), each polling on their own timer
+    // (PeerCraftMultiplayerScreen polls every 5s while the Games tab has ever loaded once) —
+    // a tight limit here silently drops requests instead of rejecting them with a reason,
+    // which surfaces client-side as a bare "account server did not respond" timeout with no
+    // way to tell it apart from an actual network problem. This endpoint is a cheap in-memory
+    // read, so being generous costs nothing.
+    private static final int ROOM_LIST_RATE_LIMIT = 120;
+    private static final long ROOM_LIST_RATE_WINDOW_MILLIS = 60_000L;
+    private final RateLimiter<InetAddress> roomListRateLimiter;
 
     /**
      * Test-only convenience — an isolated temp-dir account store and {@code fakeMojang=true}
@@ -65,6 +78,7 @@ public final class RendezvousServer {
         this.port = port;
         this.registry = new RoomRegistry(clock);
         this.accountService = new AccountService(dataDir.resolve("accounts.json"), fakeMojang, clock);
+        this.roomListRateLimiter = new RateLimiter<>(ROOM_LIST_RATE_LIMIT, ROOM_LIST_RATE_WINDOW_MILLIS, clock);
     }
 
     private static Path tempDataDir() {
@@ -124,6 +138,7 @@ public final class RendezvousServer {
         switch (type) {
             case RendezvousProtocol.TYPE_REGISTER -> handleRegister(socket, data, from);
             case RendezvousProtocol.TYPE_JOIN -> handleJoin(socket, data, from);
+            case RendezvousProtocol.TYPE_ROOM_LIST -> handleRoomList(socket, from);
             case AccountProtocol.TYPE_AUTH_LICENSED_BEGIN -> handleAuthLicensedBegin(socket, data, from);
             case AccountProtocol.TYPE_AUTH_LICENSED_CONFIRM -> handleAuthLicensedConfirm(socket, data, from);
             case AccountProtocol.TYPE_ACCOUNT_REGISTER -> handleAccountRegister(socket, data, from);
@@ -154,7 +169,8 @@ public final class RendezvousServer {
         java.util.Optional<java.util.UUID> verifiedAccountId = register.account().flatMap(ref ->
                 accountService.resolveSession(ref.sessionToken()).filter(resolved -> resolved.equals(ref.accountId())));
         boolean friendsOnly = register.friendsOnly() && verifiedAccountId.isPresent();
-        RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(), verifiedAccountId, friendsOnly);
+        RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(),
+                verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion());
         if (result instanceof RoomRegistry.Registered registered) {
             send(socket, RendezvousProtocol.encodeRoomCreated(registered.code(), from), from);
             if (registered.reused()) {
@@ -198,6 +214,24 @@ public final class RendezvousServer {
                 log("  known rooms (" + rooms.size() + "): " + (rooms.isEmpty() ? "(none)" : String.join(", ", rooms)));
             }
         }
+    }
+
+    /**
+     * Phase 7: anonymous public-game-browser poll — deliberately no session/account check
+     * (see the class docs on why this feature exists), just an IP rate limit against
+     * flooding/scraping.
+     */
+    private void handleRoomList(DatagramSocket socket, RendezvousProtocol.Address from) throws IOException {
+        if (!roomListRateLimiter.allow(from.host())) {
+            return; // silently drop — matches this being a low-stakes poll endpoint, same as friend list/search
+        }
+        java.util.List<RoomRegistry.PublicRoomInfo> rooms = registry.listPublicRooms();
+        java.util.List<RendezvousProtocol.PublicRoom> wire = new java.util.ArrayList<>();
+        for (RoomRegistry.PublicRoomInfo room : rooms) {
+            String hostDisplayName = room.hostAccountId().flatMap(accountService::displayNameOf).orElse("");
+            wire.add(new RendezvousProtocol.PublicRoom(room.code(), room.maxPlayers(), room.currentPlayerCount(), hostDisplayName, room.worldName(), room.mcVersion()));
+        }
+        send(socket, RendezvousProtocol.encodeRoomListReply(wire), from);
     }
 
     private void handleAuthLicensedBegin(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {

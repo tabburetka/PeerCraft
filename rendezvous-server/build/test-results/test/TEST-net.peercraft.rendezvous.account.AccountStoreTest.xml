@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.account.AccountStoreTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-08-25T11:38:29.356Z" hostname="cachyos-x8664" time="0.074">
+  <properties/>
+  <testcase name="friendsSetSurvivesReloadAsAConcurrencySafeCollection(Path)" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.048"/>
+  <testcase name="friendCodeTakenReflectsExistingAccounts()" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.004"/>
+  <testcase name="saveIfDirtyIsANoOpWhenNothingChanged(Path)" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.002"/>
+  <testcase name="survivesServerRestartByReloadingFromDisk(Path)" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.01"/>
+  <testcase name="addedAccountIsRetrievableByIdAndByFriendCode(Path)" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.002"/>
+  <testcase name="toleratesMissingDataFileOnFirstBoot(Path)" classname="net.peercraft.rendezvous.account.AccountStoreTest" time="0.003"/>
+  <system-out><![CDATA[[AccountStore] Loaded 1 account(s) from /tmp/junit9514956842450874238/accounts.json
+[AccountStore] Loaded 1 account(s) from /tmp/junit6773667394236050269/accounts.json
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

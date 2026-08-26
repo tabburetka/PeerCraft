@@ -326,4 +326,114 @@ class RoomRegistryTest {
 
         assertInstanceOf(RoomRegistry.Matched.class, result);
     }
+
+    // ---- Phase 7: public game browser ----
+
+    @Test
+    void listPublicRoomsOnlyReturnsRoomsMarkedPublic() throws UnknownHostException {
+        RoomRegistry registry = new RoomRegistry();
+        registry.register(addr("10.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false, true, "Steve's SMP");
+        registry.register(addr("10.0.0.2", 2000), 4, 0, java.util.Optional.empty(), false, false, "");
+
+        java.util.List<RoomRegistry.PublicRoomInfo> publicRooms = registry.listPublicRooms();
+
+        assertEquals(1, publicRooms.size());
+        assertEquals("Steve's SMP", publicRooms.get(0).worldName());
+    }
+
+    @Test
+    void listPublicRoomsCarriesTheHostsMcVersion() throws UnknownHostException {
+        RoomRegistry registry = new RoomRegistry();
+        registry.register(addr("10.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false, true, "Steve's SMP", "1.21.1");
+
+        assertEquals("1.21.1", registry.listPublicRooms().get(0).mcVersion());
+    }
+
+    @Test
+    void friendsOnlyForcesPublicRoomFalseRegardlessOfWhatTheClientSent() throws UnknownHostException {
+        // Defense in depth — a room gated to friends must never also be broadcast to every
+        // anonymous player, even if a buggy/malicious client sends both flags true.
+        RoomRegistry registry = new RoomRegistry();
+        java.util.UUID hostAccountId = java.util.UUID.randomUUID();
+
+        registry.register(addr("10.0.0.1", 1000), 4, 0, java.util.Optional.of(hostAccountId), true, true, "Sneaky");
+
+        assertTrue(registry.listPublicRooms().isEmpty());
+    }
+
+    @Test
+    void listPublicRoomsExcludesExpiredRooms() throws UnknownHostException {
+        AtomicLong clock = new AtomicLong(0);
+        RoomRegistry registry = new RoomRegistry(clock::get);
+        registry.register(addr("10.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false, true, "Old world");
+
+        clock.set(RoomRegistry.ROOM_TTL_MILLIS + 1);
+
+        assertTrue(registry.listPublicRooms().isEmpty());
+    }
+
+    @Test
+    void listPublicRoomsHidesAStoppedHostLongBeforeItsFullRoomTtlExpires() throws UnknownHostException {
+        // The actual bug this guards against: a host that stops hosting (closes their world)
+        // must disappear from the PUBLIC BROWSER within roughly one missed keepalive, not
+        // linger for the full 10-minute ROOM_TTL_MILLIS a private room code stays reclaimable
+        // for. The room itself (join-by-code) is still alive/unexpired at this point — only
+        // its public visibility is gated more tightly, see listPublicRooms()'s doc comment.
+        AtomicLong clock = new AtomicLong(0);
+        RoomRegistry registry = new RoomRegistry(clock::get);
+        RendezvousProtocol.Address host = addr("10.0.0.1", 1000);
+        RoomRegistry.Registered registered = (RoomRegistry.Registered) registry.register(
+                host, 4, 0, java.util.Optional.empty(), false, true, "Stopped hosting");
+
+        clock.set(RoomRegistry.PUBLIC_LISTING_STALE_MILLIS + 1);
+
+        assertTrue(registry.listPublicRooms().isEmpty(), "a stale room must vanish from the public browser well before ROOM_TTL_MILLIS");
+        assertEquals(1, registry.roomCount(), "the room itself must still exist/be joinable by code at this point");
+        assertInstanceOf(RoomRegistry.Matched.class,
+                registry.join(registered.code(), addr("10.0.0.2", 2000), java.util.Optional.empty(), (a, b) -> false));
+    }
+
+    @Test
+    void listPublicRoomsShowsARoomRefreshedWithinOneKeepaliveInterval() throws UnknownHostException {
+        // The other side of the same fix: a room that's still actively keeping alive (host's
+        // keepalive is every 15s, RendezvousClient.KEEPALIVE_INTERVAL_MILLIS) must not
+        // flicker out of the browser between keepalives.
+        AtomicLong clock = new AtomicLong(0);
+        RoomRegistry registry = new RoomRegistry(clock::get);
+        RendezvousProtocol.Address host = addr("10.0.0.1", 1000);
+        registry.register(host, 4, 0, java.util.Optional.empty(), false, true, "Still hosting");
+
+        clock.set(15_000L);
+        registry.register(host, 4, 0, java.util.Optional.empty(), false, true, "Still hosting");
+        clock.set(15_000L + RoomRegistry.PUBLIC_LISTING_STALE_MILLIS - 1_000L);
+
+        assertEquals(1, registry.listPublicRooms().size());
+    }
+
+    @Test
+    void publicRoomKeepaliveSelfCorrectsWorldNameAndFlag() throws UnknownHostException {
+        RoomRegistry registry = new RoomRegistry();
+        RendezvousProtocol.Address host = addr("10.0.0.1", 1000);
+        registry.register(host, 4, 0, java.util.Optional.empty(), false, true, "First name");
+
+        // Same self-correcting keepalive pattern as maxPlayers/friendsOnly — the label can
+        // change (or the room can stop being public) on any later REGISTER, not just the first.
+        registry.register(host, 4, 1, java.util.Optional.empty(), false, true, "Renamed world");
+        assertEquals("Renamed world", registry.listPublicRooms().get(0).worldName());
+
+        registry.register(host, 4, 1, java.util.Optional.empty(), false, false, "");
+        assertTrue(registry.listPublicRooms().isEmpty());
+    }
+
+    @Test
+    void anonymousHostCanListPublicly() throws UnknownHostException {
+        // The whole point of Phase 7 — unlike friendsOnly, publicRoom needs no account.
+        RoomRegistry registry = new RoomRegistry();
+        registry.register(addr("10.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false, true, "No account here");
+
+        java.util.List<RoomRegistry.PublicRoomInfo> publicRooms = registry.listPublicRooms();
+
+        assertEquals(1, publicRooms.size());
+        assertTrue(publicRooms.get(0).hostAccountId().isEmpty());
+    }
 }

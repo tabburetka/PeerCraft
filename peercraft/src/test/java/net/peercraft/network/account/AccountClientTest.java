@@ -369,6 +369,63 @@ class AccountClientTest {
         }
     }
 
+    /**
+     * Phase 7: unlike every other query in this class, listPublicGames must work with NO
+     * session at all — never calls loggedInClient(), on purpose. That's the whole point of
+     * the public game browser: any player with the mod can use it, logged in or not.
+     */
+    @Test
+    @Timeout(15)
+    void listPublicGamesWorksWithoutBeingLoggedIn() throws Exception {
+        try (DatagramSocket fakeServerSocket = new DatagramSocket()) {
+            Thread fakeServer = new Thread(() -> {
+                byte[] buffer = new byte[512];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        fakeServerSocket.receive(packet);
+                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_ROOM_LIST) {
+                            var rooms = java.util.List.of(new RendezvousProtocol.PublicRoom("ABC123", 4, 1, "Steve", "Steve's SMP", "1.21.1"));
+                            byte[] reply = RendezvousProtocol.encodeRoomListReply(rooms);
+                            fakeServerSocket.send(new DatagramPacket(reply, reply.length, packet.getAddress(), packet.getPort()));
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "fake-account-server");
+            fakeServer.setDaemon(true);
+            fakeServer.start();
+
+            AccountClient client = new AccountClient();
+            client.connect("127.0.0.1", fakeServerSocket.getLocalPort());
+            assertNull(client.getCurrentSession(), "this test deliberately never logs in");
+
+            CompletableFuture<java.util.List<AccountClient.PublicGameInfo>> result = new CompletableFuture<>();
+            client.listPublicGames(new AccountClient.PublicGameListCallback() {
+                @Override
+                public void onResult(java.util.List<AccountClient.PublicGameInfo> games) {
+                    result.complete(games);
+                }
+
+                @Override
+                public void onTimeout() {
+                    result.completeExceptionally(new AssertionError("unexpected timeout"));
+                }
+            });
+
+            java.util.List<AccountClient.PublicGameInfo> games = result.get(5, TimeUnit.SECONDS);
+            fakeServer.interrupt();
+
+            assertEquals(1, games.size());
+            assertEquals("ABC123", games.get(0).code());
+            assertEquals("Steve", games.get(0).hostDisplayName());
+            assertEquals("Steve's SMP", games.get(0).worldName());
+            assertEquals("1.21.1", games.get(0).mcVersion());
+        }
+    }
+
     @Test
     @Timeout(15)
     void loginStartsPresenceHeartbeatImmediately() throws Exception {

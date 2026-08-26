@@ -293,4 +293,63 @@ class RendezvousClientTest {
             assertEquals(java.util.Optional.empty(), client.accountIdForPeer(anonymousPeer));
         }
     }
+
+    /**
+     * Phase 7: registerRoom's public-game-browser overload must actually carry
+     * publicRoom/worldName over the wire for an anonymous host (no account) — this is the
+     * integration point between P2PBridge/PeerCraftHostOptions and RendezvousProtocol's codec
+     * (already covered on its own by RendezvousProtocolTest, but not the wiring through here).
+     */
+    @Test
+    @Timeout(15)
+    void registerRoomSendsPublicRoomAndWorldNameForAnonymousHost() throws Exception {
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+
+        try (DatagramSocket fakeServerSocket = new DatagramSocket();
+             DatagramSocket clientSocket = new DatagramSocket()) {
+
+            P2PSender clientSender = new P2PSender(clientSocket);
+            CompletableFuture<RendezvousProtocol.Register> receivedRegister = new CompletableFuture<>();
+
+            Thread fakeServer = new Thread(() -> {
+                byte[] buffer = new byte[128];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                try {
+                    while (!Thread.currentThread().isInterrupted()) {
+                        packet.setLength(buffer.length);
+                        fakeServerSocket.receive(packet);
+                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                            receivedRegister.complete(RendezvousProtocol.decodeRegister(packet.getData(), packet.getLength()));
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // socket closed on teardown
+                }
+            }, "fake-rendezvous-server");
+            fakeServer.setDaemon(true);
+            fakeServer.start();
+
+            RendezvousClient client = new RendezvousClient(clientSender, loopback, fakeServerSocket.getLocalPort());
+            client.registerRoom(4, () -> 0, null, null, false, true, "Steve's SMP", "1.21.1",
+                    (code, changed) -> {
+                    },
+                    new RendezvousClient.MatchCallback() {
+                        @Override
+                        public void onMatched(RendezvousProtocol.Address peer, long token) {
+                        }
+
+                        @Override
+                        public void onFailed(String reason) {
+                        }
+                    });
+
+            RendezvousProtocol.Register register = receivedRegister.get(5, TimeUnit.SECONDS);
+            fakeServer.interrupt();
+
+            assertTrue(register.account().isEmpty());
+            assertTrue(register.publicRoom());
+            assertEquals("Steve's SMP", register.worldName());
+            assertEquals("1.21.1", register.mcVersion());
+        }
+    }
 }

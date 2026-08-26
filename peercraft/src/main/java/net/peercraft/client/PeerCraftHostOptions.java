@@ -22,6 +22,15 @@ public final class PeerCraftHostOptions {
     // takes effect when the host is logged into a PeerCraft account (see
     // ShareToLanScreenMixin, which disables the checkbox otherwise).
     public static volatile boolean friendsOnly = false;
+    // false (default): unchanged behavior. true: the room is listed in the public game
+    // browser (Multiplayer -> Games tab) for ANY player with the mod — no account, no
+    // friendship, no code needed — see RoomRegistry.listPublicRooms() on the rendezvous
+    // server. Unlike friendsOnly, this works without being logged into a PeerCraft account.
+    // Mutually exclusive with friendsOnly — see ShareToLanScreenMixin.
+    public static volatile boolean publicRoom = false;
+    // Free-text label shown next to the host's name in the public game browser (Phase 7).
+    // Only meaningful while publicRoom is true.
+    public static volatile String worldName = "";
 
     private PeerCraftHostOptions() {
     }

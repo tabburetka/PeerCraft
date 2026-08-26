@@ -14,6 +14,7 @@ On top of that, PeerCraft has its own lightweight account and friends system, so
 - **One-click hosting** — open your world to LAN as usual, tick "play over the internet", and get a room code to share.
 - **Accounts, with or without a Mojang license** — log in with your real Mojang account, or register a free nickname + password account if you don't own a copy of Minecraft (a "pirate" account). Both can play in the same world together.
 - **Friends list with live presence** — see which friends are online or currently hosting a game, and connect to a hosting friend with a single click, no code required.
+- **Public game browser** — tick "Open to Everyone" instead of (or besides sharing) a code, and your world shows up in the **Games** tab for any player with the mod, no account or friendship required, like a lobby browser. Each listing shows the host's Minecraft version (vanilla only lets same-version clients connect), and the tab has a search box (world name) and a version filter.
 - **Friend codes** — a short 6-character code is your permanent identifier for adding friends and logging in from a new device, independent of your (non-unique) nickname.
 - **Mixed licensed/unlicensed hosting** — a host can choose whether to allow unlicensed ("pirate") players into their world, and can cap the number of concurrent joiners.
 - **Localized UI** — English and Russian out of the box.
@@ -124,7 +125,7 @@ Run the two Minecraft instances from separate working directories (`peercraft/ru
 
 For two players on different networks, PeerCraft uses the standalone rendezvous server (`rendezvous-server/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream is the same relay protocol validated locally above, just talking to a real remote address instead of `127.0.0.1`.
 
-**v1 scope, by design**: no persistent lobbies beyond the accounts/friends system, single-use 6-character room codes, no relay/TURN fallback if hole punching fails (a home-hosted rendezvous server's uplink can't sustain relaying full game traffic for multiple pairs). Only the rendezvous server itself needs a forwarded port.
+**v1 scope, by design**: no relay/TURN fallback if hole punching fails (a home-hosted rendezvous server's uplink can't sustain relaying full game traffic for multiple pairs). Only the rendezvous server itself needs a forwarded port.
 
 #### Running your own rendezvous server
 

@@ -1,6 +1,7 @@
 package net.peercraft.client.mixin;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
@@ -68,7 +69,8 @@ public abstract class OpenToLanMixin {
             // checkbox on this same screen (ShareToLanScreenMixin), not a launch flag.
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
-                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly, new P2PBridge.HostListener() {
+                P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly,
+                        PeerCraftHostOptions.publicRoom, PeerCraftHostOptions.worldName, currentMinecraftVersion(), new P2PBridge.HostListener() {
                     @Override
                     public void onRoomCreated(String code, boolean changed) {
                         String prefixKey = changed
@@ -96,6 +98,18 @@ public abstract class OpenToLanMixin {
     @Inject(method = "stopServer", at = @At("HEAD"))
     private void onStopServer(CallbackInfo ci) {
         P2PBridge.INSTANCE.cancelRendezvous();
+    }
+
+    // Shown in the public game browser (Phase 7) so a joiner can tell whether their own client
+    // can actually connect — vanilla's own network protocol only lets same-version clients talk
+    // to each other, hole punching succeeding doesn't change that. WorldVersion.getName()/name()
+    // is the same rename as GameProfile.getName()/name() elsewhere in this file's package —
+    // see AccountClient.loginLicensed for the identical split.
+    private static String currentMinecraftVersion() {
+        //? if <1.21.9
+        return SharedConstants.getCurrentVersion().getName();
+        //? if >=1.21.9
+        /*return SharedConstants.getCurrentVersion().name();*/
     }
 
     // P2PBridge/RendezvousClient callbacks are invoked from a background thread — a chat

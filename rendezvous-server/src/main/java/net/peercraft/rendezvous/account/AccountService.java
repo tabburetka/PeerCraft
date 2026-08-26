@@ -390,6 +390,16 @@ public final class AccountService {
         sessions.validate(sessionToken).ifPresent(presence::stop);
     }
 
+    /**
+     * Phase 7: resolves a public room's (already-verified, see RendezvousServer.handleRegister)
+     * hostAccountId to a display name for the game browser reply. No session involved — the id
+     * is only ever one RendezvousServer already trusts (verified via the host's own REGISTER
+     * sessionToken), same trust boundary as {@link #isFriend}.
+     */
+    public Optional<String> displayNameOf(UUID accountId) {
+        return store.byId(accountId).map(a -> a.displayName);
+    }
+
     /** Substring match on display name, licensed accounts sorted first — see the accounts+friends plan for why. */
     public Result<List<SearchResultInfo>> search(byte[] sessionToken, String query) {
         Optional<UUID> accountId = sessions.validate(sessionToken);

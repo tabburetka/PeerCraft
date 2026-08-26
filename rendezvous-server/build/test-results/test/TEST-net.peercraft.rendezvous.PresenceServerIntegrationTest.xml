@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.PresenceServerIntegrationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-25T11:38:28.406Z" hostname="cachyos-x8664" time="0.036">
+  <properties/>
+  <testcase name="registerWithMismatchedSessionAndAccountIdIsIgnoredForPresence()" classname="net.peercraft.rendezvous.PresenceServerIntegrationTest" time="0.02"/>
+  <testcase name="hostRegisteringWithAccountMakesFriendSeeHostingStatusAndRoomCode()" classname="net.peercraft.rendezvous.PresenceServerIntegrationTest" time="0.015"/>
+  <system-out><![CDATA[[15:38:28.407] [RendezvousServer] Listening on UDP port 41459
+[15:38:28.425] [RendezvousServer] REGISTER from 127.0.0.1:35762 -> new room X3ERP6
+[15:38:28.428] [RendezvousServer] Listening on UDP port 33457
+[15:38:28.441] [RendezvousServer] REGISTER from 127.0.0.1:42349 -> new room 3755NZ
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

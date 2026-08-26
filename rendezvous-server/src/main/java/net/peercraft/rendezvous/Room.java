@@ -20,6 +20,18 @@ final class Room {
     // RoomRegistry.join(). Only ever true together with a present hostAccountId (enforced by
     // RendezvousServer.handleRegister, not here).
     volatile boolean friendsOnly = false;
+    // Phase 7: when true, this room is listed in the public game browser (anyone with the mod
+    // can see and join it — see RoomRegistry.listPublicRooms()), no account/friendship needed.
+    // Mutually exclusive with friendsOnly — RoomRegistry.register() forces this false whenever
+    // friendsOnly is true, regardless of what the host's client sent.
+    volatile boolean publicRoom = false;
+    // Free-text label the host chose for the public browser row (Phase 7) — only meaningful
+    // while publicRoom is true; "" otherwise.
+    volatile String worldName = "";
+    // Host's running Minecraft version (e.g. "1.21.1"), self-reported on REGISTER — same
+    // publicRoom-only lifetime as worldName. Lets the browser warn about (or filter out)
+    // rooms a joiner's vanilla client protocol can't actually connect to.
+    volatile String mcVersion = "";
 
     // Refreshed on every REGISTER (host keepalive) or JOIN — drives RoomRegistry's
     // sweepExpired(). A room stays alive indefinitely, claimed or not, as long as the

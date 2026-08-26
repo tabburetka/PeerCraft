@@ -101,6 +101,11 @@ public final class RendezvousClient implements RawPacketListener {
     // can't be gated to "friends" with no account owning the friends list); see
     // registerRoom's account-aware overload.
     private volatile boolean friendsOnly = false;
+    // Phase 7 — unlike friendsOnly, works with or without an account attached; see
+    // registerRoom's public-game-browser overload.
+    private volatile boolean publicRoom = false;
+    private volatile String worldName = "";
+    private volatile String mcVersion = "";
     // Last room code we told the host about — lets handleRoomCreated notice when a later
     // keepalive REGISTER comes back with a different code (see RoomCallback.onRoomCreated).
     private volatile String lastKnownRoomCode = null;
@@ -133,12 +138,35 @@ public final class RendezvousClient implements RawPacketListener {
     /** As the account-aware {@link #registerRoom}, but also gates JOIN to the host's friends list (Phase 6) — see RoomRegistry.join() on the server. Has no effect if accountId/accountSessionToken are null (nothing to own a friends list). */
     public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
                               boolean friendsOnly, RoomCallback roomCallback, MatchCallback matchCallback) {
+        registerRoom(maxPlayers, currentPlayerCountSupplier, accountId, accountSessionToken, friendsOnly, false, "", roomCallback, matchCallback);
+    }
+
+    /** As the friends-aware {@link #registerRoom}, but also lists the room in the public game browser (Phase 7) — see the 9-arg overload below (which this delegates to with {@code mcVersion=""}). */
+    public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
+                              boolean friendsOnly, boolean publicRoom, String worldName, RoomCallback roomCallback, MatchCallback matchCallback) {
+        registerRoom(maxPlayers, currentPlayerCountSupplier, accountId, accountSessionToken, friendsOnly, publicRoom, worldName, "", roomCallback, matchCallback);
+    }
+
+    /**
+     * As the 9-arg {@link #registerRoom}, but also carries the host's running Minecraft version
+     * (Phase 7) — shown in the public browser so a joiner can tell whether they can actually
+     * connect (vanilla's own network protocol only lets same-version clients talk to each
+     * other) and filter by it. Unlike friendsOnly, publicRoom/mcVersion work whether or not
+     * accountId/accountSessionToken are null (anonymous hosts can host publicly too).
+     * {@code worldName}/{@code mcVersion} are only meaningful while publicRoom is true.
+     */
+    public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
+                              boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion,
+                              RoomCallback roomCallback, MatchCallback matchCallback) {
         this.hostMode = true;
         this.maxPlayers = maxPlayers;
         this.currentPlayerCountSupplier = currentPlayerCountSupplier;
         this.accountId = accountId;
         this.accountSessionToken = accountSessionToken;
         this.friendsOnly = friendsOnly;
+        this.publicRoom = publicRoom;
+        this.worldName = worldName;
+        this.mcVersion = mcVersion;
         this.roomCallback = roomCallback;
         this.matchCallback = matchCallback;
         this.state = State.REGISTERING;
@@ -150,7 +178,10 @@ public final class RendezvousClient implements RawPacketListener {
         java.util.UUID accId = this.accountId;
         byte[] token = this.accountSessionToken;
         if (accId != null && token != null) {
-            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly);
+            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly, this.publicRoom, this.worldName, this.mcVersion);
+        }
+        if (this.publicRoom) {
+            return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion);
         }
         return RendezvousProtocol.encodeRegister(this.maxPlayers, count);
     }

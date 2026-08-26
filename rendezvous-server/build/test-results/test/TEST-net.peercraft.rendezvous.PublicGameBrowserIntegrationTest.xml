@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.PublicGameBrowserIntegrationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-08-25T11:38:28.443Z" hostname="cachyos-x8664" time="0.044">
+  <properties/>
+  <testcase name="anonymousHostIsDiscoverableAndJoinableThroughTheBrowserWithNoAccountOnEitherSide()" classname="net.peercraft.rendezvous.PublicGameBrowserIntegrationTest" time="0.03"/>
+  <testcase name="nonPublicRoomIsNotListed()" classname="net.peercraft.rendezvous.PublicGameBrowserIntegrationTest" time="0.012"/>
+  <system-out><![CDATA[[15:38:28.446] [RendezvousServer] Listening on UDP port 34841
+[15:38:28.457] [RendezvousServer] REGISTER from 127.0.0.1:42375 -> new room ZUACR4
+[15:38:28.476] [RendezvousServer] Listening on UDP port 57255
+[15:38:28.477] [RendezvousServer] Room ZUACR4 matched: 127.0.0.1:42375 <-> 127.0.0.1:33627
+[15:38:28.487] [RendezvousServer] REGISTER from 127.0.0.1:47268 -> new room ET9XA5
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

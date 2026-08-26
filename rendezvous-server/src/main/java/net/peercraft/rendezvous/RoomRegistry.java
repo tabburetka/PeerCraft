@@ -1,6 +1,7 @@
 package net.peercraft.rendezvous;
 
 import java.net.InetAddress;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +35,20 @@ final class RoomRegistry {
     private static final long REGISTER_RATE_WINDOW_MILLIS = 60_000L;
     private static final int MIN_MAX_PLAYERS = 1;
     private static final int MAX_MAX_PLAYERS = 32;
+    // Bounds the public browser's reply payload — a UDP datagram much bigger than this risks
+    // fragmentation/drops on the open internet (typical MTU ~1500 bytes), and nobody is going to
+    // usefully scroll through more than this many rows anyway.
+    private static final int MAX_LISTED_ROOMS = 30;
+    // A room is only shown in the public browser while it's been refreshed recently — using
+    // the full ROOM_TTL_MILLIS (10 minutes) here would leave a host's world visible/joinable-
+    // looking for up to 10 minutes after they actually closed it and stopped keepaliving
+    // (there's no dedicated "I stopped hosting" wire message, see RendezvousClient.cancel()).
+    // The host's own keepalive interval is 15s (RendezvousClient.KEEPALIVE_INTERVAL_MILLIS) —
+    // this tolerates one missed/delayed keepalive with margin, while still clearing a
+    // genuinely stopped room from the browser within under a minute instead of 10. Room
+    // join-by-code and the friends/presence system are unaffected — this only gates
+    // listPublicRooms()'s visibility, not the room's actual TTL/expiry.
+    static final long PUBLIC_LISTING_STALE_MILLIS = 40_000L;
 
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
     private final LongSupplier clock;
@@ -71,8 +86,32 @@ final class RoomRegistry {
 
     RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
                              Optional<UUID> hostAccountId, boolean friendsOnly) {
+        return register(hostAddress, maxPlayers, currentPlayerCount, hostAccountId, friendsOnly, false, "");
+    }
+
+    /** As the 7-arg {@link #register}, with {@code mcVersion} defaulted to "" (pre-version-filter callers, e.g. existing tests). */
+    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
+                             Optional<UUID> hostAccountId, boolean friendsOnly, boolean publicRoom, String worldName) {
+        return register(hostAddress, maxPlayers, currentPlayerCount, hostAccountId, friendsOnly, publicRoom, worldName, "");
+    }
+
+    /**
+     * As the 5-arg {@link #register}, but also carries the public-game-browser
+     * flag/label/version (Phase 7) — see {@link #listPublicRooms()}. {@code publicRoom} is
+     * forced false whenever {@code friendsOnly} is true, regardless of what the caller passed
+     * in — a room gated to friends must never also be broadcast to every anonymous player, and
+     * this must be enforced here (not trusted from the client) since
+     * {@code friendsOnly}/{@code publicRoom} both ultimately come from a self-reported
+     * REGISTER. {@code mcVersion} is the host's running Minecraft version, purely descriptive —
+     * used for the browser's version filter, never enforced/validated here.
+     */
+    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
+                             Optional<UUID> hostAccountId, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion) {
         long now = clock.getAsLong();
         int clampedMaxPlayers = clamp(maxPlayers, MIN_MAX_PLAYERS, MAX_MAX_PLAYERS);
+        boolean effectivePublicRoom = publicRoom && !friendsOnly;
+        String effectiveWorldName = effectivePublicRoom ? worldName : "";
+        String effectiveMcVersion = effectivePublicRoom ? mcVersion : "";
 
         // Idempotent retry/keepalive: this host already has a room — claimed or not —
         // refresh its lifetime and hand back the same code instead of minting a new one.
@@ -88,6 +127,9 @@ final class RoomRegistry {
                 existing.currentPlayerCount = currentPlayerCount;
                 existing.hostAccountId = hostAccountId;
                 existing.friendsOnly = friendsOnly;
+                existing.publicRoom = effectivePublicRoom;
+                existing.worldName = effectiveWorldName;
+                existing.mcVersion = effectiveMcVersion;
                 return new Registered(existing.code, true);
             }
         }
@@ -105,8 +147,38 @@ final class RoomRegistry {
         room.currentPlayerCount = currentPlayerCount;
         room.hostAccountId = hostAccountId;
         room.friendsOnly = friendsOnly;
+        room.publicRoom = effectivePublicRoom;
+        room.worldName = effectiveWorldName;
+        room.mcVersion = effectiveMcVersion;
         roomsByCode.put(code, room);
         return new Registered(code, false);
+    }
+
+    /** One row of the public game browser (Phase 7) — {@code hostAccountId} is empty for an anonymous host. */
+    record PublicRoomInfo(String code, int maxPlayers, int currentPlayerCount, Optional<UUID> hostAccountId, String worldName, String mcVersion) {
+    }
+
+    /**
+     * Snapshot of every currently public, non-expired room — capped at {@link #MAX_LISTED_ROOMS}.
+     * Anonymous, called on every {@code TYPE_ROOM_LIST} poll — no session/account required to
+     * ask, by design (see the class docs on this feature's whole point).
+     */
+    List<PublicRoomInfo> listPublicRooms() {
+        long now = clock.getAsLong();
+        List<PublicRoomInfo> result = new java.util.ArrayList<>();
+        for (Room room : roomsByCode.values()) {
+            if (!room.publicRoom) {
+                continue;
+            }
+            if (now - room.lastSeenAt > PUBLIC_LISTING_STALE_MILLIS) {
+                continue;
+            }
+            result.add(new PublicRoomInfo(room.code, room.maxPlayers, room.currentPlayerCount, room.hostAccountId, room.worldName, room.mcVersion));
+            if (result.size() >= MAX_LISTED_ROOMS) {
+                break;
+            }
+        }
+        return result;
     }
 
     /**

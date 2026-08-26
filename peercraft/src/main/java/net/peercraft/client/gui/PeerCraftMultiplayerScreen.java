@@ -43,7 +43,7 @@ import java.util.UUID;
  */
 public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
-    private enum Tab { FAVORITES, FRIENDS, DISCOVER }
+    private enum Tab { FAVORITES, FRIENDS, DISCOVER, GAMES }
 
     private static final int CONTENT_TOP = 58;
     private static final int MAX_ROWS_SHOWN = 6;
@@ -62,6 +62,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private Button tabFavoritesButton;
     private Button tabFriendsButton;
     private Button tabDiscoverButton;
+    private Button tabGamesButton;
 
     // ---- favorites tab: vanilla widgets, captured by call order during super.init() ----
     private boolean peercraft$capturingFavorites;
@@ -104,6 +105,20 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private Component discoverStatusMessage = Component.empty();
     private int discoverStatusColor = PeerCraftUi.TEXT_MUTED;
 
+    // ---- games (public game browser, Phase 7) tab ----
+    private final List<AbstractWidget> gamesStaticWidgets = new ArrayList<>();
+    private final List<AbstractWidget> gameRowWidgets = new ArrayList<>();
+    private List<AccountClient.PublicGameInfo> games;
+    // Client-side filter over `games` (search box + version box below) — the browser is
+    // capped at a small number of rooms server-side (RoomRegistry.MAX_LISTED_ROOMS), so
+    // filtering what's already been fetched is simpler and more responsive than a round trip
+    // per keystroke, and matches how the existing Discover tab's search already works.
+    private List<AccountClient.PublicGameInfo> filteredGames = List.of();
+    private EditBox gameSearchBox;
+    private EditBox gameVersionFilterBox;
+    private Component gamesStatusMessage = Component.empty();
+    private int gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+
     public PeerCraftMultiplayerScreen(Screen lastScreen) {
         this(lastScreen, Tab.FAVORITES);
     }
@@ -131,6 +146,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.friendRowWidgets.clear();
         this.discoverStaticWidgets.clear();
         this.discoverResultWidgets.clear();
+        this.gamesStaticWidgets.clear();
+        this.gameRowWidgets.clear();
 
         this.peercraft$capturingFavorites = true;
         super.init();
@@ -141,6 +158,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         buildTabBar();
         buildFriendsTab();
         buildDiscoverTab();
+        buildGamesTab();
         applyTabVisibility();
     }
 
@@ -266,8 +284,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     }
 
     private void buildTabBar() {
-        int barWidth = Math.min(this.width - 20, 380);
-        int tabWidth = (barWidth - 8) / 3;
+        int barWidth = Math.min(this.width - 20, 460);
+        int tabWidth = (barWidth - 12) / 4;
         int startX = this.width / 2 - barWidth / 2;
         int y = 30;
 
@@ -277,11 +295,18 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 .bounds(startX + tabWidth + 4, y, tabWidth, 20).build());
         this.tabDiscoverButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_discover"), b -> switchTab(Tab.DISCOVER))
                 .bounds(startX + 2 * (tabWidth + 4), y, tabWidth, 20).build());
+        this.tabGamesButton = this.addRenderableWidget(Button.builder(gamesTabLabel(), b -> switchTab(Tab.GAMES))
+                .bounds(startX + 3 * (tabWidth + 4), y, tabWidth, 20).build());
     }
 
     private Component friendsTabLabel() {
         int count = this.friends == null ? 0 : this.friends.size();
         return Component.translatable("peercraft.gui.multiplayer.tab_friends", count);
+    }
+
+    private Component gamesTabLabel() {
+        int count = this.games == null ? 0 : this.games.size();
+        return Component.translatable("peercraft.gui.multiplayer.tab_games", count);
     }
 
     private void switchTab(Tab tab) {
@@ -315,6 +340,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         boolean fav = this.currentTab == Tab.FAVORITES;
         boolean fr = this.currentTab == Tab.FRIENDS;
         boolean disc = this.currentTab == Tab.DISCOVER;
+        boolean games = this.currentTab == Tab.GAMES;
 
         // Join Server/Direct Connection/Add Server/Edit/Delete stay visible on every tab instead
         // of vanishing — just disabled off Favorites, the same "nothing selected" look vanilla
@@ -336,9 +362,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         for (AbstractWidget w : this.friendRowWidgets) w.visible = fr;
         for (AbstractWidget w : this.discoverStaticWidgets) w.visible = disc;
         for (AbstractWidget w : this.discoverResultWidgets) w.visible = disc;
+        for (AbstractWidget w : this.gamesStaticWidgets) w.visible = games;
+        for (AbstractWidget w : this.gameRowWidgets) w.visible = games;
         this.tabFavoritesButton.active = !fav;
         this.tabFriendsButton.active = !fr;
         this.tabDiscoverButton.active = !disc;
+        this.tabGamesButton.active = !games;
 
         // visible = true above doesn't stop the list from eating clicks — see the field comment.
         int listY = fav ? CONTENT_TOP : -30000;
@@ -713,35 +742,212 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         });
     }
 
-    // ==================== shared plumbing ====================
+    // ==================== GAMES (public game browser, Phase 7) TAB ====================
+    // No login/friendship required to browse or join — the whole point of this tab, unlike
+    // Friends/Discover above which both need an account. See AccountClient.listPublicGames.
 
-    @Override
-    public void tick() {
-        super.tick();
-        if (this.friends == null) {
-            return; // initial load still in flight
+    private void buildGamesTab() {
+        int centerX = this.width / 2;
+        int top = CONTENT_TOP + 4;
+
+        this.gameSearchBox = new EditBox(this.font, centerX - 200, top, 190, 20, Component.translatable("peercraft.gui.multiplayer.game_search_field"));
+        this.gameSearchBox.setMaxLength(32);
+        this.gameSearchBox.setHint(Component.translatable("peercraft.gui.multiplayer.game_search_hint"));
+        this.gameSearchBox.setResponder(value -> rebuildGameRows());
+        this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameSearchBox));
+
+        this.gameVersionFilterBox = new EditBox(this.font, centerX + 10, top, 110, 20, Component.translatable("peercraft.gui.multiplayer.game_version_filter_field"));
+        this.gameVersionFilterBox.setMaxLength(16);
+        this.gameVersionFilterBox.setHint(Component.translatable("peercraft.gui.multiplayer.game_version_filter_hint"));
+        this.gameVersionFilterBox.setResponder(value -> rebuildGameRows());
+        this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameVersionFilterBox));
+
+        rebuildGameRows();
+        if (this.games == null) {
+            loadGames();
         }
-        if (++this.ticksSincePoll < POLL_INTERVAL_TICKS) {
+    }
+
+    /** Applies gameSearchBox (world name substring)/gameVersionFilterBox (version substring) over the raw fetched list — both case-insensitive, blank = no filter. */
+    private void recomputeFilteredGames() {
+        if (this.games == null) {
+            this.filteredGames = List.of();
             return;
         }
-        this.ticksSincePoll = 0;
-        AccountClient.INSTANCE.listFriends(new AccountClient.FriendListCallback() {
+        String search = this.gameSearchBox == null ? "" : this.gameSearchBox.getValue().trim().toLowerCase(Locale.ROOT);
+        String versionFilter = this.gameVersionFilterBox == null ? "" : this.gameVersionFilterBox.getValue().trim().toLowerCase(Locale.ROOT);
+        List<AccountClient.PublicGameInfo> result = new ArrayList<>();
+        for (AccountClient.PublicGameInfo game : this.games) {
+            boolean matchesSearch = search.isEmpty() || game.worldName().toLowerCase(Locale.ROOT).contains(search);
+            boolean matchesVersion = versionFilter.isEmpty() || game.mcVersion().toLowerCase(Locale.ROOT).contains(versionFilter);
+            if (matchesSearch && matchesVersion) {
+                result.add(game);
+            }
+        }
+        this.filteredGames = result;
+    }
+
+    private void loadGames() {
+        this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.loading_games");
+        this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        AccountClient.INSTANCE.listPublicGames(new AccountClient.PublicGameListCallback() {
             @Override
-            public void onResult(List<AccountClient.FriendInfo> result) {
+            public void onResult(List<AccountClient.PublicGameInfo> result) {
                 runOnClientThread(() -> {
-                    if (stillOnThisScreen()) {
-                        friends = result;
-                        tabFriendsButton.setMessage(friendsTabLabel());
-                        rebuildFriendRows();
+                    if (!stillOnThisScreen()) {
+                        return;
                     }
+                    games = result;
+                    gamesStatusMessage = Component.empty();
+                    tabGamesButton.setMessage(gamesTabLabel());
+                    rebuildGameRows();
                 });
             }
 
             @Override
             public void onTimeout() {
-                // silent — keep showing the last known list rather than clearing it
+                runOnClientThread(() -> {
+                    if (stillOnThisScreen()) {
+                        gamesStatusMessage = Component.translatable("peercraft.gui.common.account_server_timeout");
+                        gamesStatusColor = PeerCraftUi.TEXT_ERROR;
+                    }
+                });
             }
         });
+    }
+
+    private void rebuildGameRows() {
+        for (AbstractWidget w : this.gameRowWidgets) {
+            this.removeWidget(w);
+        }
+        this.gameRowWidgets.clear();
+
+        recomputeFilteredGames();
+        if (this.games == null) {
+            return;
+        }
+
+        int centerX = this.width / 2;
+        int top = CONTENT_TOP + 32;
+        int shown = Math.min(this.filteredGames.size(), MAX_ROWS_SHOWN);
+        boolean gamesTab = this.currentTab == Tab.GAMES;
+        for (int i = 0; i < shown; i++) {
+            AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+            int rowY = top + i * ROW_HEIGHT;
+
+            Button joinButton = Button.builder(Component.translatable("peercraft.gui.multiplayer.connect"), b -> onJoinGame(game))
+                    .bounds(centerX + 20, rowY, 110, 18).build();
+            joinButton.visible = gamesTab;
+            this.addRenderableWidget(joinButton);
+            this.gameRowWidgets.add(joinButton);
+        }
+
+        if (this.filteredGames.size() > MAX_ROWS_SHOWN) {
+            this.gamesStatusMessage = Component.translatable("peercraft.gui.common.shown_first", MAX_ROWS_SHOWN, this.filteredGames.size());
+            this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        } else if (this.games.isEmpty()) {
+            this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.no_public_games");
+            this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        } else if (this.filteredGames.isEmpty()) {
+            this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.no_games_match_filter");
+            this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        } else {
+            this.gamesStatusMessage = Component.empty();
+        }
+    }
+
+    /** Same join path as onConnectToFriend — the only difference is the code comes from a public listing entry instead of a friend's presence status. */
+    private void onJoinGame(AccountClient.PublicGameInfo game) {
+        String label = game.worldName().isBlank() ? game.code() : game.worldName();
+        this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.joining_game", label);
+        this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        P2PBridge.INSTANCE.startClientViaRendezvous(game.code(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
+                new P2PBridge.ConnectListener() {
+                    @Override
+                    public void onStatus(String message) {
+                        runOnClientThread(() -> {
+                            if (stillOnThisScreen()) {
+                                gamesStatusMessage = Component.literal(message);
+                                gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onConnected() {
+                        runOnClientThread(() -> {
+                            if (!stillOnThisScreen()) {
+                                return;
+                            }
+                            int port = P2PBridge.INSTANCE.getProxyPort();
+                            ServerAddress address = new ServerAddress("127.0.0.1", port);
+                            ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, ServerData.Type.OTHER);
+                            ConnectScreen.startConnecting(lastScreen, minecraft, address, serverData, false, null);
+                        });
+                    }
+
+                    @Override
+                    public void onFailed(String reason) {
+                        runOnClientThread(() -> {
+                            if (stillOnThisScreen()) {
+                                gamesStatusMessage = Component.literal(reason);
+                                gamesStatusColor = PeerCraftUi.TEXT_ERROR;
+                            }
+                        });
+                    }
+                });
+    }
+
+    // ==================== shared plumbing ====================
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.friends == null && this.games == null) {
+            return; // initial loads still in flight
+        }
+        if (++this.ticksSincePoll < POLL_INTERVAL_TICKS) {
+            return;
+        }
+        this.ticksSincePoll = 0;
+        if (this.friends != null) {
+            AccountClient.INSTANCE.listFriends(new AccountClient.FriendListCallback() {
+                @Override
+                public void onResult(List<AccountClient.FriendInfo> result) {
+                    runOnClientThread(() -> {
+                        if (stillOnThisScreen()) {
+                            friends = result;
+                            tabFriendsButton.setMessage(friendsTabLabel());
+                            rebuildFriendRows();
+                        }
+                    });
+                }
+
+                @Override
+                public void onTimeout() {
+                    // silent — keep showing the last known list rather than clearing it
+                }
+            });
+        }
+        if (this.games != null) {
+            AccountClient.INSTANCE.listPublicGames(new AccountClient.PublicGameListCallback() {
+                @Override
+                public void onResult(List<AccountClient.PublicGameInfo> result) {
+                    runOnClientThread(() -> {
+                        if (stillOnThisScreen()) {
+                            games = result;
+                            tabGamesButton.setMessage(gamesTabLabel());
+                            rebuildGameRows();
+                        }
+                    });
+                }
+
+                @Override
+                public void onTimeout() {
+                    // silent — keep showing the last known list rather than clearing it
+                }
+            });
+        }
     }
 
     private void runOnClientThread(Runnable action) {
@@ -786,6 +992,21 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 PeerCraftUi.drawNameWithBadge(graphics, this.font, result.displayName(), result.licensed(), centerX - 200, top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
             }
             graphics.drawCenteredString(this.font, this.discoverStatusMessage, centerX, this.height - 78, this.discoverStatusColor);
+        } else if (this.currentTab == Tab.GAMES) {
+            int top = CONTENT_TOP + 32;
+            int shown = Math.min(this.filteredGames.size(), MAX_ROWS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+                int rowY = top + i * ROW_HEIGHT + 5;
+                String hostName = game.hostDisplayName().isBlank()
+                        ? Component.translatable("peercraft.gui.multiplayer.anonymous_host").getString()
+                        : game.hostDisplayName();
+                String worldName = game.worldName().isBlank() ? game.code() : game.worldName();
+                String versionSuffix = game.mcVersion().isBlank() ? "" : " [" + game.mcVersion() + "]";
+                String line = worldName + " — " + hostName + " (" + game.currentPlayerCount() + "/" + game.maxPlayers() + ")" + versionSuffix;
+                graphics.drawString(this.font, line, centerX - 200, rowY, PeerCraftUi.TEXT_TITLE, false);
+            }
+            graphics.drawCenteredString(this.font, this.gamesStatusMessage, centerX, this.height - 78, this.gamesStatusColor);
         }
     }
 }

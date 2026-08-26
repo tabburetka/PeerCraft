@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.FriendServerIntegrationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-08-25T11:38:28.311Z" hostname="cachyos-x8664" time="0.094">
+  <properties/>
+  <testcase name="removeFriendUnfriendsBothSides()" classname="net.peercraft.rendezvous.FriendServerIntegrationTest" time="0.059"/>
+  <testcase name="searchFindsAccountsByDisplayNameSubstring()" classname="net.peercraft.rendezvous.FriendServerIntegrationTest" time="0.015"/>
+  <testcase name="sendRequestAcceptThenBothSeeEachOtherInFriendsList()" classname="net.peercraft.rendezvous.FriendServerIntegrationTest" time="0.016"/>
+  <system-out><![CDATA[[15:38:28.358] [RendezvousServer] Listening on UDP port 36208
+[15:38:28.376] [RendezvousServer] Listening on UDP port 37420
+[15:38:28.390] [RendezvousServer] Listening on UDP port 42708
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

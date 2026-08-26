@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="net.peercraft.rendezvous.RendezvousServerIntegrationTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-25T11:38:28.541Z" hostname="cachyos-x8664" time="0.07">
+  <properties/>
+  <testcase name="thirdJoinerBeyondMaxPlayersGetsRoomFullReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.015"/>
+  <testcase name="registerThenJoinMatchesBothPeers()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
+  <testcase name="joinWithBadCodeGetsInvalidCodeReply()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.012"/>
+  <testcase name="twoJoinersCanMatchTheSameRoomConcurrently()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.013"/>
+  <testcase name="joinWithAccountMakesHostSidePeerFoundCarryTheJoinersAccountId()" classname="net.peercraft.rendezvous.RendezvousServerIntegrationTest" time="0.014"/>
+  <system-out><![CDATA[[15:38:28.543] [RendezvousServer] Listening on UDP port 48802
+[15:38:28.554] [RendezvousServer] REGISTER from 127.0.0.1:50249 -> new room YDXR45
+[15:38:28.554] [RendezvousServer] Room YDXR45 matched: 127.0.0.1:50249 <-> 127.0.0.1:56408
+[15:38:28.555] [RendezvousServer] REGISTER from 127.0.0.1:50249 -> existing room YDXR45 (idempotent resend/keepalive)
+[15:38:28.558] [RendezvousServer] Listening on UDP port 33302
+[15:38:28.559] [RendezvousServer] JOIN YDXR45 from 127.0.0.1:48272 -> rejected (reason=2)
+[15:38:28.569] [RendezvousServer] REGISTER from 127.0.0.1:45930 -> new room 3E549E
+[15:38:28.569] [RendezvousServer] Room 3E549E matched: 127.0.0.1:45930 <-> 127.0.0.1:40338
+[15:38:28.572] [RendezvousServer] Listening on UDP port 54655
+[15:38:28.582] [RendezvousServer] JOIN NOPE12 from 127.0.0.1:56225 -> rejected (reason=1)
+[15:38:28.583] [RendezvousServer]   known rooms (0): (none)
+[15:38:28.584] [RendezvousServer] Listening on UDP port 42321
+[15:38:28.595] [RendezvousServer] REGISTER from 127.0.0.1:46553 -> new room KUBNQK
+[15:38:28.595] [RendezvousServer] Room KUBNQK matched: 127.0.0.1:46553 <-> 127.0.0.1:55640
+[15:38:28.595] [RendezvousServer] Room KUBNQK matched: 127.0.0.1:46553 <-> 127.0.0.1:49338
+[15:38:28.598] [RendezvousServer] Listening on UDP port 56491
+[15:38:28.609] [RendezvousServer] REGISTER from 127.0.0.1:58344 -> new room QPGE4Y
+[15:38:28.610] [RendezvousServer] Room QPGE4Y matched: 127.0.0.1:58344 <-> 127.0.0.1:38780
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

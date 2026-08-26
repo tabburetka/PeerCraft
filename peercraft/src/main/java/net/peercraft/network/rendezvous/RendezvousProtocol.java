@@ -4,6 +4,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +28,9 @@ public final class RendezvousProtocol {
     // 0x04 intentionally left free of an assigned meaning in this version.
     public static final byte TYPE_JOIN_FAIL = 0x05;
     public static final byte TYPE_PEER_FOUND = 0x06;
+    // Public game browser (Phase 7): anonymous, no session — see RoomRegistry.listPublicRooms().
+    public static final byte TYPE_ROOM_LIST = 0x07;
+    public static final byte TYPE_ROOM_LIST_REPLY = 0x08;
     public static final byte TYPE_PUNCH = 0x10;
     public static final byte TYPE_PUNCH_ACK = 0x11;
 
@@ -57,9 +62,16 @@ public final class RendezvousProtocol {
      * {@code account} is present only when the host is logged into a PeerCraft account
      * (Phase 4) — see encodeRegisterWithAccount. {@code friendsOnly} (Phase 6) only has an
      * effect when {@code account} is present — a room can't be gated to "friends" with no
-     * account to own the friends list.
+     * account to own the friends list. {@code publicRoom}/{@code worldName}/{@code mcVersion}
+     * (Phase 7) work regardless of whether an account is attached — anonymous hosts can host
+     * publicly too, see RoomRegistry.register(). {@code worldName}/{@code mcVersion} are only
+     * meaningful when publicRoom is true; empty otherwise. {@code mcVersion} is the host's
+     * running Minecraft version (e.g. "1.21.1") — vanilla's own network protocol only lets
+     * same-version clients actually connect, so the browser needs this to warn about (or filter
+     * out) incompatible rooms before a joiner wastes a punch attempt on one.
      */
-    public record Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly) {
+    public record Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly,
+                            boolean publicRoom, String worldName, String mcVersion) {
     }
 
     /** {@code sessionToken} must be re-validated server-side (see RendezvousServer.handleRegister) — a REGISTER must never be trusted to self-report its own accountId unchecked. */
@@ -68,6 +80,13 @@ public final class RendezvousProtocol {
 
     /** {@code joinerAccountId} present (Phase 5) only in the copy sent to the HOST, and only when the joiner attached a valid session to their JOIN — see RendezvousServer.handleJoin. */
     public record PeerFound(Address peer, long token, Optional<UUID> joinerAccountId) {
+    }
+
+    /** One row of the public game browser (Phase 7) — {@code hostDisplayName} is "" for an anonymous host; {@code mcVersion} is the host's running Minecraft version, see Register's doc comment. */
+    public record PublicRoom(String code, int maxPlayers, int currentPlayerCount, String hostDisplayName, String worldName, String mcVersion) {
+    }
+
+    public record RoomListReply(List<PublicRoom> rooms) {
     }
 
     /** @return the {@code type} byte, or -1 if this isn't a rendezvous datagram at all (wrong magic/too short). */
@@ -114,12 +133,43 @@ public final class RendezvousProtocol {
     // optional trailer byte (Phase 6, only meaningful with an account attached): [friendsOnly:1]
     // — gates JOIN to the host's friends list, see RoomRegistry.join(). Read only if present
     // (buf.remaining() >= 1), same incremental-trailer style as Join/PeerFound below, so an
-    // older 20-byte account payload still decodes fine with friendsOnly=false.
+    // older 20-byte account payload still decodes fine with friendsOnly=false. Phase 7 adds
+    // more optional trailer bytes, read in BOTH the anonymous and account branches (unlike
+    // friendsOnly, publicRoom works without an account — see RoomRegistry.register()):
+    // [publicRoom:1], and if publicRoom is true, [worldNameLen:1][worldNameBytes][mcVersionLen:1]
+    // [mcVersionBytes] (both UTF-8). Older payloads without this trailer (or missing just the
+    // mcVersion part of it) decode with publicRoom=false/mcVersion="" — readShortString()
+    // tolerates a short/absent buffer on its own, see its doc comment.
 
     public static byte[] encodeRegister(int maxPlayers, int currentPlayerCount) {
         return new byte[]{MAGIC, TYPE_REGISTER, (byte) maxPlayers, (byte) currentPlayerCount};
     }
 
+    /** As {@link #encodeRegister(int, int)}, but for an anonymous host that wants to appear in the public game browser (Phase 7) — see RoomRegistry.listPublicRooms(). {@code worldName}/{@code mcVersion} are ignored (and not even written) when {@code publicRoom} is false. */
+    public static byte[] encodeRegisterAnonymous(int maxPlayers, int currentPlayerCount, boolean publicRoom, String worldName, String mcVersion) {
+        byte[] worldNameBytes = publicRoom ? worldName.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        byte[] mcVersionBytes = publicRoom ? mcVersion.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        int size = 2 + 1 + 1 + 1 + 1 + (publicRoom ? 1 + worldNameBytes.length + 1 + mcVersionBytes.length : 0);
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        buf.put(MAGIC);
+        buf.put(TYPE_REGISTER);
+        buf.put((byte) maxPlayers);
+        buf.put((byte) currentPlayerCount);
+        buf.put((byte) 0); // hasAccount = false
+        buf.put((byte) (publicRoom ? 1 : 0));
+        if (publicRoom) {
+            writeShortString(buf, worldNameBytes);
+            writeShortString(buf, mcVersionBytes);
+        }
+        return buf.array();
+    }
+
+    /**
+     * Kept byte-for-byte identical to its pre-Phase-7 form (no publicRoom trailer at all, not
+     * even a false one) — {@link RendezvousProtocolTest#oldAccountRegisterPayloadWithoutFriendsOnlyByteStillDecodes()}
+     * relies on this exact shape (friendsOnly as the very last byte) to simulate a genuinely
+     * pre-Phase-6 payload by truncation. Use the 7-arg overload below to also set publicRoom/worldName.
+     */
     public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken, boolean friendsOnly) {
         ByteBuffer buf = ByteBuffer.allocate(2 + 1 + 1 + 1 + 16 + sessionToken.length + 1);
         buf.put(MAGIC);
@@ -134,22 +184,52 @@ public final class RendezvousProtocol {
         return buf.array();
     }
 
+    /** As {@link #encodeRegisterWithAccount(int, int, UUID, byte[], boolean)}, but also carries the public-game-browser flag/label/version (Phase 7) — see RoomRegistry.register(). */
+    public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken,
+                                                     boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion) {
+        byte[] worldNameBytes = publicRoom ? worldName.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        byte[] mcVersionBytes = publicRoom ? mcVersion.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        int size = 2 + 1 + 1 + 1 + 16 + sessionToken.length + 1 + 1 + (publicRoom ? 1 + worldNameBytes.length + 1 + mcVersionBytes.length : 0);
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        buf.put(MAGIC);
+        buf.put(TYPE_REGISTER);
+        buf.put((byte) maxPlayers);
+        buf.put((byte) currentPlayerCount);
+        buf.put((byte) 1);
+        buf.putLong(accountId.getMostSignificantBits());
+        buf.putLong(accountId.getLeastSignificantBits());
+        buf.put(sessionToken);
+        buf.put((byte) (friendsOnly ? 1 : 0));
+        buf.put((byte) (publicRoom ? 1 : 0));
+        if (publicRoom) {
+            writeShortString(buf, worldNameBytes);
+            writeShortString(buf, mcVersionBytes);
+        }
+        return buf.array();
+    }
+
     public static Register decodeRegister(byte[] data, int length) {
         int maxPlayers = data[2] & 0xFF;
         int currentPlayerCount = data[3] & 0xFF;
         if (length <= 4) {
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false);
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, false, "", "");
         }
         ByteBuffer buf = ByteBuffer.wrap(data, 4, length - 4);
         boolean hasAccount = buf.get() != 0;
         if (!hasAccount) {
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false);
+            boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
+            String worldName = publicRoom ? readShortString(buf) : "";
+            String mcVersion = publicRoom ? readShortString(buf) : "";
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, publicRoom, worldName, mcVersion);
         }
         UUID accountId = new UUID(buf.getLong(), buf.getLong());
         byte[] sessionToken = new byte[16];
         buf.get(sessionToken);
         boolean friendsOnly = buf.remaining() >= 1 && buf.get() != 0;
-        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly);
+        boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
+        String worldName = publicRoom ? readShortString(buf) : "";
+        String mcVersion = publicRoom ? readShortString(buf) : "";
+        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly, publicRoom, worldName, mcVersion);
     }
 
     // ---- ROOM_CREATED: server -> host ----
@@ -270,6 +350,80 @@ public final class RendezvousProtocol {
             }
         }
         return new PeerFound(peer, token, Optional.empty());
+    }
+
+    // ---- ROOM_LIST: client -> server (Phase 7, anonymous poll — no session, anyone can ask) ----
+
+    public static byte[] encodeRoomList() {
+        return new byte[]{MAGIC, TYPE_ROOM_LIST};
+    }
+
+    // ---- ROOM_LIST_REPLY: server -> client ----
+
+    public static byte[] encodeRoomListReply(List<PublicRoom> rooms) {
+        int size = 2 + 1;
+        for (PublicRoom r : rooms) {
+            size += 1 + r.code().getBytes(StandardCharsets.US_ASCII).length
+                    + 1 + 1
+                    + 1 + r.hostDisplayName().getBytes(StandardCharsets.UTF_8).length
+                    + 1 + r.worldName().getBytes(StandardCharsets.UTF_8).length
+                    + 1 + r.mcVersion().getBytes(StandardCharsets.UTF_8).length;
+        }
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        buf.put(MAGIC);
+        buf.put(TYPE_ROOM_LIST_REPLY);
+        buf.put((byte) rooms.size());
+        for (PublicRoom r : rooms) {
+            byte[] codeBytes = r.code().getBytes(StandardCharsets.US_ASCII);
+            buf.put((byte) codeBytes.length);
+            buf.put(codeBytes);
+            buf.put((byte) r.maxPlayers());
+            buf.put((byte) r.currentPlayerCount());
+            writeShortString(buf, r.hostDisplayName().getBytes(StandardCharsets.UTF_8));
+            writeShortString(buf, r.worldName().getBytes(StandardCharsets.UTF_8));
+            writeShortString(buf, r.mcVersion().getBytes(StandardCharsets.UTF_8));
+        }
+        return buf.array();
+    }
+
+    public static RoomListReply decodeRoomListReply(byte[] data, int length) {
+        ByteBuffer buf = ByteBuffer.wrap(data, 0, length);
+        buf.get();
+        buf.get();
+        int count = buf.get() & 0xFF;
+        List<PublicRoom> rooms = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            int codeLen = buf.get() & 0xFF;
+            byte[] codeBytes = new byte[codeLen];
+            buf.get(codeBytes);
+            String code = new String(codeBytes, StandardCharsets.US_ASCII);
+            int maxPlayers = buf.get() & 0xFF;
+            int currentPlayerCount = buf.get() & 0xFF;
+            String hostDisplayName = readShortString(buf);
+            String worldName = readShortString(buf);
+            String mcVersion = readShortString(buf);
+            rooms.add(new PublicRoom(code, maxPlayers, currentPlayerCount, hostDisplayName, worldName, mcVersion));
+        }
+        return new RoomListReply(rooms);
+    }
+
+    private static void writeShortString(ByteBuffer buf, byte[] utf8Bytes) {
+        buf.put((byte) utf8Bytes.length);
+        buf.put(utf8Bytes);
+    }
+
+    /** Returns "" instead of throwing on a missing/truncated buffer — lets REGISTER's Phase 7 trailer decode two independent optional strings (worldName, mcVersion) without each needing its own explicit remaining()-guard at the call site. */
+    private static String readShortString(ByteBuffer buf) {
+        if (buf.remaining() < 1) {
+            return "";
+        }
+        int len = buf.get() & 0xFF;
+        if (buf.remaining() < len) {
+            return "";
+        }
+        byte[] bytes = new byte[len];
+        buf.get(bytes);
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     // ---- PUNCH / PUNCH_ACK: peer -> peer directly, server not involved ----

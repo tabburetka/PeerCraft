@@ -97,6 +97,92 @@ class RendezvousProtocolTest {
         assertTrue(decoded.account().isEmpty());
     }
 
+    // ---- Phase 7: public game browser ----
+
+    @Test
+    void anonymousPublicRegisterRoundTrips() {
+        byte[] encoded = RendezvousProtocol.encodeRegisterAnonymous(4, 2, true, "Steve's SMP", "1.21.1");
+
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertEquals(4, decoded.maxPlayers());
+        assertEquals(2, decoded.currentPlayerCount());
+        assertTrue(decoded.account().isEmpty());
+        assertFalse(decoded.friendsOnly());
+        assertTrue(decoded.publicRoom());
+        assertEquals("Steve's SMP", decoded.worldName());
+        assertEquals("1.21.1", decoded.mcVersion());
+    }
+
+    @Test
+    void anonymousNonPublicRegisterRoundTrips() {
+        byte[] encoded = RendezvousProtocol.encodeRegisterAnonymous(4, 2, false, "ignored", "ignored");
+
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertFalse(decoded.publicRoom());
+        assertEquals("", decoded.worldName());
+        assertEquals("", decoded.mcVersion());
+    }
+
+    @Test
+    void accountRegisterWithPublicRoomRoundTrips() {
+        java.util.UUID accountId = java.util.UUID.randomUUID();
+        byte[] sessionToken = new byte[16];
+        for (int i = 0; i < sessionToken.length; i++) {
+            sessionToken[i] = (byte) i;
+        }
+        byte[] encoded = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken, false, true, "Cool base", "1.21.10");
+
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(encoded, encoded.length);
+        assertTrue(decoded.account().isPresent());
+        assertFalse(decoded.friendsOnly());
+        assertTrue(decoded.publicRoom());
+        assertEquals("Cool base", decoded.worldName());
+        assertEquals("1.21.10", decoded.mcVersion());
+    }
+
+    @Test
+    void oldStylePayloadsStillDecodeWithPublicRoomFalse() {
+        // Regression guard: a REGISTER encoded before Phase 7 (no publicRoom trailer at all)
+        // must still decode — publicRoom/worldName just default to false/"".
+        byte[] anonymous = RendezvousProtocol.encodeRegister(4, 2);
+        assertFalse(RendezvousProtocol.decodeRegister(anonymous, anonymous.length).publicRoom());
+
+        java.util.UUID accountId = java.util.UUID.randomUUID();
+        byte[] sessionToken = new byte[16];
+        byte[] withAccount = RendezvousProtocol.encodeRegisterWithAccount(4, 2, accountId, sessionToken, true);
+        RendezvousProtocol.Register decoded = RendezvousProtocol.decodeRegister(withAccount, withAccount.length);
+        assertTrue(decoded.friendsOnly());
+        assertFalse(decoded.publicRoom());
+        assertEquals("", decoded.worldName());
+        assertEquals("", decoded.mcVersion());
+    }
+
+    @Test
+    void roomListRoundTrips() {
+        byte[] encoded = RendezvousProtocol.encodeRoomList();
+        assertEquals(RendezvousProtocol.TYPE_ROOM_LIST, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+    }
+
+    @Test
+    void roomListReplyRoundTrips() {
+        RendezvousProtocol.PublicRoom room1 = new RendezvousProtocol.PublicRoom("ABC123", 4, 1, "Steve", "Steve's SMP", "1.21.1");
+        RendezvousProtocol.PublicRoom room2 = new RendezvousProtocol.PublicRoom("XYZ789", 8, 0, "", "Anonymous world", "1.21.11");
+        byte[] encoded = RendezvousProtocol.encodeRoomListReply(java.util.List.of(room1, room2));
+
+        assertEquals(RendezvousProtocol.TYPE_ROOM_LIST_REPLY, (byte) RendezvousProtocol.messageType(encoded, encoded.length));
+        RendezvousProtocol.RoomListReply decoded = RendezvousProtocol.decodeRoomListReply(encoded, encoded.length);
+        assertEquals(2, decoded.rooms().size());
+        assertEquals(room1, decoded.rooms().get(0));
+        assertEquals(room2, decoded.rooms().get(1));
+    }
+
+    @Test
+    void roomListReplyRoundTripsWithEmptyList() {
+        byte[] encoded = RendezvousProtocol.encodeRoomListReply(java.util.List.of());
+        RendezvousProtocol.RoomListReply decoded = RendezvousProtocol.decodeRoomListReply(encoded, encoded.length);
+        assertTrue(decoded.rooms().isEmpty());
+    }
+
     @Test
     void roomCreatedRoundTrip() throws UnknownHostException {
         RendezvousProtocol.Address hostAddress = addr("203.0.113.5", 12345);
@@ -212,5 +298,23 @@ class RendezvousProtocolTest {
 
         byte[] punch = RendezvousProtocol.encodePunch(0x0102030405060708L);
         assertArrayEquals(new byte[]{(byte) 0xE1, 0x10, 1, 2, 3, 4, 5, 6, 7, 8}, punch);
+
+        byte[] anonymousPublicRegister = RendezvousProtocol.encodeRegisterAnonymous(4, 2, true, "AB", "CD");
+        assertArrayEquals(new byte[]{(byte) 0xE1, 0x01, 4, 2, 0, 1, 2, 'A', 'B', 2, 'C', 'D'}, anonymousPublicRegister);
+
+        byte[] roomList = RendezvousProtocol.encodeRoomList();
+        assertArrayEquals(new byte[]{(byte) 0xE1, 0x07}, roomList);
+
+        byte[] roomListReply = RendezvousProtocol.encodeRoomListReply(
+                java.util.List.of(new RendezvousProtocol.PublicRoom("AB", 4, 2, "C", "DE", "F")));
+        assertArrayEquals(new byte[]{
+                (byte) 0xE1, 0x08,
+                1,
+                2, 'A', 'B',
+                4, 2,
+                1, 'C',
+                2, 'D', 'E',
+                1, 'F',
+        }, roomListReply);
     }
 }

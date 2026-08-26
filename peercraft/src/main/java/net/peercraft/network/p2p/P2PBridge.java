@@ -193,6 +193,18 @@ public class P2PBridge {
 
     /** As {@link #startHostViaRendezvous(int, int, HostListener)}, but additionally gates JOIN to the host's PeerCraft friends list (Phase 6, no-op if the host isn't logged into an account — see RendezvousClient.registerRoom). */
     public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, HostListener listener) {
+        startHostViaRendezvous(mcPort, maxPlayers, friendsOnly, false, "", "", listener);
+    }
+
+    /**
+     * As {@link #startHostViaRendezvous(int, int, boolean, HostListener)}, but additionally
+     * lists the room in the public game browser (Phase 7, works with or without an account —
+     * see RendezvousClient.registerRoom). {@code worldName}/{@code mcVersion} are only
+     * meaningful while {@code publicRoom} is true — {@code mcVersion} isn't auto-detected here:
+     * this class has no {@code net.minecraft.*} imports (it's called from Mixins that do), so
+     * the caller computes it and passes it in, same as {@code worldName}.
+     */
+    public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, HostListener listener) {
         this.isHost = true;
         this.localMinecraftPort = mcPort;
         this.maxPlayers = maxPlayers;
@@ -221,6 +233,9 @@ public class P2PBridge {
                 session != null ? session.accountId() : null,
                 session != null ? session.sessionToken() : null,
                 friendsOnly,
+                publicRoom,
+                worldName,
+                mcVersion,
                 (code, changed) -> {
                     if (changed) {
                         LOGGER.warn("[P2PBridge] Код комнаты изменился! Новый код для второго игрока: {}", code);
