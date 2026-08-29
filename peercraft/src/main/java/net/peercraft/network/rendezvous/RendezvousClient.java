@@ -245,6 +245,7 @@ public final class RendezvousClient implements RawPacketListener {
         }
 
         int type = RendezvousProtocol.messageType(data, length);
+        //? if >=1.17 {
         switch (type) {
             case RendezvousProtocol.TYPE_ROOM_CREATED -> handleRoomCreated(data, length);
             case RendezvousProtocol.TYPE_PEER_FOUND -> handlePeerFound(data, length);
@@ -252,6 +253,15 @@ public final class RendezvousClient implements RawPacketListener {
             default -> LOGGER.warn("[RendezvousClient] Неизвестный тип сообщения {} от сервера знакомств {}:{} — возможно, рассинхронизация версий протокола",
                     type, address.getHostAddress(), port);
         }
+        //?} else {
+        /*switch (type) {
+            case RendezvousProtocol.TYPE_ROOM_CREATED: handleRoomCreated(data, length); break;
+            case RendezvousProtocol.TYPE_PEER_FOUND: handlePeerFound(data, length); break;
+            case RendezvousProtocol.TYPE_JOIN_FAIL: handleJoinFail(data, length); break;
+            default: LOGGER.warn("[RendezvousClient] Неизвестный тип сообщения {} от сервера знакомств {}:{} — возможно, рассинхронизация версий протокола",
+                    type, address.getHostAddress(), port);
+        }*/
+        //?}
     }
 
     private void handleRoomCreated(byte[] data, int length) {
@@ -366,6 +376,7 @@ public final class RendezvousClient implements RawPacketListener {
     }
 
     private static String describeReason(byte reason) {
+        //? if >=1.17 {
         return switch (reason) {
             case RendezvousProtocol.REASON_INVALID_CODE -> "неверный код комнаты";
             case RendezvousProtocol.REASON_ALREADY_CLAIMED -> "комната уже занята";
@@ -374,5 +385,15 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_NOT_FRIEND -> "вы не в списке друзей хозяина комнаты";
             default -> "неизвестная ошибка сервера знакомств (" + reason + ")";
         };
+        //?} else {
+        /*switch (reason) {
+            case RendezvousProtocol.REASON_INVALID_CODE: return "неверный код комнаты";
+            case RendezvousProtocol.REASON_ALREADY_CLAIMED: return "комната уже занята";
+            case RendezvousProtocol.REASON_EXPIRED: return "код комнаты истёк";
+            case RendezvousProtocol.REASON_SERVER_BUSY: return "сервер знакомств перегружен, попробуйте позже";
+            case RendezvousProtocol.REASON_NOT_FRIEND: return "вы не в списке друзей хозяина комнаты";
+            default: return "неизвестная ошибка сервера знакомств (" + reason + ")";
+        }*/
+        //?}
     }
 }

@@ -1,9 +1,13 @@
 package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
@@ -115,7 +119,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // per keystroke, and matches how the existing Discover tab's search already works.
     private List<AccountClient.PublicGameInfo> filteredGames = List.of();
     private EditBox gameSearchBox;
-    private EditBox gameVersionFilterBox;
+    // A CycleButton can't have its value list changed after creation, so this is torn down and
+    // rebuilt (rebuildVersionFilterButton()) every time `games` refreshes with a new set of
+    // versions. "" is the sentinel for "All" (no filter).
+    private CycleButton<String> gameVersionFilterButton;
+    private String selectedVersionFilter = "";
     private Component gamesStatusMessage = Component.empty();
     private int gamesStatusColor = PeerCraftUi.TEXT_MUTED;
 
@@ -261,7 +269,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         //?}
 
         this.customRefreshButton = this.addRenderableWidget(Button.builder(vanillaRefresh.getMessage(),
-                        b -> this.minecraft.setScreen(new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)))
+                        b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)))
                 .bounds(vanillaRefresh.getX(), vanillaRefresh.getY(), vanillaRefresh.getWidth(), vanillaRefresh.getHeight())
                 .build());
 
@@ -272,14 +280,14 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         // face render, to stay visually consistent with the rest of the button row.
         this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
                 vanillaBack.getX() + vanillaBack.getWidth() + 6, vanillaBack.getY(), vanillaBack.getHeight(),
-                "☺", Component.translatable("peercraft.gui.multiplayer.account_tooltip").getString(), b -> this.minecraft.setScreen(new PeerCraftAccountScreen(this))));
+                "☺", Component.translatable("peercraft.gui.multiplayer.account_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this))));
 
         // "Join by code" — same relocation, next to Add Server. Skipped in host mode
         // like the old title-screen button was: a host never needs to join someone else's room.
         if (!PeerCraftConfig.MODE_HOST.equals(PeerCraftConfig.mode())) {
             this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
                     this.favoritesAddButton.getX() + this.favoritesAddButton.getWidth() + 6, this.favoritesAddButton.getY(), this.favoritesAddButton.getHeight(),
-                    "▶", Component.translatable("peercraft.gui.multiplayer.join_by_code_tooltip").getString(), b -> this.minecraft.setScreen(new PeerCraftJoinScreen(this))));
+                    "▶", Component.translatable("peercraft.gui.multiplayer.join_by_code_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftJoinScreen(this))));
         }
     }
 
@@ -420,7 +428,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 .bounds(centerX - 70, rowsBottom + 8, 150, 20).build());
         this.friendsStaticWidgets.add(this.addByCodeButton);
 
-        this.friendsStaticWidgets.add(this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.friend_requests_button"), b -> this.minecraft.setScreen(new PeerCraftFriendRequestsScreen(this)))
+        this.friendsStaticWidgets.add(this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.friend_requests_button"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftFriendRequestsScreen(this)))
                 .bounds(centerX - 100, rowsBottom + 34, 200, 20).build()));
 
         rebuildFriendRows();
@@ -555,8 +563,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** Removing a friend can't be undone from this screen — confirm first rather than losing them to a misclick. */
     private void confirmRemoveFriend(AccountClient.FriendInfo friend) {
-        this.minecraft.setScreen(new ConfirmScreen(confirmed -> {
-            this.minecraft.setScreen(this);
+        PeerCraftUi.setScreen(this.minecraft, new ConfirmScreen(confirmed -> {
+            PeerCraftUi.setScreen(this.minecraft, this);
             if (confirmed) {
                 onRemoveFriend(friend);
             }
@@ -756,11 +764,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.gameSearchBox.setResponder(value -> rebuildGameRows());
         this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameSearchBox));
 
-        this.gameVersionFilterBox = new EditBox(this.font, centerX + 10, top, 110, 20, Component.translatable("peercraft.gui.multiplayer.game_version_filter_field"));
-        this.gameVersionFilterBox.setMaxLength(16);
-        this.gameVersionFilterBox.setHint(Component.translatable("peercraft.gui.multiplayer.game_version_filter_hint"));
-        this.gameVersionFilterBox.setResponder(value -> rebuildGameRows());
-        this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameVersionFilterBox));
+        rebuildVersionFilterButton();
 
         rebuildGameRows();
         if (this.games == null) {
@@ -768,18 +772,67 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         }
     }
 
-    /** Applies gameSearchBox (world name substring)/gameVersionFilterBox (version substring) over the raw fetched list — both case-insensitive, blank = no filter. */
+    /** (Re)creates the version-filter CycleButton with the versions currently present in `games` — a CycleButton has no API to change its value list after creation, so this must be called every time `games` is refreshed with a possibly different set of versions (Phase 7.2). Keeps the current selection if it's still offered, otherwise resets to "All". */
+    private void rebuildVersionFilterButton() {
+        List<String> versions = new ArrayList<>();
+        versions.add(""); // "All" sentinel, always first
+        if (this.games != null) {
+            this.games.stream()
+                    .map(AccountClient.PublicGameInfo::mcVersion)
+                    .filter(v -> !v.isBlank())
+                    .distinct()
+                    .sorted()
+                    .forEach(versions::add);
+        }
+        if (!versions.contains(this.selectedVersionFilter)) {
+            this.selectedVersionFilter = "";
+        }
+
+        if (this.gameVersionFilterButton != null) {
+            this.removeWidget(this.gameVersionFilterButton);
+            this.gamesStaticWidgets.remove(this.gameVersionFilterButton);
+        }
+
+        int centerX = this.width / 2;
+        int top = CONTENT_TOP + 4;
+        java.util.function.Function<String, Component> valueName = v ->
+                v.isEmpty() ? Component.translatable("peercraft.gui.multiplayer.game_version_filter_all") : Component.literal(v);
+        // CycleButton.builder(Function) lost its no-initial-value overload in 1.21.11 —
+        // withInitialValue() is gone, the initial value is now a required constructor arg (same
+        // quirk as ShareToLanScreenMixin's maxPlayersButton).
+        //? if <1.21.11 {
+        CycleButton.Builder<String> versionBuilder = CycleButton.<String>builder(valueName)
+                .withInitialValue(this.selectedVersionFilter);
+        //?} else {
+        /*CycleButton.Builder<String> versionBuilder = CycleButton.<String>builder(valueName, this.selectedVersionFilter);*/
+        //?}
+        this.gameVersionFilterButton = versionBuilder
+                .withValues(versions)
+                .create(centerX + 10, top, 110, 20, Component.translatable("peercraft.gui.multiplayer.game_version_filter_field"),
+                        (button, value) -> {
+                            this.selectedVersionFilter = value;
+                            rebuildGameRows();
+                        });
+        // A freshly created widget defaults to visible=true regardless of the tab that's
+        // actually showing — this rebuild can be triggered by loadGames()'s async callback
+        // landing after the player has already switched away from the Games tab, so unlike the
+        // other games-tab widgets (only ever built once, in sync with applyTabVisibility()),
+        // this one must set its own visibility rather than wait for the next tab switch.
+        this.gameVersionFilterButton.visible = this.currentTab == Tab.GAMES;
+        this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameVersionFilterButton));
+    }
+
+    /** Applies gameSearchBox (world name substring, case-insensitive)/selectedVersionFilter (exact match) over the raw fetched list. */
     private void recomputeFilteredGames() {
         if (this.games == null) {
             this.filteredGames = List.of();
             return;
         }
         String search = this.gameSearchBox == null ? "" : this.gameSearchBox.getValue().trim().toLowerCase(Locale.ROOT);
-        String versionFilter = this.gameVersionFilterBox == null ? "" : this.gameVersionFilterBox.getValue().trim().toLowerCase(Locale.ROOT);
         List<AccountClient.PublicGameInfo> result = new ArrayList<>();
         for (AccountClient.PublicGameInfo game : this.games) {
             boolean matchesSearch = search.isEmpty() || game.worldName().toLowerCase(Locale.ROOT).contains(search);
-            boolean matchesVersion = versionFilter.isEmpty() || game.mcVersion().toLowerCase(Locale.ROOT).contains(versionFilter);
+            boolean matchesVersion = this.selectedVersionFilter.isEmpty() || game.mcVersion().equals(this.selectedVersionFilter);
             if (matchesSearch && matchesVersion) {
                 result.add(game);
             }
@@ -800,6 +853,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     games = result;
                     gamesStatusMessage = Component.empty();
                     tabGamesButton.setMessage(gamesTabLabel());
+                    rebuildVersionFilterButton();
                     rebuildGameRows();
                 });
             }
@@ -955,9 +1009,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     }
 
     private boolean stillOnThisScreen() {
-        return Minecraft.getInstance().screen == this;
+        return PeerCraftUi.isCurrentScreen(this);
     }
 
+    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
+    // #extractRenderState; drawString/drawCenteredString became text/centeredText.
+    //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -1009,4 +1066,57 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             graphics.drawCenteredString(this.font, this.gamesStatusMessage, centerX, this.height - 78, this.gamesStatusColor);
         }
     }
+    //?} else {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        int centerX = this.width / 2;
+
+        if (this.currentTab == Tab.FRIENDS) {
+            int top = CONTENT_TOP + 4;
+            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), MAX_ROWS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                AccountClient.FriendInfo friend = this.friends.get(i);
+                int rowY = top + i * ROW_HEIGHT + 5;
+                int afterBadgeX = PeerCraftUi.drawNameWithBadge(graphics, this.font, friend.displayName(), friend.licensed(), centerX - 200, rowY, PeerCraftUi.TEXT_TITLE);
+
+                String status = switch (friend.status()) {
+                    case AccountProtocol.STATUS_HOSTING -> Component.translatable("peercraft.gui.multiplayer.status_hosting", friend.roomCode()).getString();
+                    case AccountProtocol.STATUS_ONLINE -> Component.translatable("peercraft.gui.multiplayer.status_online").getString();
+                    default -> Component.translatable("peercraft.gui.multiplayer.status_offline").getString();
+                };
+                int statusColor = switch (friend.status()) {
+                    case AccountProtocol.STATUS_HOSTING -> PeerCraftUi.TEXT_ACCENT;
+                    case AccountProtocol.STATUS_ONLINE -> PeerCraftUi.TEXT_SUCCESS;
+                    default -> PeerCraftUi.TEXT_MUTED;
+                };
+                graphics.text(this.font, " — " + status, afterBadgeX, rowY, statusColor, false);
+            }
+            graphics.centeredText(this.font, this.friendsStatusMessage, centerX, this.height - 78, this.friendsStatusColor);
+        } else if (this.currentTab == Tab.DISCOVER) {
+            int top = CONTENT_TOP + 32;
+            int shown = Math.min(this.searchResults.size(), MAX_ROWS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                AccountClient.SearchResult result = this.searchResults.get(i);
+                PeerCraftUi.drawNameWithBadge(graphics, this.font, result.displayName(), result.licensed(), centerX - 200, top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
+            }
+            graphics.centeredText(this.font, this.discoverStatusMessage, centerX, this.height - 78, this.discoverStatusColor);
+        } else if (this.currentTab == Tab.GAMES) {
+            int top = CONTENT_TOP + 32;
+            int shown = Math.min(this.filteredGames.size(), MAX_ROWS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+                int rowY = top + i * ROW_HEIGHT + 5;
+                String hostName = game.hostDisplayName().isBlank()
+                        ? Component.translatable("peercraft.gui.multiplayer.anonymous_host").getString()
+                        : game.hostDisplayName();
+                String worldName = game.worldName().isBlank() ? game.code() : game.worldName();
+                String versionSuffix = game.mcVersion().isBlank() ? "" : " [" + game.mcVersion() + "]";
+                String line = worldName + " — " + hostName + " (" + game.currentPlayerCount() + "/" + game.maxPlayers() + ")" + versionSuffix;
+                graphics.text(this.font, line, centerX - 200, rowY, PeerCraftUi.TEXT_TITLE, false);
+            }
+            graphics.centeredText(this.font, this.gamesStatusMessage, centerX, this.height - 78, this.gamesStatusColor);
+        }
+    }*/
+    //?}
 }

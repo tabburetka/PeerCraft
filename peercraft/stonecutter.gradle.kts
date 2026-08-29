@@ -2,8 +2,13 @@ plugins {
 	id("dev.kikugie.stonecutter")
 	// Versions must match gradle.properties' loom_version/moddev_version — the plugins {} block
 	// can't read Gradle properties, so these are applied here once (apply = false) and reused by
-	// build.fabric.gradle.kts / build.neoforge.gradle.kts without a version.
+	// build.fabric.gradle.kts / build.fabric-unmapped.gradle.kts / build.neoforge.gradle.kts
+	// without a version.
+	// fabric-loom-remap: obfuscated Minecraft (1.21.1-1.21.11), used by build.fabric.gradle.kts.
+	// fabric-loom: unobfuscated Minecraft (26.1+), used by build.fabric-unmapped.gradle.kts —
+	// same Loom release, different plugin id.
 	id("net.fabricmc.fabric-loom-remap") version "1.17-SNAPSHOT" apply false
+	id("net.fabricmc.fabric-loom") version "1.17-SNAPSHOT" apply false
 	id("net.neoforged.moddev") version "2.0.144" apply false
 }
 

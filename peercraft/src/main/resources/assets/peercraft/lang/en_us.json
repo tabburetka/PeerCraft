@@ -78,7 +78,7 @@
   "peercraft.gui.multiplayer.game_search_field": "Search by world name",
   "peercraft.gui.multiplayer.game_search_hint": "Search by world name",
   "peercraft.gui.multiplayer.game_version_filter_field": "Version filter",
-  "peercraft.gui.multiplayer.game_version_filter_hint": "Version (e.g. 1.21.1)",
+  "peercraft.gui.multiplayer.game_version_filter_all": "All versions",
   "peercraft.gui.multiplayer.add_by_code_field": "Friend code",
   "peercraft.gui.multiplayer.add_by_code_button": "Add by code",
   "peercraft.gui.multiplayer.friend_requests_button": "Friend requests",

@@ -30,9 +30,9 @@ No dedicated server, no always-on hosting machine, no router configuration on ei
 
 ## Requirements
 
-- Minecraft **1.21.1 – 1.21.11** (the full 1.21.x line — see the version table below for per-version loader availability)
+- Minecraft **1.21.1 – 1.21.11** and **26.1 – 26.2** — see the version table below for per-version loader availability
 - [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, with [Fabric API](https://modrinth.com/mod/fabric-api) — **or** [NeoForge](https://neoforged.net/)
-- Java 21
+- Java 21 for the 1.21.x builds, Java 25 for the 26.x builds
 
 Both loaders ship a separate jar per Minecraft version (e.g. `peercraft-fabric-1.21.7-1.0.0.jar`, `peercraft-neoforge-1.21.7-1.0.0.jar`) — pick the one matching your game version and loader.
 
@@ -41,6 +41,10 @@ Both loaders ship a separate jar per Minecraft version (e.g. `peercraft-fabric-1
 | 1.21.1 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ |
 | 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (NeoForge only ever shipped a `-beta`-tagged build for these — still a real, working release, just never marked stable) |
 | 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version at all — it moved straight to 1.21.3, released the next day) |
+| 26.1.2, 26.2 | ✅ | ✅ |
+| 26.1, 26.1.1 | ✅ | ✅ (NeoForge only ever shipped a `-beta`-tagged build for these — same as 1.21.6/1.21.7/1.21.9) |
+
+Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jars are built without mappings against Minecraft as shipped.
 
 ## Installation
 
@@ -89,7 +93,7 @@ The rest of this document is for people building or contributing to PeerCraft, n
 
 Two independent Gradle projects in one repo:
 
-- `peercraft/` — the Fabric mod itself (Minecraft 1.21.1, Java 21, Fabric Loom, official Mojang mappings). Build with `cd peercraft && ./gradlew build`.
+- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
 - `rendezvous-server/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd rendezvous-server && ./gradlew jar`.
 
 ### Configuration

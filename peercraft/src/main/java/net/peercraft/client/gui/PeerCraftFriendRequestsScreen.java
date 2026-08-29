@@ -1,7 +1,10 @@
 package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -39,7 +42,7 @@ public class PeerCraftFriendRequestsScreen extends Screen {
                 public void onResult(List<AccountClient.IncomingRequest> result) {
                     runOnClientThread(() -> {
                         if (stillOnThisScreen()) {
-                            minecraft.setScreen(new PeerCraftFriendRequestsScreen(lastScreen, result));
+                            PeerCraftUi.setScreen(minecraft, new PeerCraftFriendRequestsScreen(lastScreen, result));
                         }
                     });
                 }
@@ -55,7 +58,7 @@ public class PeerCraftFriendRequestsScreen extends Screen {
                 }
             });
 
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> this.minecraft.setScreen(this.lastScreen))
+            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
                     .bounds(this.width / 2 - 100, this.height - 30, 200, 20).build());
             return;
         }
@@ -79,7 +82,7 @@ public class PeerCraftFriendRequestsScreen extends Screen {
             this.statusColor = PeerCraftUi.TEXT_MUTED;
         }
 
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> this.minecraft.setScreen(this.lastScreen))
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
                 .bounds(centerX - 100, top + shown * ROW_HEIGHT + 20, 200, 20).build());
     }
 
@@ -89,7 +92,7 @@ public class PeerCraftFriendRequestsScreen extends Screen {
             public void onSuccess() {
                 runOnClientThread(() -> {
                     if (stillOnThisScreen()) {
-                        minecraft.setScreen(new PeerCraftFriendRequestsScreen(lastScreen));
+                        PeerCraftUi.setScreen(minecraft, new PeerCraftFriendRequestsScreen(lastScreen));
                     }
                 });
             }
@@ -111,9 +114,12 @@ public class PeerCraftFriendRequestsScreen extends Screen {
     }
 
     private boolean stillOnThisScreen() {
-        return Minecraft.getInstance().screen == this;
+        return PeerCraftUi.isCurrentScreen(this);
     }
 
+    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
+    // #extractRenderState; drawString/drawCenteredString became text/centeredText.
+    //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
@@ -135,4 +141,23 @@ public class PeerCraftFriendRequestsScreen extends Screen {
 
         graphics.drawCenteredString(this.font, this.statusMessage, centerX, this.height - 45, this.statusColor);
     }
+    //?} else {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        int centerX = this.width / 2;
+        graphics.centeredText(this.font, this.title, centerX, 15, PeerCraftUi.TEXT_TITLE);
+
+        if (this.requests != null) {
+            int top = 40;
+            int shown = Math.min(this.requests.size(), MAX_ROWS_SHOWN);
+            for (int i = 0; i < shown; i++) {
+                AccountClient.IncomingRequest request = this.requests.get(i);
+                PeerCraftUi.drawNameWithBadge(graphics, this.font, request.displayName(), request.licensed(), centerX - 200, top + i * ROW_HEIGHT + 6, PeerCraftUi.TEXT_TITLE);
+            }
+        }
+
+        graphics.centeredText(this.font, this.statusMessage, centerX, this.height - 45, this.statusColor);
+    }*/
+    //?}
 }

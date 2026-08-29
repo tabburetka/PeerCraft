@@ -1,7 +1,10 @@
 package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -51,7 +54,7 @@ public class PeerCraftLoginByCodeScreen extends Screen {
                 .bounds(centerX - 100, y, 200, 20).build());
 
         y += 26;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> this.minecraft.setScreen(this.lastScreen))
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
                 .bounds(centerX - 100, y, 200, 20).build());
     }
 
@@ -104,7 +107,7 @@ public class PeerCraftLoginByCodeScreen extends Screen {
                         return;
                     }
                     AccountSessionHolder.persist(session);
-                    minecraft.setScreen(new PeerCraftAccountScreen(lastScreen));
+                    PeerCraftUi.setScreen(minecraft, new PeerCraftAccountScreen(lastScreen));
                 });
             }
 
@@ -127,9 +130,12 @@ public class PeerCraftLoginByCodeScreen extends Screen {
     }
 
     private boolean stillOnThisScreen() {
-        return Minecraft.getInstance().screen == this;
+        return PeerCraftUi.isCurrentScreen(this);
     }
 
+    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
+    // #extractRenderState; drawString/drawCenteredString became text/centeredText.
+    //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
@@ -140,4 +146,12 @@ public class PeerCraftLoginByCodeScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
         graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, this.statusColor);
     }
+    //?} else {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.centeredText(this.font, this.title, this.width / 2, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
+        graphics.centeredText(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, this.statusColor);
+    }*/
+    //?}
 }

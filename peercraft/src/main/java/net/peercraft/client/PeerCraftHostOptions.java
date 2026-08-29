@@ -29,8 +29,14 @@ public final class PeerCraftHostOptions {
     // Mutually exclusive with friendsOnly — see ShareToLanScreenMixin.
     public static volatile boolean publicRoom = false;
     // Free-text label shown next to the host's name in the public game browser (Phase 7).
-    // Only meaningful while publicRoom is true.
+    // Only meaningful while publicRoom is true. Left blank, OpenToLanMixin falls back to the
+    // actual Minecraft save name instead of listing the room with no name at all.
     public static volatile String worldName = "";
+    // Bounds worldName (whether typed by the host or taken from the save name as a fallback)
+    // so a single row can't blow out the public browser's UDP reply payload — see
+    // RendezvousProtocol's short-string trailer format (a 1-byte length prefix, so this must
+    // stay well under 255 even at 4 bytes/char worst case for non-ASCII names).
+    public static final int MAX_WORLD_NAME_LENGTH = 32;
 
     private PeerCraftHostOptions() {
     }

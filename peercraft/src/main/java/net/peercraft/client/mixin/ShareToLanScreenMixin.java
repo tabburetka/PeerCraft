@@ -4,7 +4,12 @@ import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+// 26.2 removed ShareToLanScreen; the "Open to LAN" flow (incl. a built-in online/LAN scope
+// toggle) moved to MultiplayerOptionsScreen. Both expose a protected init() to inject at TAIL.
+//? if <26.2
 import net.minecraft.client.gui.screens.ShareToLanScreen;
+//? if >=26.2
+/*import net.minecraft.client.gui.screens.MultiplayerOptionsScreen;*/
 import net.minecraft.network.chat.Component;
 import net.peercraft.client.PeerCraftHostOptions;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,7 +21,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+//? if <26.2
 @Mixin(ShareToLanScreen.class)
+//? if >=26.2
+/*@Mixin(MultiplayerOptionsScreen.class)*/
 public abstract class ShareToLanScreenMixin extends Screen {
 
     // Value list for the "Max players" stepper — the rendezvous server independently clamps
@@ -27,11 +35,6 @@ public abstract class ShareToLanScreenMixin extends Screen {
     protected ShareToLanScreenMixin(Component title) {
         super(title);
     }
-
-    // Bounded so a wildly long label can't blow out the public browser's UDP reply payload
-    // (RoomRegistry.MAX_LISTED_ROOMS rows, each carrying this string) — see
-    // RendezvousProtocol's short-string trailer format.
-    private static final int MAX_WORLD_NAME_LENGTH = 32;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void peercraft$addInternetCheckbox(CallbackInfo ci) {
@@ -65,7 +68,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
                 .build();
 
         EditBox worldNameBox = new EditBox(this.font, this.width / 2 - 155, y + 130, 150, 20, Component.translatable("peercraft.mixin.share_to_lan.world_name"));
-        worldNameBox.setMaxLength(MAX_WORLD_NAME_LENGTH);
+        worldNameBox.setMaxLength(PeerCraftHostOptions.MAX_WORLD_NAME_LENGTH);
         worldNameBox.setHint(Component.translatable("peercraft.mixin.share_to_lan.world_name_hint"));
         worldNameBox.setValue(PeerCraftHostOptions.worldName);
         worldNameBox.setResponder(value -> PeerCraftHostOptions.worldName = value);

@@ -47,7 +47,10 @@ public final class PeerCraftClientCommon {
 
     private static void attemptSilentRelogin() {
         Optional<AccountState> saved = AccountStorage.load();
+        //? if >=1.17
         if (saved.isEmpty()) {
+        //? if <1.17
+        /*if (!saved.isPresent()) {*/
             return;
         }
         AccountState state = saved.get();

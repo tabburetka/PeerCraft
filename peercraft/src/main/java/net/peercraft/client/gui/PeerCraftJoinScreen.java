@@ -1,7 +1,10 @@
 package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ConnectScreen;
@@ -86,7 +89,7 @@ public class PeerCraftJoinScreen extends Screen {
         this.addRenderableWidget(this.overrideBox);
 
         y += 30;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> this.minecraft.setScreen(this.lastScreen))
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
                 .bounds(centerX - 100, y, 200, 20)
                 .build());
     }
@@ -136,7 +139,7 @@ public class PeerCraftJoinScreen extends Screen {
     // The player may have already left this screen (Back/Esc) before the rendezvous
     // server's/hole-punching async callback fired — in that case, just ignore the result.
     private boolean stillOnThisScreen() {
-        return Minecraft.getInstance().screen == this;
+        return PeerCraftUi.isCurrentScreen(this);
     }
 
     private void updateStatus(String message) {
@@ -169,6 +172,9 @@ public class PeerCraftJoinScreen extends Screen {
         ConnectScreen.startConnecting(this.lastScreen, this.minecraft, address, serverData, false, null);
     }
 
+    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
+    // #extractRenderState; drawString/drawCenteredString became text/centeredText.
+    //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
@@ -181,4 +187,12 @@ public class PeerCraftJoinScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);
     }
+    //?} else {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        graphics.centeredText(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
+        graphics.centeredText(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);
+    }*/
+    //?}
 }

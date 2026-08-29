@@ -8,11 +8,15 @@ val modId = project.property("mod_id") as String
 val modName = project.property("mod_name") as String
 val mcVersion = stonecutter.current.version
 
+// Per-version override (unobfuscated Minecraft 26.x needs Java 25); falls back to the shared
+// java_version (21) for the 1.21.x line.
+val javaVersion = (project.findProperty("java_version") as String).toInt()
+
 group = project.property("maven_group") as String
 version = project.property("mod_version") as String
 
 java {
-	toolchain.languageVersion = JavaLanguageVersion.of(project.property("java_version") as String)
+	toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
 	withSourcesJar()
 }
 
@@ -82,7 +86,7 @@ tasks.test {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-	options.release = 21
+	options.release = javaVersion
 }
 
 tasks.jar {

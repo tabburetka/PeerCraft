@@ -28,6 +28,11 @@ public class P2PReceiver {
 
     private DatagramSocket socket;
     private volatile boolean running = false;
+    // Captured once in start(), before the listen thread can grab the socket's monitor in
+    // receive() — see the comment there. getBoundPort() returns this instead of calling
+    // socket.getLocalPort() (which is synchronized on the socket and would block for the whole
+    // duration of an in-flight receive()).
+    private volatile int boundPort = 0;
     private Thread listenThread;
     private Thread processingThread;
     private final BlockingQueue<IncomingDatagram> processingQueue = new LinkedBlockingQueue<>(PROCESSING_QUEUE_CAPACITY);
@@ -39,6 +44,22 @@ public class P2PReceiver {
         try {
             socket = new DatagramSocket(port);
             socket.setReceiveBufferSize(SOCKET_BUFFER_SIZE_BYTES);
+            // P2PSender borrows this exact socket (P2PBridge.restartReceiver constructs it right
+            // after this call). Its send buffer has to be sized HERE, before the listen thread
+            // starts, for the same reason as the getters below — once listenLoop is in
+            // socket.receive() it holds the socket's monitor, and setSendBufferSize() (also
+            // synchronized on the socket) called from the P2PSender constructor would block
+            // forever, hanging the client/host start path.
+            socket.setSendBufferSize(SOCKET_BUFFER_SIZE_BYTES);
+            // Read anything off the socket that we want for the log line BEFORE starting the
+            // listen thread: DatagramSocket's getters are synchronized on the socket, and
+            // listenLoop's socket.receive() holds that same monitor for its entire (unbounded)
+            // blocking wait — so a getReceiveBufferSize()/getLocalPort() call made after
+            // listenThread.start() can lose the race and block this thread forever (it did, on
+            // the slow first-run path). Seen from initClient() that means the game never
+            // finishes Minecraft.<init> and hangs at a black screen.
+            int actualBufferSizeBytes = socket.getReceiveBufferSize();
+            this.boundPort = socket.getLocalPort();
             running = true;
 
             listenThread = new Thread(this::listenLoop, "PeerCraft-UDP-Receiver");
@@ -49,11 +70,12 @@ public class P2PReceiver {
             processingThread.setDaemon(true);
             processingThread.start();
 
-            LOGGER.info("[PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:{} (буфер приёма: {} байт)", getBoundPort(), socket.getReceiveBufferSize());
+            LOGGER.info("[PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:{} (буфер приёма: {} байт)", boundPort, actualBufferSizeBytes);
             return true;
         } catch (SocketException e) {
             running = false;
             socket = null;
+            boundPort = 0;
             LOGGER.error("[PeerCraft Receiver] Не удалось запустить UDP сокет на порту {}. Порт уже занят другим экземпляром PeerCraft или другой программой — задай другой -Dpeercraft.clientUdpPort/-Dpeercraft.hostUdpPort.", port, e);
             return false;
         }
@@ -102,7 +124,12 @@ public class P2PReceiver {
     }
 
     public int getBoundPort() {
-        return (this.socket != null && !this.socket.isClosed()) ? this.socket.getLocalPort() : 0;
+        // Returns the port cached in start() rather than calling socket.getLocalPort() — that
+        // getter is synchronized on the socket, and the listen thread holds that monitor for
+        // the entire (open-ended) duration of socket.receive(), so calling it from another
+        // thread while a receive is in flight blocks that thread indefinitely. Callers on the
+        // client/host start path (P2PBridge.startClient/startHost log lines) hit exactly that.
+        return running ? boundPort : 0;
     }
 
     // Exposes the same socket so P2PSender can send from it too — otherwise the NAT

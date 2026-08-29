@@ -304,7 +304,10 @@ public class P2PBridge {
     // supplied explicitly by the caller (e.g. an in-game screen) instead of being read from
     // PeerCraftConfig — and join progress is reported through the listener, not just logged.
     public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener) {
+        //? if >=1.17
         if (code == null || code.isBlank()) {
+        //? if <1.17
+        /*if (code == null || code.trim().isEmpty()) {*/
             listener.onFailed("код комнаты не задан — присоединяться не к чему");
             return;
         }

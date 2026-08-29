@@ -78,7 +78,7 @@
   "peercraft.gui.multiplayer.game_search_field": "Поиск по названию мира",
   "peercraft.gui.multiplayer.game_search_hint": "Поиск по названию мира",
   "peercraft.gui.multiplayer.game_version_filter_field": "Фильтр по версии",
-  "peercraft.gui.multiplayer.game_version_filter_hint": "Версия (напр. 1.21.1)",
+  "peercraft.gui.multiplayer.game_version_filter_all": "Все версии",
   "peercraft.gui.multiplayer.add_by_code_field": "Код друга",
   "peercraft.gui.multiplayer.add_by_code_button": "Добавить по коду",
   "peercraft.gui.multiplayer.friend_requests_button": "Заявки в друзья",

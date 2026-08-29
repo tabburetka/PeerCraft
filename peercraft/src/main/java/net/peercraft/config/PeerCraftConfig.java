@@ -79,12 +79,18 @@ public final class PeerCraftConfig {
 
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
+        //? if >=1.17
         if (property != null && !property.isBlank()) {
+        //? if <1.17
+        /*if (property != null && !property.trim().isEmpty()) {*/
             return property.trim();
         }
 
         String env = System.getenv(ENV_PREFIX + toEnvName(key));
+        //? if >=1.17
         if (env != null && !env.isBlank()) {
+        //? if <1.17
+        /*if (env != null && !env.trim().isEmpty()) {*/
             return env.trim();
         }
 

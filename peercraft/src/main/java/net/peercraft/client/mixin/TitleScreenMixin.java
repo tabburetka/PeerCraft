@@ -64,9 +64,16 @@ public abstract class TitleScreenMixin extends Screen {
                 //?}
 
                 this.removeWidget(button);
+                // 26.2 moved setScreen off Minecraft onto Minecraft.gui.
+                //? if <26.2 {
                 Button.Builder replacementBuilder = Button.builder(multiplayerLabel,
                                 b -> this.minecraft.setScreen(new PeerCraftMultiplayerScreen(this)))
                         .bounds(x, y2, w, h);
+                //?} else {
+                /*Button.Builder replacementBuilder = Button.builder(multiplayerLabel,
+                                b -> this.minecraft.gui.setScreen(new PeerCraftMultiplayerScreen(this)))
+                        .bounds(x, y2, w, h);*/
+                //?}
                 //? if <1.21.6 {
                 replacementBuilder.tooltip(tooltip);
                 //?}

@@ -1,10 +1,15 @@
 package net.peercraft.client.gui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
@@ -25,6 +30,25 @@ final class PeerCraftUi {
     static final int TEXT_ACCENT = 0xFFFFD966;
 
     private PeerCraftUi() {
+    }
+
+    /**
+     * Navigate to {@code screen}. 26.2 moved {@code setScreen}/{@code screen} off {@code Minecraft}
+     * onto {@code Minecraft.gui} — routed through here so the ~30 call sites stay version-agnostic.
+     */
+    static void setScreen(Minecraft mc, Screen screen) {
+        //? if <26.2
+        mc.setScreen(screen);
+        //? if >=26.2
+        /*mc.gui.setScreen(screen);*/
+    }
+
+    /** Whether {@code screen} is the one currently shown (used by async callbacks to bail if the player navigated away). */
+    static boolean isCurrentScreen(Screen screen) {
+        //? if <26.2
+        return Minecraft.getInstance().screen == screen;
+        //? if >=26.2
+        /*return Minecraft.getInstance().gui.screen() == screen;*/
     }
 
     /**
@@ -69,7 +93,11 @@ final class PeerCraftUi {
         return licensed ? TEXT_SUCCESS : TEXT_MUTED;
     }
 
+    // GuiGraphics was renamed to GuiGraphicsExtractor in 26.1 and the immediate-mode draw methods
+    // (drawString/drawCenteredString) became text/centeredText as the screen render pipeline moved
+    // to render-state extraction. The call shapes are otherwise identical.
     /** Draws {@code name} left-aligned at {@code x}, followed by its badge. Returns the x position right after the badge, for drawing more text on the same line. */
+    //? if <26.1 {
     static int drawNameWithBadge(GuiGraphics graphics, Font font, String name, boolean licensed, int x, int y, int nameColor) {
         graphics.drawString(font, name, x, y, nameColor, false);
         int badgeX = x + font.width(name);
@@ -84,6 +112,21 @@ final class PeerCraftUi {
         int totalWidth = font.width(name) + font.width(badge);
         drawNameWithBadge(graphics, font, name, licensed, centerX - totalWidth / 2, y, nameColor);
     }
+    //?} else {
+    /*static int drawNameWithBadge(GuiGraphicsExtractor graphics, Font font, String name, boolean licensed, int x, int y, int nameColor) {
+        graphics.text(font, name, x, y, nameColor, false);
+        int badgeX = x + font.width(name);
+        String badge = badgeText(licensed);
+        graphics.text(font, badge, badgeX, y, badgeColor(licensed), false);
+        return badgeX + font.width(badge);
+    }
+
+    static void drawNameWithBadgeCentered(GuiGraphicsExtractor graphics, Font font, String name, boolean licensed, int centerX, int y, int nameColor) {
+        String badge = badgeText(licensed);
+        int totalWidth = font.width(name) + font.width(badge);
+        drawNameWithBadge(graphics, font, name, licensed, centerX - totalWidth / 2, y, nameColor);
+    }*/
+    //?}
 
     /**
      * A small square button using a plain vanilla-styled glyph (same look as the "▶" join-by-code

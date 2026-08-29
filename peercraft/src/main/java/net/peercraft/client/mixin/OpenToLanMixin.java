@@ -26,8 +26,19 @@ public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
 
+    // 26.2 reworked "Open to LAN": MultiplayerOptionsScreen -> changeMultiplayerScope -> publish()
+    // calls the NEW two-arg IntegratedServer.publishServer(MultiplayerScope, int) — the old
+    // publishServer(GameType, boolean, int) still exists (as publishServer(scope, gameType,
+    // cheats, port)) but is no longer on the Open-to-LAN path, so injecting into it does nothing
+    // (mod loads, hook never fires, no room code). Target the two-arg one; handler never used
+    // gameType/cheats anyway.
+    //? if <26.2 {
     @Inject(method = "publishServer", at = @At("RETURN"))
     private void onOpenToLan(GameType gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
+    //?} else {
+    /*@Inject(method = "publishServer(Lnet/minecraft/server/MinecraftServer$MultiplayerScope;I)Z", at = @At("RETURN"))
+    private void onOpenToLan(net.minecraft.server.MinecraftServer.MultiplayerScope scope, int port, CallbackInfoReturnable<Boolean> cir) {*/
+    //?}
 
         if (cir.getReturnValue()) {
             if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || PeerCraftConfig.MODE_CLIENT.equals(PeerCraftConfig.mode())) {
@@ -70,7 +81,7 @@ public abstract class OpenToLanMixin {
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
                 P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly,
-                        PeerCraftHostOptions.publicRoom, PeerCraftHostOptions.worldName, currentMinecraftVersion(), new P2PBridge.HostListener() {
+                        PeerCraftHostOptions.publicRoom, publicRoomWorldName(server), currentMinecraftVersion(), new P2PBridge.HostListener() {
                     @Override
                     public void onRoomCreated(String code, boolean changed) {
                         String prefixKey = changed
@@ -106,10 +117,28 @@ public abstract class OpenToLanMixin {
     // is the same rename as GameProfile.getName()/name() elsewhere in this file's package —
     // see AccountClient.loginLicensed for the identical split.
     private static String currentMinecraftVersion() {
-        //? if <1.21.9
+        //? if <1.21.6
         return SharedConstants.getCurrentVersion().getName();
-        //? if >=1.21.9
+        //? if >=1.21.6
         /*return SharedConstants.getCurrentVersion().name();*/
+    }
+
+    // If the host left the world-name field blank (ShareToLanScreenMixin), fall back to the
+    // actual Minecraft world/save name instead of listing the public game with no name at all.
+    // Truncated to the same bound as the manual field — the save name isn't limited by that
+    // EditBox's setMaxLength and could otherwise overflow the wire format's 1-byte string length.
+    private static String publicRoomWorldName(IntegratedServer server) {
+        String worldName = PeerCraftHostOptions.worldName;
+        if (worldName != null && !worldName.isBlank()) {
+            return worldName;
+        }
+        String levelName = server.getWorldData().getLevelName();
+        if (levelName == null) {
+            return "";
+        }
+        return levelName.length() > PeerCraftHostOptions.MAX_WORLD_NAME_LENGTH
+                ? levelName.substring(0, PeerCraftHostOptions.MAX_WORLD_NAME_LENGTH)
+                : levelName;
     }
 
     // P2PBridge/RendezvousClient callbacks are invoked from a background thread — a chat
@@ -118,7 +147,12 @@ public abstract class OpenToLanMixin {
         Minecraft.getInstance().execute(() -> {
             LocalPlayer player = Minecraft.getInstance().player;
             if (player != null) {
+                // Player.displayClientMessage(Component, boolean) was replaced by
+                // sendSystemMessage(Component) in 26.1 (the actionbar variant is sendOverlayMessage).
+                //? if <26.1
                 player.displayClientMessage(message, false);
+                //? if >=26.1
+                /*player.sendSystemMessage(message);*/
             }
         });
     }

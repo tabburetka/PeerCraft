@@ -2,7 +2,10 @@ package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+//? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -53,15 +56,15 @@ public class PeerCraftAccountScreen extends Screen {
             this.loginLicensedButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.login_licensed"), b -> onLoginLicensed())
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.register"), b -> this.minecraft.setScreen(new PeerCraftRegisterScreen(this)))
+            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.register"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftRegisterScreen(this)))
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.login_by_code"), b -> this.minecraft.setScreen(new PeerCraftLoginByCodeScreen(this)))
+            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.login_by_code"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftLoginByCodeScreen(this)))
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
         } else {
             if (!session.licensed()) {
-                this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.change_nickname"), b -> this.minecraft.setScreen(new PeerCraftRenameScreen(this)))
+                this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.change_nickname"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftRenameScreen(this)))
                         .bounds(centerX - 100, y, 200, 20).build());
                 y += 26;
             }
@@ -71,7 +74,7 @@ public class PeerCraftAccountScreen extends Screen {
         }
 
         y += 4;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> this.minecraft.setScreen(this.lastScreen))
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
                 .bounds(centerX - 100, y, 200, 20).build());
     }
 
@@ -82,12 +85,12 @@ public class PeerCraftAccountScreen extends Screen {
     }
 
     private void confirmLogout() {
-        this.minecraft.setScreen(new ConfirmScreen(confirmed -> {
+        PeerCraftUi.setScreen(this.minecraft, new ConfirmScreen(confirmed -> {
             if (confirmed) {
                 AccountSessionHolder.logout();
-                this.minecraft.setScreen(new PeerCraftAccountScreen(this.lastScreen));
+                PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen));
             } else {
-                this.minecraft.setScreen(this);
+                PeerCraftUi.setScreen(this.minecraft, this);
             }
         }, Component.translatable("peercraft.gui.account.logout_confirm_title"), Component.translatable("peercraft.gui.account.logout_confirm_message")));
     }
@@ -120,7 +123,7 @@ public class PeerCraftAccountScreen extends Screen {
                 runOnClientThread(() -> {
                     AccountSessionHolder.persist(session);
                     if (stillOnThisScreen()) {
-                        minecraft.setScreen(new PeerCraftAccountScreen(lastScreen));
+                        PeerCraftUi.setScreen(minecraft, new PeerCraftAccountScreen(lastScreen));
                     }
                 });
             }
@@ -145,9 +148,12 @@ public class PeerCraftAccountScreen extends Screen {
     }
 
     private boolean stillOnThisScreen() {
-        return Minecraft.getInstance().screen == this;
+        return PeerCraftUi.isCurrentScreen(this);
     }
 
+    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
+    // #extractRenderState; drawString/drawCenteredString became text/centeredText.
+    //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
@@ -168,4 +174,22 @@ public class PeerCraftAccountScreen extends Screen {
 
         graphics.drawCenteredString(this.font, this.statusMessage, centerX, this.height / 2 + 70, this.statusColor);
     }
+    //?} else {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        int centerX = this.width / 2;
+        int titleY = this.height / 2 - 90;
+        graphics.centeredText(this.font, this.title, centerX, titleY, PeerCraftUi.TEXT_TITLE);
+
+        AccountClient.AccountSession session = AccountSessionHolder.current();
+        if (session != null) {
+            String name = Component.translatable("peercraft.gui.account.logged_in_as", session.displayName()).getString();
+            PeerCraftUi.drawNameWithBadgeCentered(graphics, this.font, name, session.licensed(), centerX, titleY + 16, PeerCraftUi.TEXT_TITLE);
+            graphics.centeredText(this.font, Component.translatable("peercraft.gui.account.friend_code", session.friendCode()), centerX, titleY + 30, PeerCraftUi.TEXT_ACCENT);
+        }
+
+        graphics.centeredText(this.font, this.statusMessage, centerX, this.height / 2 + 70, this.statusColor);
+    }*/
+    //?}
 }
