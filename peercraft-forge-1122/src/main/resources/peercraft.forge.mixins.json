@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.peercraft.client.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "peercraft.mixins.refmap.json",
+  "mixins": [
+    "OpenToLanMixin",
+    "ServerLoginPacketListenerImplMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

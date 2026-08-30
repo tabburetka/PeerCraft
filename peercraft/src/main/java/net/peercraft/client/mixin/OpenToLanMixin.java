@@ -92,8 +92,9 @@ public abstract class OpenToLanMixin {
 
                     @Override
                     public void onFailed(String reason) {
-                        // `reason` comes from the rendezvous/network layer, not authored here — can't localize it.
-                        sendChatMessage(Component.translatable("peercraft.mixin.open_to_lan.failed_prefix", reason));
+                        // `reason` is a peercraft.p2p.* translation key from the network layer — resolve it as
+                        // a nested Component so the chat line comes out localized, not as a raw key.
+                        sendChatMessage(Component.translatable("peercraft.mixin.open_to_lan.failed_prefix", Component.translatable(reason)));
                     }
                 });
             } else {

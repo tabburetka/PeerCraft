@@ -98,6 +98,7 @@
   "peercraft.gui.multiplayer.search_button": "Искать",
   "peercraft.gui.multiplayer.searching": "Ищем...",
   "peercraft.gui.multiplayer.nobody_found": "Никого не найдено",
+  "peercraft.gui.multiplayer.search_requires_login": "Войдите в аккаунт, чтобы искать игроков",
   "peercraft.gui.multiplayer.add_friend": "Добавить",
   "peercraft.gui.multiplayer.status_hosting": "хостит (%s)",
   "peercraft.gui.multiplayer.status_online": "онлайн",
@@ -119,5 +120,21 @@
   "peercraft.gui.title.feedback_button": "Отзыв",
   "peercraft.gui.title.feedback_tooltip": "Написать нам письмо с отзывом или багом",
   "peercraft.gui.title.donate_button": "Донат",
-  "peercraft.gui.title.donate_tooltip": "Поддержать разработку PeerCraft"
+  "peercraft.gui.title.donate_tooltip": "Поддержать разработку PeerCraft",
+
+  "peercraft.p2p.join_fail.invalid_code": "неверный код комнаты",
+  "peercraft.p2p.join_fail.already_claimed": "комната уже занята",
+  "peercraft.p2p.join_fail.expired": "код комнаты истёк",
+  "peercraft.p2p.join_fail.server_busy": "сервер знакомств перегружен, попробуйте позже",
+  "peercraft.p2p.join_fail.not_friend": "вы не в списке друзей хозяина комнаты",
+  "peercraft.p2p.join_fail.unknown": "неизвестная ошибка сервера знакомств",
+  "peercraft.p2p.fail.rendezvous_no_reply": "сервер знакомств не ответил",
+  "peercraft.p2p.fail.resolve_rendezvous": "не удалось разрешить адрес сервера знакомств",
+  "peercraft.p2p.fail.hole_punching": "пробить NAT не удалось",
+  "peercraft.p2p.fail.create_room": "не удалось создать комнату на сервере знакомств",
+  "peercraft.p2p.fail.no_code": "код комнаты не задан",
+  "peercraft.p2p.fail.already_connecting": "уже идёт подключение или соединение установлено — сначала выйдите из текущего мира",
+  "peercraft.p2p.fail.udp_port_busy": "UDP-порт занят другим процессом — скорее всего, уже запущен другой клиент Minecraft с PeerCraft. Закройте его и попробуйте снова, либо укажите свободный порт через -Dpeercraft.hostUdpPort / -Dpeercraft.clientUdpPort",
+  "peercraft.p2p.status.joining": "присоединяемся к комнате через сервер знакомств...",
+  "peercraft.p2p.status.peer_found": "пир найден, пробиваем NAT..."
 }

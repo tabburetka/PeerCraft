@@ -58,14 +58,14 @@ public class PeerCraftRegisterScreen extends Screen {
 
         this.nicknameBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.nickname_field"));
         this.nicknameBox.setMaxLength(16);
-        this.nicknameBox.setSuggestion(new TranslatableComponent("peercraft.gui.register.nickname_hint").getString());
+        PeerCraftUi.placeholder(this.nicknameBox, new TranslatableComponent("peercraft.gui.register.nickname_hint").getString());
         this.addButton(this.nicknameBox);
         this.setFocused(this.nicknameBox);
 
         y += 26;
         this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.password_field"));
         this.passwordBox.setMaxLength(64);
-        this.passwordBox.setSuggestion(new TranslatableComponent("peercraft.gui.register.password_hint").getString());
+        PeerCraftUi.placeholder(this.passwordBox, new TranslatableComponent("peercraft.gui.register.password_hint").getString());
         PeerCraftUi.maskAsPassword(this.passwordBox);
         this.addButton(this.passwordBox);
 

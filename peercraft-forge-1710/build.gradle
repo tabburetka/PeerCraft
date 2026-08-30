@@ -1,0 +1,201 @@
+plugins {
+	id "java"
+	// Same pin/rationale as the 1.12.2 backport: 2.0.x's shaded plugin jar bundles Java 25
+	// (major 69) classes that Gradle 8.8's bytecode instrumentation can't read. 1.4.9 is the
+	// last 1.4.x and a proven RFG toolchain; RFG's original target IS 1.7.10.
+	id "com.gtnewhorizons.retrofuturagradle" version "1.4.9"
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+	archivesName = "${project.mod_id}-forge-${project.minecraft_version}"
+}
+
+// Decouple the JDK that runs Gradle (17/21) from the Java 8 used to compile & run the 1.7.10 mod.
+// RFG auto-provisions an Azul JDK 8 toolchain via the foojay resolver.
+java {
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(8))
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Shared code from ../peercraft. Three roots layered onto this project's own src/main/java
+// (which holds only the Forge entrypoint + coremod + mixins). Mirrors peercraft-forge-1122
+// one-for-one; the only twin roots that differ are the 1.7.10 ones:
+//   1. ../peercraft/src/main/java        — version-agnostic transport/config, minus:
+//        - client/gui, client/mixin, mixin  (replaced by src/client-1710)
+//        - the 7 files twinned in src/main-java8 (records / modern language features)
+//        - the 4 files twinned in src/shared-forge1710 (//? if <1.17 gates, hand-resolved)
+//   2. ../peercraft/src/main-java8/java   — the Java 8 record/lang twins (reused verbatim)
+//   3. ../peercraft/src/shared-forge1710/java — the 4 gate-resolved twins
+def peercraftDir = rootProject.file("../peercraft")
+def java8Twins = [
+	"net/peercraft/client/account/AccountState.java",
+	"net/peercraft/network/account/AccountClient.java",
+	"net/peercraft/network/p2p/PeerAddress.java",
+	"net/peercraft/network/rendezvous/AccountProtocol.java",
+	"net/peercraft/network/rendezvous/RendezvousProtocol.java",
+	"net/peercraft/PeerCraftCommon.java",
+	"net/peercraft/platform/Services.java",
+]
+def sharedForgeTwins = [
+	"net/peercraft/network/rendezvous/RendezvousClient.java",
+	"net/peercraft/network/p2p/P2PBridge.java",
+	"net/peercraft/client/PeerCraftClientCommon.java",
+	"net/peercraft/config/PeerCraftConfig.java",
+]
+// Gradle applies a SourceDirectorySet's include/exclude filters across ALL its srcDirs, so
+// "exclude the src/main copy but keep the src/main-java8 copy of the same path" is impossible
+// in one java{} block. Sync ../peercraft/src/main/java into a filtered tree, dropping the
+// paths the twins own.
+def filteredSharedMain = layout.buildDirectory.dir("shared-main/java")
+def syncSharedMain = tasks.register("syncSharedMain", Sync) {
+	from(new File(peercraftDir, "src/main/java"))
+	into(filteredSharedMain)
+	exclude "net/peercraft/client/gui/**"
+	exclude "net/peercraft/client/mixin/**"
+	exclude "net/peercraft/mixin/**"
+	(java8Twins + sharedForgeTwins).each { exclude it }
+}
+
+// src/main-java8 also needs one file filtered out — PeerCraftCommon imports a package path that
+// differs per era; its 1.7.10 form lives in src/shared-forge1710.
+// 1.7.10 localization is key=value .lang, not JSON (that arrived in 1.13). Generate both files
+// from the shared JSON so translations stay single-sourced. NOTE: 1.7.10 language codes carry
+// an upper-case region ("en_US"), unlike 1.11+ ("en_us") — emit the file names to match, and
+// PeerCraftLang loads by the same code from Minecraft.gameSettings.language.
+def generatedLangDir = layout.buildDirectory.dir("generated/lang")
+def generateLang = tasks.register("generateLang") {
+	def langJsonDir = new File(peercraftDir, "src/main/resources/assets/peercraft/lang")
+	def outDir = generatedLangDir.get().dir("assets/peercraft/lang").asFile
+	inputs.dir(langJsonDir)
+	outputs.dir(outDir)
+	doLast {
+		outDir.mkdirs()
+		def slurper = new groovy.json.JsonSlurper()
+		[["en_us", "en_US"], ["ru_ru", "ru_RU"]].each { pair ->
+			def json = new File(langJsonDir, "${pair[0]}.json")
+			if (!json.exists()) return
+			def map = slurper.parse(json)
+			def sb = new StringBuilder()
+			map.each { k, v -> sb.append(k).append('=').append(String.valueOf(v)).append('\n') }
+			new File(outDir, "${pair[1]}.lang").text = sb.toString()
+		}
+	}
+}
+
+def filteredSharedJava8 = layout.buildDirectory.dir("shared-java8/java")
+def syncSharedJava8 = tasks.register("syncSharedJava8", Sync) {
+	from(new File(peercraftDir, "src/main-java8/java"))
+	into(filteredSharedJava8)
+	exclude "net/peercraft/PeerCraftCommon.java"
+}
+
+sourceSets {
+	main {
+		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
+		// classes output dir, not the separate processResources dir — so in `runClient` the
+		// .lang / mcmod.info wouldn't be found. Emit resources alongside the classes.
+		output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+		java {
+			srcDir(syncSharedMain)
+			srcDir(syncSharedJava8)
+			srcDir(new File(peercraftDir, "src/shared-forge1710/java"))
+			// GUI + client-mixin twins rewritten against the 1.7.10 MCP API.
+			srcDir(new File(peercraftDir, "src/client-1710/java"))
+		}
+		resources {
+			srcDir(new File(peercraftDir, "src/main/resources"))
+			srcDir(generatedLangDir)   // .lang files generated from the shared .json
+			// 1.7.10 wants key=value .lang, not JSON.
+			exclude "assets/peercraft/lang/*.json"
+			// The modern (JAVA_21) mixin JSONs from ../peercraft/src/main/resources — this
+			// project ships its own peercraft.forge1710.mixins.json instead (different name, so
+			// it isn't caught here).
+			exclude "peercraft.mixins.json"
+			exclude "peercraft.client.mixins.json"
+		}
+	}
+}
+
+minecraft {
+	mcVersion.set(project.minecraft_version)
+	mcpMappingChannel.set(project.mapping_channel)
+	mcpMappingVersion.set(project.mapping_version)
+
+	username.set("Developer")
+	useDependencyAccessTransformers.set(true)
+
+	def jvmArgs = ["-ea:" + project.maven_group]
+	if (project.use_mixin.toBoolean()) {
+		jvmArgs << "-Dmixin.debug=true"
+		jvmArgs << "-Dmixin.debug.export=true"
+		jvmArgs << "-Dmixin.hotSwap=true"
+		// The MixinConfigs jar-manifest attr needs a real jar in mods/; in the dev run the
+		// coremod is what registers peercraft.forge1710.mixins.json with the Mixin loader.
+		jvmArgs << "-Dfml.coreMods.load=net.peercraft.forge1710.PeerCraftCoreMod"
+	}
+	extraRunJvmArguments.addAll(jvmArgs)
+}
+
+repositories {
+	maven {
+		name = "GTNH Maven"
+		url = uri("https://nexus.gtnewhorizons.com/repository/public/")
+	}
+	mavenCentral()
+}
+
+dependencies {
+	// Shared PeerCraft code logs through org.slf4j. MC 1.7.10 ships Log4j 2 but no SLF4J
+	// facade; src/main/java/org/slf4j/ is a tiny in-jar shim over Log4j2 (no extra deps, no
+	// shading — there's no JiJ on Forge 1.7.10). gson + authlib come from Forge/MC at runtime,
+	// but 1.7.10 ships far older versions than 1.12.2.
+	compileOnly "com.google.code.gson:gson:2.2.4"
+	compileOnly "com.mojang:authlib:1.5.16"
+
+	if (project.use_mixin.toBoolean()) {
+		// UniMixins ":dev" jar = deobf, bundles the Mixin fork + SpongePowered annotation
+		// processor + GTNHMixins' IEarlyMixinLoader. modUtils.enableMixins wires the tweaker/AP
+		// and names the refmap (same call the 1.12.2 backport makes for MixinBooter).
+		// FINALISE AFTER FIRST runClient: exact coordinate/classifier and whether a separate
+		// annotationProcessor entry for the Mixin AP is needed may need tweaking — the refmap
+		// only proves itself at runtime, not at compile time.
+		String mixin = modUtils.enableMixins(
+			"io.github.legacymoddingmc:unimixins:${project.unimixins_version}:dev",
+			"peercraft.mixins.refmap.json")
+		implementation(mixin) { transitive = false }
+		annotationProcessor "org.ow2.asm:asm-debug-all:5.2"
+		annotationProcessor "com.google.guava:guava:24.1.1-jre"
+		annotationProcessor "com.google.code.gson:gson:2.8.9"
+		annotationProcessor(mixin) { transitive = false }
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = "UTF-8"
+}
+
+if (project.use_mixin.toBoolean()) {
+	jar {
+		manifest {
+			// Production (jar in mods/): both routes to the mixin config are declared.
+			attributes(
+				"MixinConfigs": "peercraft.forge1710.mixins.json",
+				"FMLCorePlugin": "net.peercraft.forge1710.PeerCraftCoreMod",
+				"FMLCorePluginContainsFMLMod": "true",
+				"ForceLoadAsMod": "true")
+		}
+	}
+}
+
+processResources {
+	dependsOn generateLang
+	inputs.property "mod_version", project.mod_version
+	inputs.property "mod_id", project.mod_id
+	filesMatching("mcmod.info") {
+		expand("mod_version": project.mod_version, "mod_id": project.mod_id, "mod_name": project.mod_name)
+	}
+}

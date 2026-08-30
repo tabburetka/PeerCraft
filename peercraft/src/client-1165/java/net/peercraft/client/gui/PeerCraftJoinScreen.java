@@ -65,7 +65,7 @@ public class PeerCraftJoinScreen extends Screen {
 
         this.roomCodeBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.join.room_code_field"));
         this.roomCodeBox.setMaxLength(32);
-        this.roomCodeBox.setSuggestion(new TranslatableComponent("peercraft.gui.join.room_code_hint").getString());
+        PeerCraftUi.placeholder(this.roomCodeBox, new TranslatableComponent("peercraft.gui.join.room_code_hint").getString());
         String prefillCode = PeerCraftConfig.roomCode();
         if (!prefillCode.trim().isEmpty()) {
             this.roomCodeBox.setValue(prefillCode);
@@ -86,7 +86,7 @@ public class PeerCraftJoinScreen extends Screen {
         y += 26;
         this.overrideBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.join.override_field"));
         this.overrideBox.setMaxLength(64);
-        this.overrideBox.setSuggestion("host:port");
+        PeerCraftUi.placeholder(this.overrideBox, "host:port");
         this.overrideBox.setValue(PeerCraftConfig.rendezvousHost() + ":" + PeerCraftConfig.rendezvousPort());
         this.overrideBox.setVisible(this.overrideVisible);
         this.addButton(this.overrideBox);
@@ -162,14 +162,16 @@ public class PeerCraftJoinScreen extends Screen {
         if (!stillOnThisScreen()) {
             return;
         }
-        this.statusMessage = new TextComponent(message);
+        // P2PBridge/RendezvousClient report progress as peercraft.p2p.* translation keys now,
+        // not prose — resolve here (the screen is the layer allowed to touch i18n).
+        this.statusMessage = new TranslatableComponent(message);
     }
 
     private void handleFailed(String reason) {
         if (!stillOnThisScreen()) {
             return;
         }
-        this.statusMessage = new TextComponent(reason);
+        this.statusMessage = new TranslatableComponent(reason);
         this.connectButton.active = true;
     }
 

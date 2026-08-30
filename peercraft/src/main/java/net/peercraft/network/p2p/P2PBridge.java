@@ -208,11 +208,18 @@ public class P2PBridge {
         this.isHost = true;
         this.localMinecraftPort = mcPort;
         this.maxPlayers = maxPlayers;
-        restartReceiver(PeerCraftConfig.hostUdpPort());
+        if (!restartReceiver(PeerCraftConfig.hostUdpPort())) {
+            // The UDP socket couldn't bind (port already taken — most often a second running
+            // Minecraft client with PeerCraft). Without this the RendezvousClient below would
+            // send REGISTER through a null socket for CONNECT_TIMEOUT_MILLIS and then report
+            // the misleading "rendezvous server did not respond".
+            listener.onFailed("peercraft.p2p.fail.udp_port_busy");
+            return;
+        }
 
         InetAddress rendezvousAddress = resolveRendezvousAddress();
         if (rendezvousAddress == null) {
-            listener.onFailed("Не удалось разрешить адрес сервера знакомств");
+            listener.onFailed("peercraft.p2p.fail.resolve_rendezvous");
             return;
         }
         int rendezvousPort = PeerCraftConfig.rendezvousPort();
@@ -253,7 +260,7 @@ public class P2PBridge {
                     @Override
                     public void onFailed(String reason) {
                         LOGGER.error("[P2PBridge] Не удалось создать комнату на сервере знакомств: {}", reason);
-                        listener.onFailed("Не удалось создать комнату на сервере знакомств: " + reason);
+                        listener.onFailed(reason); // key from RendezvousClient; OpenToLanMixin nest-translates it
                     }
                 }
         );
@@ -308,7 +315,7 @@ public class P2PBridge {
         if (code == null || code.isBlank()) {
         //? if <1.17
         /*if (code == null || code.trim().isEmpty()) {*/
-            listener.onFailed("код комнаты не задан — присоединяться не к чему");
+            listener.onFailed("peercraft.p2p.fail.no_code");
             return;
         }
 
@@ -317,7 +324,7 @@ public class P2PBridge {
         // Reset either on failure (below, via guardedListener), or when the local client
         // actually disconnects from the world (endClientSession).
         if (!rendezvousClientBusy.compareAndSet(false, true)) {
-            listener.onFailed("Уже идёт подключение или соединение уже установлено — сначала выйдите из текущего мира, если хотите присоединиться заново.");
+            listener.onFailed("peercraft.p2p.fail.already_connecting");
             return;
         }
         ConnectListener guardedListener = new ConnectListener() {
@@ -346,14 +353,20 @@ public class P2PBridge {
         if (!isProxyRunning()) {
             startProxy(PeerCraftConfig.proxyPort());
         }
-        restartReceiver(PeerCraftConfig.clientUdpPort());
+        if (!restartReceiver(PeerCraftConfig.clientUdpPort())) {
+            // Port already taken (most often a second running Minecraft client with PeerCraft) —
+            // fail loudly now instead of letting the join stall for CONNECT_TIMEOUT_MILLIS and
+            // surface as the misleading "rendezvous server did not respond".
+            guardedListener.onFailed("peercraft.p2p.fail.udp_port_busy");
+            return;
+        }
 
         InetAddress rendezvousAddress = resolveRendezvousAddress(rendezvousHost, guardedListener);
         if (rendezvousAddress == null) {
             return;
         }
 
-        guardedListener.onStatus("Присоединяемся к комнате " + code + " через сервер знакомств " + rendezvousAddress.getHostAddress() + ":" + rendezvousPort + "...");
+        guardedListener.onStatus("peercraft.p2p.status.joining");
         RendezvousClient client = new RendezvousClient(sender, rendezvousAddress, rendezvousPort);
         setRendezvousListener(client);
 
@@ -369,7 +382,7 @@ public class P2PBridge {
 
             @Override
             public void onFailed(String reason) {
-                guardedListener.onFailed("Не удалось присоединиться к комнате " + code + ": " + reason);
+                guardedListener.onFailed(reason); // reason is a translation key (see RendezvousClient.describeReason)
             }
         };
         if (joinerSession != null) {
@@ -398,7 +411,7 @@ public class P2PBridge {
         try {
             return InetAddress.getByName(host);
         } catch (UnknownHostException e) {
-            listener.onFailed("Не удалось разрешить адрес сервера знакомств " + host + ": " + e.getMessage());
+            listener.onFailed("peercraft.p2p.fail.resolve_rendezvous");
             return null;
         }
     }
@@ -456,7 +469,7 @@ public class P2PBridge {
     // beginHostPunch above).
     private void beginClientPunch(RendezvousProtocol.Address peer, long token, ConnectListener listener) {
         LOGGER.info("[P2PBridge] Пир найден: {}:{}, начинаем hole punching...", peer.host().getHostAddress(), peer.port());
-        listener.onStatus("Пир найден: " + peer.host().getHostAddress() + ":" + peer.port() + ", пробиваем NAT...");
+        listener.onStatus("peercraft.p2p.status.peer_found");
         PunchCoordinator punch = new PunchCoordinator(sender, peer, token, new PunchCoordinator.Callback() {
             @Override
             public void onSuccess(String ip, int port) {
@@ -470,7 +483,7 @@ public class P2PBridge {
             public void onFailure(String reason) {
                 clearRendezvousListener();
                 LOGGER.error("[P2PBridge] Hole punching не удался: {}", reason);
-                listener.onFailed("Hole punching не удался: " + reason);
+                listener.onFailed("peercraft.p2p.fail.hole_punching");
             }
         });
         setRendezvousListener(punch);
@@ -521,15 +534,20 @@ public class P2PBridge {
         joinerAccountIdByAddress.clear();
     }
 
-    private void restartReceiver(int port) {
+    // Returns false if the UDP socket could not be bound (port already in use, etc.) — the
+    // rendezvous callers surface that to the player instead of pressing on with a null sender.
+    private boolean restartReceiver(int port) {
         if (this.receiver != null) {
             this.receiver.stop();
         }
         this.receiver = new P2PReceiver();
-        this.receiver.start(port);
+        boolean started = this.receiver.start(port);
         // Recreates the sender on the same socket as the receiver — see the comment in
         // P2PSender. Without this, a punched hole-punching NAT mapping would be useless.
+        // (getSocket() is null when the bind failed; the sender then no-ops every send, which
+        // is why the callers above bail out on a false return rather than continuing.)
         this.sender = new P2PSender(this.receiver.getSocket());
+        return started;
     }
 
     public void startProxy(int port) {

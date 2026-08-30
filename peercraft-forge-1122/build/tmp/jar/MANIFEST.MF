@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+MixinConfigs: peercraft.forge.mixins.json
+FMLCorePlugin: net.peercraft.forge1122.PeerCraftCoreMod
+FMLCorePluginContainsFMLMod: true
+ForceLoadAsMod: true
+

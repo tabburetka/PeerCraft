@@ -225,7 +225,9 @@ public final class RendezvousClient implements RawPacketListener {
                 }
             }
             if (state == activeState) {
-                fail("сервер знакомств не ответил за " + CONNECT_TIMEOUT_MILLIS + " мс");
+                // Emit a translation key, not prose — the UI layer (which is the only place
+                // allowed to touch Minecraft's i18n) resolves it. See describeReason().
+                fail("peercraft.p2p.fail.rendezvous_no_reply");
             }
         }, "PeerCraft-Rendezvous");
         retryThread.setDaemon(true);
@@ -375,24 +377,26 @@ public final class RendezvousClient implements RawPacketListener {
         }
     }
 
+    // Returns a translation KEY, not a display string — this layer must not touch Minecraft's
+    // i18n (see the module rules), so the owning screen resolves the key via a Component.
     private static String describeReason(byte reason) {
         //? if >=1.17 {
         return switch (reason) {
-            case RendezvousProtocol.REASON_INVALID_CODE -> "неверный код комнаты";
-            case RendezvousProtocol.REASON_ALREADY_CLAIMED -> "комната уже занята";
-            case RendezvousProtocol.REASON_EXPIRED -> "код комнаты истёк";
-            case RendezvousProtocol.REASON_SERVER_BUSY -> "сервер знакомств перегружен, попробуйте позже";
-            case RendezvousProtocol.REASON_NOT_FRIEND -> "вы не в списке друзей хозяина комнаты";
-            default -> "неизвестная ошибка сервера знакомств (" + reason + ")";
+            case RendezvousProtocol.REASON_INVALID_CODE -> "peercraft.p2p.join_fail.invalid_code";
+            case RendezvousProtocol.REASON_ALREADY_CLAIMED -> "peercraft.p2p.join_fail.already_claimed";
+            case RendezvousProtocol.REASON_EXPIRED -> "peercraft.p2p.join_fail.expired";
+            case RendezvousProtocol.REASON_SERVER_BUSY -> "peercraft.p2p.join_fail.server_busy";
+            case RendezvousProtocol.REASON_NOT_FRIEND -> "peercraft.p2p.join_fail.not_friend";
+            default -> "peercraft.p2p.join_fail.unknown";
         };
         //?} else {
         /*switch (reason) {
-            case RendezvousProtocol.REASON_INVALID_CODE: return "неверный код комнаты";
-            case RendezvousProtocol.REASON_ALREADY_CLAIMED: return "комната уже занята";
-            case RendezvousProtocol.REASON_EXPIRED: return "код комнаты истёк";
-            case RendezvousProtocol.REASON_SERVER_BUSY: return "сервер знакомств перегружен, попробуйте позже";
-            case RendezvousProtocol.REASON_NOT_FRIEND: return "вы не в списке друзей хозяина комнаты";
-            default: return "неизвестная ошибка сервера знакомств (" + reason + ")";
+            case RendezvousProtocol.REASON_INVALID_CODE: return "peercraft.p2p.join_fail.invalid_code";
+            case RendezvousProtocol.REASON_ALREADY_CLAIMED: return "peercraft.p2p.join_fail.already_claimed";
+            case RendezvousProtocol.REASON_EXPIRED: return "peercraft.p2p.join_fail.expired";
+            case RendezvousProtocol.REASON_SERVER_BUSY: return "peercraft.p2p.join_fail.server_busy";
+            case RendezvousProtocol.REASON_NOT_FRIEND: return "peercraft.p2p.join_fail.not_friend";
+            default: return "peercraft.p2p.join_fail.unknown";
         }*/
         //?}
     }

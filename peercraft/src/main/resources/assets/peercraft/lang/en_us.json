@@ -98,6 +98,7 @@
   "peercraft.gui.multiplayer.search_button": "Search",
   "peercraft.gui.multiplayer.searching": "Searching...",
   "peercraft.gui.multiplayer.nobody_found": "Nobody found",
+  "peercraft.gui.multiplayer.search_requires_login": "Log in to your account to search for players",
   "peercraft.gui.multiplayer.add_friend": "Add",
   "peercraft.gui.multiplayer.status_hosting": "hosting (%s)",
   "peercraft.gui.multiplayer.status_online": "online",
@@ -119,5 +120,21 @@
   "peercraft.gui.title.feedback_button": "Feedback",
   "peercraft.gui.title.feedback_tooltip": "Send us an email with feedback or a bug report",
   "peercraft.gui.title.donate_button": "Donate",
-  "peercraft.gui.title.donate_tooltip": "Support PeerCraft's development"
+  "peercraft.gui.title.donate_tooltip": "Support PeerCraft's development",
+
+  "peercraft.p2p.join_fail.invalid_code": "Invalid room code",
+  "peercraft.p2p.join_fail.already_claimed": "Room is already taken",
+  "peercraft.p2p.join_fail.expired": "Room code has expired",
+  "peercraft.p2p.join_fail.server_busy": "Rendezvous server is busy, try again later",
+  "peercraft.p2p.join_fail.not_friend": "You are not on the host's friends list",
+  "peercraft.p2p.join_fail.unknown": "Unknown rendezvous server error",
+  "peercraft.p2p.fail.rendezvous_no_reply": "The rendezvous server did not respond",
+  "peercraft.p2p.fail.resolve_rendezvous": "Could not resolve the rendezvous server address",
+  "peercraft.p2p.fail.hole_punching": "Hole punching failed",
+  "peercraft.p2p.fail.create_room": "Could not create the room on the rendezvous server",
+  "peercraft.p2p.fail.no_code": "No room code was given",
+  "peercraft.p2p.fail.already_connecting": "Already connecting or connected — leave your current world first",
+  "peercraft.p2p.fail.udp_port_busy": "The UDP port is already in use by another process — most likely another Minecraft client with PeerCraft is already running. Close it and try again, or set a free port via -Dpeercraft.hostUdpPort / -Dpeercraft.clientUdpPort",
+  "peercraft.p2p.status.joining": "Joining the room via the rendezvous server...",
+  "peercraft.p2p.status.peer_found": "Peer found, punching through NAT..."
 }

@@ -1,0 +1,22 @@
+{
+  "mappings": {
+    "net/peercraft/client/mixin/OpenToLanMixin": {
+      "shareToLAN": "Lnet/minecraft/server/integrated/IntegratedServer;func_71206_a(Lnet/minecraft/world/GameType;Z)Ljava/lang/String;",
+      "stopServer": "Lnet/minecraft/server/integrated/IntegratedServer;func_71260_j()V"
+    },
+    "net/peercraft/client/mixin/ServerLoginPacketListenerImplMixin": {
+      "getOfflineProfile": "Lnet/minecraft/server/network/NetHandlerLoginServer;func_152506_a(Lcom/mojang/authlib/GameProfile;)Lcom/mojang/authlib/GameProfile;"
+    }
+  },
+  "data": {
+    "searge": {
+      "net/peercraft/client/mixin/OpenToLanMixin": {
+        "shareToLAN": "Lnet/minecraft/server/integrated/IntegratedServer;func_71206_a(Lnet/minecraft/world/GameType;Z)Ljava/lang/String;",
+        "stopServer": "Lnet/minecraft/server/integrated/IntegratedServer;func_71260_j()V"
+      },
+      "net/peercraft/client/mixin/ServerLoginPacketListenerImplMixin": {
+        "getOfflineProfile": "Lnet/minecraft/server/network/NetHandlerLoginServer;func_152506_a(Lcom/mojang/authlib/GameProfile;)Lcom/mojang/authlib/GameProfile;"
+      }
+    }
+  }
+}

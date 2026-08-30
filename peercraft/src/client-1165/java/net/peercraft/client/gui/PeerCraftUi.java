@@ -51,6 +51,19 @@ final class PeerCraftUi {
         return true;
     }
 
+    /**
+     * 1.16.5's {@link EditBox#setSuggestion} paints the hint unconditionally, right after the
+     * typed text — unlike modern {@code EditBox.setHint}, which only shows while the box is
+     * empty. This wires it up to behave like a real placeholder: the hint shows while the box
+     * is empty and is cleared the instant anything is typed (and restored if it's emptied
+     * again). Use instead of a bare {@code setSuggestion} for boxes that don't set a responder
+     * of their own.
+     */
+    static void placeholder(EditBox box, String hint) {
+        box.setSuggestion(box.getValue().isEmpty() ? hint : "");
+        box.setResponder(value -> box.setSuggestion(value.isEmpty() ? hint : ""));
+    }
+
     /** Renders as dots instead of the real characters, without changing what {@code getValue()} returns. */
     static void maskAsPassword(EditBox box) {
         box.setFormatter((text, cursor) -> FormattedCharSequence.forward(repeat("•", text.length()), Style.EMPTY));

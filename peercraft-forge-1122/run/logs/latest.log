@@ -1,0 +1,247 @@
+[20:55:54] [main/INFO] [GradleStart]: userProperties: {}
+[20:55:54] [main/INFO] [GradleStart]: assetsDir: /home/ikuku/.gradle/caches/retro_futura_gradle/assets
+[20:55:54] [main/INFO] [GradleStart]: assetIndex: 1.12.2
+[20:55:54] [main/INFO] [GradleStart]: version: FML_DEV
+[20:55:54] [main/INFO] [GradleStart]: username: Developer
+[20:55:54] [main/INFO] [GradleStart]: Extra: [--gameDir, /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/run, --uuid, 31c4910d-9b69-4725-8969-9ed53ac8a7dc]
+[20:55:54] [main/INFO] [GradleStart]: Found and added coremod: net.peercraft.forge1122.PeerCraftCoreMod
+[20:55:54] [main/INFO] [GradleStart]: Found and added coremod: zone.rong.mixinbooter.MixinBooterPlugin
+[20:55:54] [main/INFO] [GradleStart]: Found and added cascading tweaker: org.spongepowered.asm.launch.MixinTweaker
+[20:55:54] [main/INFO] [GradleStart]: Running with arguments: [--userProperties, {}, --assetsDir, /home/ikuku/.gradle/caches/retro_futura_gradle/assets, --assetIndex, 1.12.2, --accessToken{REDACTED}, --version, FML_DEV, --username, Developer, --tweakClass, net.minecraftforge.fml.common.launcher.FMLTweaker, --gameDir, /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/run, --uuid, 31c4910d-9b69-4725-8969-9ed53ac8a7dc, --tweakClass, org.spongepowered.asm.launch.MixinTweaker, --tweakClass, net.minecraftforge.gradle.tweakers.CoremodTweaker]
+[20:55:54] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[20:55:54] [main/INFO] [LaunchWrapper]: Using primary tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[20:55:54] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.launch.MixinTweaker
+[20:55:54] [main/INFO] [mixin]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=file:/home/ikuku/.gradle/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar Service=LaunchWrapper Env=CLIENT
+[20:55:54] [main/INFO] [mixin]: Attempting to load Hot-Swap agent
+[20:55:54] [main/INFO] [mixin]: Attempting to load Fernflower decompiler (Threaded mode)
+[20:55:54] [main/INFO] [mixin]: Fernflower could not be loaded, exported classes will not be decompiled. NoClassDefFoundError: org/jetbrains/java/decompiler/main/extern/IResultSaver
+[20:55:54] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.CoremodTweaker
+[20:55:54] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLTweaker
+[20:55:54] [main/INFO] [FML]: Forge Mod Loader version 14.23.5.2847 for Minecraft 1.12.2 loading
+[20:55:54] [main/INFO] [FML]: Java is OpenJDK 64-Bit Server VM, version 1.8.0_504, running on Linux:amd64:7.2.0-1-cachyos, installed at /home/ikuku/.gradle/jdks/temurin-8-amd64-linux.2/jre
+[20:55:54] [main/ERROR] [FML]: Apache Maven library folder was not in the format expected. Using default libraries directory.
+[20:55:54] [main/ERROR] [FML]: Full: /home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/7dc72b6d6d8a6dced3d294ed54c2cc3515ade9f4/maven-artifact-3.5.3.jar
+[20:55:54] [main/ERROR] [FML]: Trimmed: /home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/
+[20:55:54] [main/INFO] [FML]: Managed to load a deobfuscated Minecraft name- we are in a deobfuscated environment. Skipping runtime deobfuscation
+[20:55:54] [main/INFO] [FML]: Detected deobfuscated environment, loading log configs for colored console logs.
+[20:55:54] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[PREINIT]
+[20:55:55] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLCorePlugin (net.minecraftforge.fml.relauncher.FMLCorePlugin), we are in deobf and it's a forge core plugin
+[20:55:55] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLForgePlugin (net.minecraftforge.classloading.FMLForgePlugin), we are in deobf and it's a forge core plugin
+[20:55:55] [main/INFO] [FML]: Found a command line coremod : net.peercraft.forge1122.PeerCraftCoreMod
+[20:55:55] [main/INFO] [FML]: Ignoring missing certificate for coremod PeerCraft (net.peercraft.forge1122.PeerCraftCoreMod), as this is probably a dev workspace
+[20:55:55] [main/INFO] [FML]: Found a command line coremod : zone.rong.mixinbooter.MixinBooterPlugin
+[20:55:55] [main/WARN] [FML]: The coremod zone.rong.mixinbooter.MixinBooterPlugin does not have a MCVersion annotation, it may cause issues with this version of Minecraft
+[20:55:55] [main/INFO] [FML]: Ignoring missing certificate for coremod MixinBooter (zone.rong.mixinbooter.MixinBooterPlugin), as this is probably a dev workspace
+[20:55:55] [main/INFO] [MixinBooter]: Initializing Mixins...
+[20:55:55] [main/INFO] [mixin]: Compatibility level set to JAVA_8
+[20:55:55] [main/INFO] [MixinBooter]: Initializing MixinExtras...
+[20:55:55] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[20:55:55] [main/INFO] [FML]: Searching /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/run/mods for mods
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.launch.MixinTweaker
+[20:55:55] [main/INFO] [mixin]: Initialised Mixin FML Remapper Adapter with net.minecraftforge.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper@3f6db3fb
+[20:55:55] [main/INFO] [mixin]: Initialised Legacy FML Dev Remapper
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.CoremodTweaker
+[20:55:55] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.fml.relauncher.FMLCorePlugin
+[20:55:55] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.classloading.FMLForgePlugin
+[20:55:55] [main/INFO] [GradleStart]: Injecting location in coremod net.peercraft.forge1122.PeerCraftCoreMod
+[20:55:55] [main/INFO] [GradleStart]: Injecting location in coremod zone.rong.mixinbooter.MixinBooterPlugin
+[20:55:55] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[20:55:55] [main/INFO] [MixinBooter]: Grabbing class net.peercraft.forge1122.PeerCraftCoreMod for its mixins.
+[20:55:55] [main/INFO] [MixinBooter]: Adding peercraft.forge.mixins.json mixin configuration.
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[20:55:55] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[20:55:55] [main/ERROR] [FML]: FML appears to be missing any signature data. This is not a good thing
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[20:55:55] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[20:55:56] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[20:55:56] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[20:55:56] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.TerminalTweaker
+[20:55:56] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.TerminalTweaker
+[20:55:56] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[DEFAULT]
+[20:55:56] [main/INFO] [mixin]: Selecting config mixin.mixinbooter.init.json
+[20:55:56] [main/INFO] [mixin]: Selecting config peercraft.forge.mixins.json
+[20:55:56] [main/INFO] [mixin]: Preparing mixin.mixinbooter.init.json (2)
+[20:55:56] [main/INFO] [mixin]: Preparing peercraft.forge.mixins.json (2)
+[20:55:56] [main/INFO] [LaunchWrapper]: Launching wrapped minecraft {net.minecraft.client.main.Main}
+[20:55:57] [Client thread/INFO] [net.minecraft.client.Minecraft]: Setting user: Developer
+[20:55:59] [Client thread/WARN] [net.minecraft.client.settings.GameSettings]: Skipping bad option: lastServer:
+[20:55:59] [Client thread/INFO] [net.minecraft.client.Minecraft]: LWJGL Version: 2.9.4
+[20:55:59] [Client thread/INFO] [MixinExtras|Service]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.2.1-beta.2).
+[20:55:59] [Client thread/INFO] [mixin]: Mixing OpenToLanMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[20:55:59] [Client thread/INFO] [mixin]: Renaming synthetic method lambda$sendChat$0(Lnet/minecraft/util/text/ITextComponent;)V to md513e8e$lambda$sendChat$0$0 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[20:55:59] [Client thread/INFO] [mixin]: Renaming synthetic method access$000(Lnet/minecraft/util/text/ITextComponent;)V to md513e8e$access$000$1 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[20:56:00] [Client thread/INFO] [mixin]: Mixing CrashReportMixin from mixin.mixinbooter.init.json into net.minecraft.crash.CrashReport
+[20:56:00] [Client thread/INFO] [FML]: -- System Details --
+Details:
+	Minecraft Version: 1.12.2
+	Operating System: Linux (amd64) version 7.2.0-1-cachyos
+	Java Version: 1.8.0_504, Temurin
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode), Temurin
+	Memory: 738945360 bytes (704 MB) / 1297612800 bytes (1237 MB) up to 5726797824 bytes (5461 MB)
+	JVM Flags: 2 total; -Xms1G -Xmx6G
+	IntCache: cache: 0, tcache: 0, allocated: 0, tallocated: 0
+	FML: 
+	Loaded coremods (and transformers): 
+MixinBooter (mixinbooter-8.9.jar)
+  
+PeerCraft (peercraft-forge-1.12.2-1.0.1-dev.jar)
+  
+	GL info: ' Vendor: 'AMD' Version: '4.6 (Compatibility Profile) Mesa 26.2.1-arch3.1' Renderer: 'AMD Radeon Graphics (radeonsi, renoir, ACO, DRM 3.64, 7.2.0-1-cachyos)'
+[20:56:00] [Client thread/INFO] [FML]: MinecraftForge v14.23.5.2847 Initialized
+[20:56:00] [Client thread/INFO] [FML]: Starts to replace vanilla recipe ingredients with ore ingredients.
+[20:56:00] [Client thread/INFO] [FML]: Invalid recipe found with multiple oredict ingredients in the same ingredient...
+[20:56:00] [Client thread/INFO] [FML]: Replaced 1227 ore ingredients
+[20:56:00] [Client thread/INFO] [mixin]: Mixing LoadControllerMixin from mixin.mixinbooter.init.json into net.minecraftforge.fml.common.LoadController
+[20:56:00] [Client thread/INFO] [MixinBooter]: Initializing MixinBooter's Mod Container.
+[20:56:00] [Client thread/INFO] [FML]: Searching /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/run/mods for mods
+[20:56:01] [Client thread/INFO] [FML]: Forge Mod Loader has identified 6 mods to load
+[20:56:01] [Client thread/INFO] [mixin]: Ending MixinEnvironment[DEFAULT], applied 3 mixins
+[20:56:01] [Client thread/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[DEFAULT]
+[20:56:01] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft] at CLIENT
+[20:56:01] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft] at SERVER
+[20:56:01] [Client thread/INFO] [net.minecraft.client.resources.SimpleReloadableResourceManager]: Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:PeerCraft
+[20:56:01] [Client thread/INFO] [FML]: Processing ObjectHolder annotations
+[20:56:01] [Client thread/INFO] [FML]: Found 1168 ObjectHolder annotations
+[20:56:01] [Client thread/INFO] [FML]: Identifying ItemStackHolder annotations
+[20:56:01] [Client thread/INFO] [FML]: Found 0 ItemStackHolder annotations
+[20:56:02] [Client thread/INFO] [FML]: Configured a dormant chunk cache size of 0
+[20:56:02] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Starting version check at http://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+[20:56:02] [Client thread/INFO] [peercraft]: Hello PeerCraft world!
+[20:56:02] [Client thread/INFO] [FML]: Applying holder lookups
+[20:56:02] [Client thread/INFO] [FML]: Holder lookups applied
+[20:56:02] [Client thread/INFO] [FML]: Applying holder lookups
+[20:56:02] [Client thread/INFO] [FML]: Holder lookups applied
+[20:56:02] [Client thread/INFO] [FML]: Applying holder lookups
+[20:56:02] [Client thread/INFO] [FML]: Holder lookups applied
+[20:56:02] [Client thread/INFO] [FML]: Applying holder lookups
+[20:56:02] [Client thread/INFO] [FML]: Holder lookups applied
+[20:56:02] [Client thread/INFO] [FML]: Injecting itemstacks
+[20:56:02] [Client thread/INFO] [FML]: Itemstack injection complete
+[20:56:02] [Sound Library Loader/INFO] [net.minecraft.client.audio.SoundManager]: Starting up SoundSystem...
+[20:56:02] [Thread-3/INFO] [FML]: Using sync timing. 200 frames of Display.update took 126052032 nanos
+[20:56:02] [Thread-4/INFO] [net.minecraft.client.audio.SoundManager]: Initializing LWJGL OpenAL
+[20:56:02] [Thread-4/INFO] [net.minecraft.client.audio.SoundManager]: (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+[20:56:02] [Thread-4/INFO] [net.minecraft.client.audio.SoundManager]: OpenAL initialized.
+[20:56:02] [Sound Library Loader/INFO] [net.minecraft.client.audio.SoundManager]: Sound engine started
+[20:56:03] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Found status: OUTDATED Target: 14.23.5.2859
+[20:56:03] [Client thread/INFO] [FML]: Max texture size: 16384
+[20:56:04] [Client thread/INFO] [net.minecraft.client.renderer.texture.TextureMap]: Created: 512x512 textures-atlas
+[20:56:05] [Client thread/INFO] [FML]: Applying holder lookups
+[20:56:05] [Client thread/INFO] [FML]: Holder lookups applied
+[20:56:05] [Client thread/INFO] [peercraft]: [P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:25566
+[20:56:05] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:25566
+[20:56:05] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Во втором Minecraft-клиенте подключайся к адресу 127.0.0.1:25566
+[20:56:05] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:50002 (буфер приёма: 4194304 байт)
+[20:56:05] [Client thread/INFO] [peercraft]: [P2PBridge] Назначен целевой хост: 127.0.0.1:50001
+[20:56:05] [Client thread/INFO] [peercraft]: [P2PBridge] КЛИЕНТ ГОТОВ: UDP слушает на 50002, пакеты шлёт на 127.0.0.1:50001
+[20:56:05] [Client thread/INFO] [FML]: Injecting itemstacks
+[20:56:05] [Client thread/INFO] [FML]: Itemstack injection complete
+[20:56:05] [Client thread/INFO] [FML]: Forge Mod Loader has successfully loaded 6 mods
+[20:56:05] [Client thread/WARN] [net.minecraft.client.settings.GameSettings]: Skipping bad option: lastServer:
+[20:56:05] [Client thread/WARN] [com.mojang.text2speech.NarratorLinux]: ERROR : Couldn't load Narrator library : Unable to load library 'fliteWrapper': Can't obtain InputStream for linux-x86-64/libfliteWrapper.so
+[20:56:06] [Realms Notification Availability checker #1/INFO] [com.mojang.realmsclient.client.RealmsClient]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[20:56:33] [Server thread/INFO] [peercraft]: Starting integrated minecraft server version 1.12.2
+[20:56:33] [Server thread/INFO] [peercraft]: Generating keypair
+[20:56:33] [Server thread/INFO] [FML]: Injecting existing registry data into this server instance
+[20:56:34] [Server thread/INFO] [FML]: Applying holder lookups
+[20:56:34] [Server thread/INFO] [FML]: Holder lookups applied
+[20:56:34] [Server thread/INFO] [FML]: Loading dimension 0 (New World) (net.minecraft.server.integrated.IntegratedServer@2c7b7dd1)
+[20:56:34] [Server thread/INFO] [net.minecraft.advancements.AdvancementList]: Loaded 488 advancements
+[20:56:34] [Server thread/INFO] [FML]: Loading dimension -1 (New World) (net.minecraft.server.integrated.IntegratedServer@2c7b7dd1)
+[20:56:34] [Server thread/INFO] [FML]: Loading dimension 1 (New World) (net.minecraft.server.integrated.IntegratedServer@2c7b7dd1)
+[20:56:34] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Preparing start region for level 0
+[20:56:35] [Server thread/INFO] [peercraft]: [PeerCraft] одиночная игра запущенна
+[20:56:35] [Server thread/INFO] [FML]: Unloading dimension -1
+[20:56:35] [Server thread/INFO] [FML]: Unloading dimension 1
+[20:56:35] [Server thread/INFO] [peercraft]: Changing view distance to 12, from 10
+[20:56:35] [Netty Server IO #1/INFO] [mixin]: Mixing ServerLoginPacketListenerImplMixin from peercraft.forge.mixins.json into net.minecraft.server.network.NetHandlerLoginServer
+[20:56:37] [Netty Local Client IO #0/INFO] [FML]: Server protocol version 2
+[20:56:37] [Netty Server IO #1/INFO] [FML]: Client protocol version 2
+[20:56:37] [Netty Server IO #1/INFO] [FML]: Client attempting to join with 6 mods : minecraft@1.12.2,peercraft@1.0.1,FML@8.0.99.99,forge@14.23.5.2847,mixinbooter@8.9,mcp@9.42
+[20:56:37] [Netty Local Client IO #0/INFO] [FML]: [Netty Local Client IO #0] Client side modded connection established
+[20:56:37] [Server thread/INFO] [FML]: [Server thread] Server side modded connection established
+[20:56:37] [Server thread/INFO] [net.minecraft.server.management.PlayerList]: Developer[local:E:aa13bbbd] logged in with entity id 330 at (97.00743017301596, 74.0, 605.4141364068823)
+[20:56:37] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Developer joined the game
+[20:56:38] [Server thread/INFO] [peercraft]: Saving and pausing game...
+[20:56:38] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Saving chunks for level 'New World'/overworld
+[20:56:38] [Client thread/INFO] [net.minecraft.advancements.AdvancementList]: Loaded 20 advancements
+[20:56:40] [Server thread/INFO] [peercraft]: Saving and pausing game...
+[20:56:40] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Saving chunks for level 'New World'/overworld
+[20:56:45] [Client thread/INFO] [net.minecraft.network.NetworkSystem]: Using default channel type
+[20:56:45] [Client thread/INFO] [peercraft]: Started on 45987
+[20:56:45] [Client thread/INFO] [peercraft]: [PeerCraft P2P] Мир открыт для сети на порту 45987
+[20:56:45] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:50001 (буфер приёма: 4194304 байт)
+[20:56:45] [Client thread/INFO] [peercraft]: [P2PBridge] Регистрируемся на сервере знакомств 91.146.31.165:51000 (макс. игроков: 4)...
+[20:56:45] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:45] [Client thread/INFO] [net.minecraft.client.gui.GuiNewChat]: [CHAT] Local game hosted on port 45987
+[20:56:45] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:46] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Комната создана! Код для второго игрока: CDYXWF
+[20:56:46] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PReceiver] Получено 16 байт от /91.146.31.165:51000
+[20:56:46] [Client thread/INFO] [net.minecraft.client.gui.GuiNewChat]: [CHAT] peercraft.mixin.open_to_lan.room_code_prefix CDYXWF
+[20:56:47] [Server thread/INFO] [net.minecraft.network.NetHandlerPlayServer]: Developer lost connection: Disconnected
+[20:56:47] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Developer left the game
+[20:56:47] [Server thread/INFO] [net.minecraft.network.NetHandlerPlayServer]: Stopping singleplayer server as player logged out
+[20:56:47] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Stopping server
+[20:56:47] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Saving players
+[20:56:47] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Saving worlds
+[20:56:47] [Server thread/INFO] [net.minecraft.server.MinecraftServer]: Saving chunks for level 'New World'/overworld
+[20:56:47] [Server thread/INFO] [FML]: Unloading dimension 0
+[20:56:48] [Server thread/INFO] [FML]: Applying holder lookups
+[20:56:48] [Server thread/INFO] [FML]: Holder lookups applied
+[20:56:56] [Client thread/INFO] [peercraft]: [P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:25566
+[20:56:56] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:25566
+[20:56:56] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Во втором Minecraft-клиенте подключайся к адресу 127.0.0.1:25566
+[20:56:56] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:50002 (буфер приёма: 4194304 байт)
+[20:56:56] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:57] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:57] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:58] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:58] [PeerCraft-Rendezvous/INFO] [peercraft]: [PeerCraft Sender] ip adres: /91.146.31.165
+[20:56:58] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Пир найден: 94.183.205.205:46908, начинаем hole punching...
+[20:56:58] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PReceiver] Получено 17 байт от /91.146.31.165:51000
+[20:56:58] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:56:59] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:56:59] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:56:59] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:56:59] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:00] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:00] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:00] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:01] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:01] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:01] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:02] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:02] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:02] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:02] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:03] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:03] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:03] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:04] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:04] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:04] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:05] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:05] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:05] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:06] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:06] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:06] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:06] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:07] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:07] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:07] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:08] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:08] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:08] [PeerCraft-Punch/INFO] [peercraft]: [PeerCraft Sender] ip adres: /94.183.205.205
+[20:57:09] [PeerCraft-Punch/WARN] [peercraft]: [PunchCoordinator] Не удалось установить прямое P2P-соединение с 94.183.205.205:46908 за 10000 мс (возможно, симметричный NAT или файрвол блокирует UDP) — hole punching не удался.
+[20:57:09] [PeerCraft-Punch/ERROR] [peercraft]: [P2PBridge] Hole punching не удался: hole punching timeout
+[20:57:54] [Client thread/INFO] [net.minecraft.client.Minecraft]: Stopping!
+[20:57:54] [Client thread/INFO] [net.minecraft.client.audio.SoundManager]: SoundSystem shutting down...
+[20:57:54] [Client thread/WARN] [net.minecraft.client.audio.SoundManager]: Author: Paul Lamb, www.paulscode.com

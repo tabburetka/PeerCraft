@@ -97,6 +97,9 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private Button searchButton;
     private Component discoverStatusMessage = TextComponent.EMPTY;
     private int discoverStatusColor = PeerCraftUi.TEXT_MUTED;
+    // First visible search-result row — the mouse wheel walks this offset when the result list
+    // is longer than the rows that fit, with a scrollbar down the right edge showing the spot.
+    private int discoverScroll;
 
     // ---- games (public game browser) tab ----
     private final List<AbstractWidget> gamesStaticWidgets = new ArrayList<>();
@@ -153,7 +156,13 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     }
 
     private void peercraft$addFooterButtons() {
-        int donateY = this.height - 4 - FOOTER_BUTTON_HEIGHT;
+        // Feedback/Donate stack in the bottom-left corner. Vanilla's two footer button rows
+        // (y = height-52 / height-28) reach left to width/2-154; when the window is wide
+        // enough to leave a clear gutter there, sit in it as before, otherwise lift the stack
+        // above both rows so it never lands on "Join Server" / "Edit".
+        boolean gutterFits = this.width / 2 - 154 >= FOOTER_BUTTON_WIDTH + 6;
+        int donateY = gutterFits ? this.height - 4 - FOOTER_BUTTON_HEIGHT
+                                 : this.height - 52 - 6 - FOOTER_BUTTON_HEIGHT;
         int feedbackY = donateY - FOOTER_BUTTON_HEIGHT - 4;
 
         this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.title.feedback_button"), b -> openLink(FEEDBACK_MAILTO))
@@ -249,12 +258,71 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         applyTabVisibility();
     }
 
+    // ---- adaptive vertical layout (kept in step with src/main) --------------------------
+    // Keeps the Friends input row and the Friends/Discover/Games result lists clear of the
+    // bottom control strip at a small window size / high GUI scale — a fixed y=182 layout
+    // let them ride onto the footer (see the bug report).
+
+    /** Y of the Friends "Add by code" row: just below a full friend list, pulled up on a short window. */
+    private int friendsInputTop() {
+        return Math.min(CONTENT_TOP + 4 + MAX_ROWS_SHOWN * ROW_HEIGHT, this.height - 124);
+    }
+
+    /** ROW_HEIGHT rows that fit in [rowsTop, rowsBottom], capped at MAX_ROWS_SHOWN. */
+    private int rowsFitting(int rowsTop, int rowsBottom) {
+        return Math.max(0, Math.min(MAX_ROWS_SHOWN, (rowsBottom - rowsTop) / ROW_HEIGHT));
+    }
+
+    /** Y of the per-tab status line, just above the persistent footer row. */
+    private int statusLineY() {
+        return this.height - 64;
+    }
+
+    // ---- discover (find players) result scrolling (kept in step with src/main) ------------
+
+    private int discoverResultsTop() {
+        return CONTENT_TOP + 32;
+    }
+
+    private int discoverVisibleRows() {
+        return rowsFitting(discoverResultsTop(), statusLineY() - 4);
+    }
+
+    private int discoverMaxScroll() {
+        return Math.max(0, this.searchResults.size() - discoverVisibleRows());
+    }
+
+    private void setDiscoverScroll(int value) {
+        int clamped = Math.max(0, Math.min(value, discoverMaxScroll()));
+        if (clamped != this.discoverScroll) {
+            this.discoverScroll = clamped;
+            rebuildSearchResults();
+        }
+    }
+
+    private boolean overDiscoverResults(double mouseY) {
+        return mouseY >= discoverResultsTop()
+                && mouseY < discoverResultsTop() + discoverVisibleRows() * ROW_HEIGHT;
+    }
+
+    /** 1.16.5's pre-1.20.2 scroll callback: one delta arg, positive = wheel up. */
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (this.currentTab == Tab.DISCOVER && delta != 0 && discoverMaxScroll() > 0 && overDiscoverResults(mouseY)) {
+            setDiscoverScroll(this.discoverScroll - (int) Math.signum(delta));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
     private void applyTabVisibility() {
         boolean fav = this.currentTab == Tab.FAVORITES;
         boolean fr = this.currentTab == Tab.FRIENDS;
         boolean disc = this.currentTab == Tab.DISCOVER;
         boolean games = this.currentTab == Tab.GAMES;
 
+        // Join Server/Direct Connection/Add Server/Edit/Delete stay visible on every tab —
+        // just disabled (greyed) off Favorites, so the footer doesn't change shape between tabs.
         for (AbstractWidget w : this.favoritesWidgets) {
             w.visible = true;
         }
@@ -318,11 +386,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     private void buildFriendsTab() {
         int centerX = this.width / 2;
-        int rowsBottom = CONTENT_TOP + 4 + MAX_ROWS_SHOWN * ROW_HEIGHT;
+        int rowsBottom = friendsInputTop();
 
         this.addByCodeBox = new EditBox(this.font, centerX - 200, rowsBottom + 8, 120, 20, new TranslatableComponent("peercraft.gui.multiplayer.add_by_code_field"));
         this.addByCodeBox.setMaxLength(6);
-        this.addByCodeBox.setSuggestion(new TranslatableComponent("peercraft.gui.multiplayer.add_by_code_field").getString());
+        PeerCraftUi.placeholder(this.addByCodeBox, new TranslatableComponent("peercraft.gui.multiplayer.add_by_code_field").getString());
         this.friendsStaticWidgets.add(this.addButton(this.addByCodeBox));
 
         this.addByCodeButton = this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.multiplayer.add_by_code_button"), b -> onAddByCode())
@@ -379,7 +447,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 4;
-        int shown = Math.min(this.friends.size(), MAX_ROWS_SHOWN);
+        int shown = Math.min(this.friends.size(), rowsFitting(top, friendsInputTop() + 4));
         boolean fr = this.currentTab == Tab.FRIENDS;
         for (int i = 0; i < shown; i++) {
             AccountClient.FriendInfo friend = this.friends.get(i);
@@ -400,8 +468,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             this.friendRowWidgets.add(removeButton);
         }
 
-        if (this.friends.size() > MAX_ROWS_SHOWN) {
-            this.friendsStatusMessage = new TranslatableComponent("peercraft.gui.common.shown_first", MAX_ROWS_SHOWN, this.friends.size());
+        if (this.friends.size() > shown) {
+            this.friendsStatusMessage = new TranslatableComponent("peercraft.gui.common.shown_first", shown, this.friends.size());
             this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         } else if (this.friends.isEmpty()) {
             this.friendsStatusMessage = new TranslatableComponent("peercraft.gui.multiplayer.no_friends_yet", new TranslatableComponent("peercraft.gui.multiplayer.tab_discover"));
@@ -503,7 +571,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     public void onStatus(String message) {
                         runOnClientThread(() -> {
                             if (stillOnThisScreen()) {
-                                friendsStatusMessage = new TextComponent(message);
+                                friendsStatusMessage = new TranslatableComponent(message);
                                 friendsStatusColor = PeerCraftUi.TEXT_MUTED;
                             }
                         });
@@ -523,7 +591,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     public void onFailed(String reason) {
                         runOnClientThread(() -> {
                             if (stillOnThisScreen()) {
-                                friendsStatusMessage = new TextComponent(reason);
+                                friendsStatusMessage = new TranslatableComponent(reason);
                                 friendsStatusColor = PeerCraftUi.TEXT_ERROR;
                             }
                         });
@@ -546,7 +614,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         this.searchQueryBox = new EditBox(this.font, centerX - 100, top, 200, 20, new TranslatableComponent("peercraft.gui.multiplayer.search_query_field"));
         this.searchQueryBox.setMaxLength(16);
-        this.searchQueryBox.setSuggestion(new TranslatableComponent("peercraft.gui.multiplayer.search_query_hint").getString());
+        PeerCraftUi.placeholder(this.searchQueryBox, new TranslatableComponent("peercraft.gui.multiplayer.search_query_hint").getString());
         this.discoverStaticWidgets.add(this.addButton(this.searchQueryBox));
 
         this.searchButton = this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.multiplayer.search_button"), b -> onSearch())
@@ -557,6 +625,14 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     }
 
     private void onSearch() {
+        // Player search is an account query — with no session AccountClient.searchAccounts()
+        // just returns an empty list, which the "Nobody found" line makes indistinguishable
+        // from a real no-match. Tell the player they need to log in instead.
+        if (AccountClient.INSTANCE.getCurrentSession() == null) {
+            this.discoverStatusMessage = new TranslatableComponent("peercraft.gui.multiplayer.search_requires_login");
+            this.discoverStatusColor = PeerCraftUi.TEXT_ERROR;
+            return;
+        }
         String query = this.searchQueryBox.getValue().trim();
         this.searchButton.active = false;
         this.discoverStatusMessage = new TranslatableComponent("peercraft.gui.multiplayer.searching");
@@ -569,6 +645,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                         return;
                     }
                     searchResults = found;
+                    discoverScroll = 0; // a fresh result set starts at the top
                     discoverStatusMessage = found.isEmpty() ? new TranslatableComponent("peercraft.gui.multiplayer.nobody_found") : TextComponent.EMPTY;
                     discoverStatusColor = PeerCraftUi.TEXT_MUTED;
                     searchButton.active = true;
@@ -597,11 +674,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.discoverResultWidgets.clear();
 
         int centerX = this.width / 2;
-        int top = CONTENT_TOP + 32;
+        int top = discoverResultsTop();
         boolean disc = this.currentTab == Tab.DISCOVER;
-        int shown = Math.min(this.searchResults.size(), MAX_ROWS_SHOWN);
+        this.discoverScroll = Math.max(0, Math.min(this.discoverScroll, discoverMaxScroll()));
+        int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
         for (int i = 0; i < shown; i++) {
-            AccountClient.SearchResult result = this.searchResults.get(i);
+            AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
             Button addButton = Btn.builder(new TranslatableComponent("peercraft.gui.multiplayer.add_friend"), b -> onAddFriend(result))
                     .bounds(centerX + 30, top + i * ROW_HEIGHT, 170, 18).build();
             addButton.visible = disc;
@@ -657,8 +735,14 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         this.gameSearchBox = new EditBox(this.font, centerX - 200, top, 190, 20, new TranslatableComponent("peercraft.gui.multiplayer.game_search_field"));
         this.gameSearchBox.setMaxLength(32);
-        this.gameSearchBox.setSuggestion(new TranslatableComponent("peercraft.gui.multiplayer.game_search_hint").getString());
-        this.gameSearchBox.setResponder(value -> rebuildGameRows());
+        // This box drives live filtering, so it needs its own responder — fold the placeholder
+        // clear/restore into it rather than using PeerCraftUi.placeholder (which would replace it).
+        String gameSearchHint = new TranslatableComponent("peercraft.gui.multiplayer.game_search_hint").getString();
+        this.gameSearchBox.setSuggestion(gameSearchHint);
+        this.gameSearchBox.setResponder(value -> {
+            this.gameSearchBox.setSuggestion(value.isEmpty() ? gameSearchHint : "");
+            rebuildGameRows();
+        });
         this.gamesStaticWidgets.add(this.addButton(this.gameSearchBox));
 
         rebuildVersionFilterButton();
@@ -774,7 +858,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 32;
-        int shown = Math.min(this.filteredGames.size(), MAX_ROWS_SHOWN);
+        int shown = Math.min(this.filteredGames.size(), rowsFitting(top, statusLineY() - 4));
         boolean gamesTab = this.currentTab == Tab.GAMES;
         for (int i = 0; i < shown; i++) {
             AccountClient.PublicGameInfo game = this.filteredGames.get(i);
@@ -787,8 +871,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             this.gameRowWidgets.add(joinButton);
         }
 
-        if (this.filteredGames.size() > MAX_ROWS_SHOWN) {
-            this.gamesStatusMessage = new TranslatableComponent("peercraft.gui.common.shown_first", MAX_ROWS_SHOWN, this.filteredGames.size());
+        if (this.filteredGames.size() > shown) {
+            this.gamesStatusMessage = new TranslatableComponent("peercraft.gui.common.shown_first", shown, this.filteredGames.size());
             this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
         } else if (this.games.isEmpty()) {
             this.gamesStatusMessage = new TranslatableComponent("peercraft.gui.multiplayer.no_public_games");
@@ -811,7 +895,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     public void onStatus(String message) {
                         runOnClientThread(() -> {
                             if (stillOnThisScreen()) {
-                                gamesStatusMessage = new TextComponent(message);
+                                gamesStatusMessage = new TranslatableComponent(message);
                                 gamesStatusColor = PeerCraftUi.TEXT_MUTED;
                             }
                         });
@@ -831,7 +915,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     public void onFailed(String reason) {
                         runOnClientThread(() -> {
                             if (stillOnThisScreen()) {
-                                gamesStatusMessage = new TextComponent(reason);
+                                gamesStatusMessage = new TranslatableComponent(reason);
                                 gamesStatusColor = PeerCraftUi.TEXT_ERROR;
                             }
                         });
@@ -908,6 +992,25 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         return PeerCraftUi.isCurrentScreen(this);
     }
 
+    /** Plain vanilla-style scrollbar (black track + grey thumb) down the right edge of the Find Players results, only when they overflow. */
+    private void drawDiscoverScrollbar(PoseStack poseStack, int centerX) {
+        int total = this.searchResults.size();
+        int visible = discoverVisibleRows();
+        if (visible <= 0 || total <= visible) {
+            return;
+        }
+        int trackTop = discoverResultsTop();
+        int trackHeight = visible * ROW_HEIGHT;
+        int left = centerX + 202;
+        int right = left + 6;
+        GuiComponent.fill(poseStack, left, trackTop, right, trackTop + trackHeight, 0xFF000000);
+        int maxScroll = total - visible;
+        int scroll = Math.max(0, Math.min(this.discoverScroll, maxScroll));
+        int thumbHeight = Math.max(16, trackHeight * visible / total);
+        int thumbY = trackTop + (trackHeight - thumbHeight) * scroll / maxScroll;
+        GuiComponent.fill(poseStack, left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
+    }
+
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         super.render(poseStack, mouseX, mouseY, partialTick);
@@ -915,7 +1018,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         if (this.currentTab == Tab.FRIENDS) {
             int top = CONTENT_TOP + 4;
-            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), MAX_ROWS_SHOWN);
+            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), rowsFitting(top, friendsInputTop() + 4));
             for (int i = 0; i < shown; i++) {
                 AccountClient.FriendInfo friend = this.friends.get(i);
                 int rowY = top + i * ROW_HEIGHT + 5;
@@ -939,18 +1042,19 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 }
                 GuiComponent.drawString(poseStack, this.font, " — " + status, afterBadgeX, rowY, statusColor);
             }
-            GuiComponent.drawCenteredString(poseStack, this.font, this.friendsStatusMessage, centerX, this.height - 78, this.friendsStatusColor);
+            GuiComponent.drawCenteredString(poseStack, this.font, this.friendsStatusMessage, centerX, statusLineY(), this.friendsStatusColor);
         } else if (this.currentTab == Tab.DISCOVER) {
-            int top = CONTENT_TOP + 32;
-            int shown = Math.min(this.searchResults.size(), MAX_ROWS_SHOWN);
+            int top = discoverResultsTop();
+            int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
             for (int i = 0; i < shown; i++) {
-                AccountClient.SearchResult result = this.searchResults.get(i);
+                AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
                 PeerCraftUi.drawNameWithBadge(poseStack, this.font, result.displayName(), result.licensed(), centerX - 200, top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
             }
-            GuiComponent.drawCenteredString(poseStack, this.font, this.discoverStatusMessage, centerX, this.height - 78, this.discoverStatusColor);
+            drawDiscoverScrollbar(poseStack, centerX);
+            GuiComponent.drawCenteredString(poseStack, this.font, this.discoverStatusMessage, centerX, statusLineY(), this.discoverStatusColor);
         } else if (this.currentTab == Tab.GAMES) {
             int top = CONTENT_TOP + 32;
-            int shown = Math.min(this.filteredGames.size(), MAX_ROWS_SHOWN);
+            int shown = Math.min(this.filteredGames.size(), rowsFitting(top, statusLineY() - 4));
             for (int i = 0; i < shown; i++) {
                 AccountClient.PublicGameInfo game = this.filteredGames.get(i);
                 int rowY = top + i * ROW_HEIGHT + 5;
@@ -962,7 +1066,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 String line = worldName + " — " + hostName + " (" + game.currentPlayerCount() + "/" + game.maxPlayers() + ")" + versionSuffix;
                 GuiComponent.drawString(poseStack, this.font, line, centerX - 200, rowY, PeerCraftUi.TEXT_TITLE);
             }
-            GuiComponent.drawCenteredString(poseStack, this.font, this.gamesStatusMessage, centerX, this.height - 78, this.gamesStatusColor);
+            GuiComponent.drawCenteredString(poseStack, this.font, this.gamesStatusMessage, centerX, statusLineY(), this.gamesStatusColor);
         }
     }
 }

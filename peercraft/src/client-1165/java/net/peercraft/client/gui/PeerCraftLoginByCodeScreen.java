@@ -38,14 +38,14 @@ public class PeerCraftLoginByCodeScreen extends Screen {
 
         this.friendCodeBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.login_code.friend_code_field"));
         this.friendCodeBox.setMaxLength(6);
-        this.friendCodeBox.setSuggestion(new TranslatableComponent("peercraft.gui.login_code.friend_code_hint").getString());
+        PeerCraftUi.placeholder(this.friendCodeBox, new TranslatableComponent("peercraft.gui.login_code.friend_code_hint").getString());
         this.addButton(this.friendCodeBox);
         this.setFocused(this.friendCodeBox);
 
         y += 26;
         this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.password_field"));
         this.passwordBox.setMaxLength(64);
-        this.passwordBox.setSuggestion(new TranslatableComponent("peercraft.gui.register.password_hint").getString());
+        PeerCraftUi.placeholder(this.passwordBox, new TranslatableComponent("peercraft.gui.register.password_hint").getString());
         PeerCraftUi.maskAsPassword(this.passwordBox);
         this.addButton(this.passwordBox);
 

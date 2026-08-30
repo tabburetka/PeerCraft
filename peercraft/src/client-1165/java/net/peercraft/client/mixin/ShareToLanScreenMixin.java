@@ -47,14 +47,39 @@ public abstract class ShareToLanScreenMixin extends Screen {
 
     @Inject(method = "init", at = @At("TAIL"))
     private void peercraft$addInternetCheckbox(CallbackInfo ci) {
-        int left = this.width / 2 - 155;
-        int y = this.height - 182;
+        // Adaptive bottom-anchored layout — same rationale as (and kept in step with)
+        // src/main/.../ShareToLanScreenMixin.java. 1.16.5's ShareToLanScreen has a fixed top
+        // (title y50, info y82, game-mode/cheats row y100..120, NO port field) and its
+        // "Start LAN World"/"Cancel" row pinned at height-28. Pack the six mod widgets into
+        // four rows / two columns, glue the block to just above that row, and scale the row
+        // pitch + button height to the leftover vertical room so nothing rides up onto the
+        // vanilla widgets when GUI Scale "Auto" shrinks this.height on a big monitor.
+        int gutter = 8;
+        int colWidth = Math.min(150, (this.width - 40 - gutter) / 2);
+        int colLeft = this.width / 2 - colWidth - gutter / 2;
+        int colRight = this.width / 2 + gutter / 2;
+
+        int bandTop = 126;
+        int bandBottom = this.height - 28 - 6;
+        int rows = 4;
+        int rowPitch = Math.max(16, Math.min(26, (bandBottom - bandTop) / rows));
+        int widgetH = Math.max(12, Math.min(20, rowPitch - 4));
+        int blockHeight = rowPitch * (rows - 1) + widgetH;
+        int blockTop = Math.max(bandTop, bandBottom - blockHeight);
+        int buttonWidth = colWidth;
+
+        int internetY = blockTop;
+        int allowUnlicensedY = blockTop + rowPitch;
+        int friendsOnlyY = blockTop + rowPitch * 2;
+        int publicRoomY = blockTop + rowPitch * 2;
+        int maxPlayersY = blockTop + rowPitch * 3;
+        int worldNameY = blockTop + rowPitch * 3;
 
         int initialMaxPlayers = MAX_PLAYERS_OPTIONS.contains(PeerCraftHostOptions.maxPlayers)
                 ? PeerCraftHostOptions.maxPlayers
                 : MAX_PLAYERS_OPTIONS.get(MAX_PLAYERS_OPTIONS.size() - 1);
         int[] mpIndex = {Math.max(0, MAX_PLAYERS_OPTIONS.indexOf(initialMaxPlayers))};
-        Button maxPlayersButton = new Button(left, y + 26, 150, 20,
+        Button maxPlayersButton = new Button(colLeft, maxPlayersY, buttonWidth, widgetH,
                 maxPlayersLabel(MAX_PLAYERS_OPTIONS.get(mpIndex[0])), b -> {
             mpIndex[0] = (mpIndex[0] + 1) % MAX_PLAYERS_OPTIONS.size();
             int value = MAX_PLAYERS_OPTIONS.get(mpIndex[0]);
@@ -62,12 +87,12 @@ public abstract class ShareToLanScreenMixin extends Screen {
             b.setMessage(maxPlayersLabel(value));
         });
 
-        CallbackCheckbox allowUnlicensedCheckbox = new CallbackCheckbox(left, y + 52, 20, 20,
+        CallbackCheckbox allowUnlicensedCheckbox = new CallbackCheckbox(colLeft, allowUnlicensedY, 20, 20,
                 new TranslatableComponent("peercraft.mixin.share_to_lan.allow_unlicensed"),
                 PeerCraftHostOptions.allowUnlicensedPlayers,
                 value -> PeerCraftHostOptions.allowUnlicensedPlayers = value);
 
-        EditBox worldNameBox = new EditBox(this.font, left, y + 130, 150, 20,
+        EditBox worldNameBox = new EditBox(this.font, colRight, worldNameY, buttonWidth, widgetH,
                 new TranslatableComponent("peercraft.mixin.share_to_lan.world_name"));
         worldNameBox.setMaxLength(PeerCraftHostOptions.MAX_WORLD_NAME_LENGTH);
         worldNameBox.setSuggestion(new TranslatableComponent("peercraft.mixin.share_to_lan.world_name_hint").getString());
@@ -85,7 +110,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
         // checkbox callbacks — same trick as the original.
         CallbackCheckbox[] friendsOnlyHolder = new CallbackCheckbox[1];
 
-        CallbackCheckbox publicRoomCheckbox = new CallbackCheckbox(left, y + 104, 20, 20,
+        CallbackCheckbox publicRoomCheckbox = new CallbackCheckbox(colRight, publicRoomY, 20, 20,
                 new TranslatableComponent("peercraft.mixin.share_to_lan.public_room"),
                 PeerCraftHostOptions.publicRoom,
                 value -> {
@@ -96,7 +121,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
                     }
                 });
 
-        CallbackCheckbox friendsOnlyCheckbox = new CallbackCheckbox(left, y + 78, 20, 20,
+        CallbackCheckbox friendsOnlyCheckbox = new CallbackCheckbox(colLeft, friendsOnlyY, 20, 20,
                 new TranslatableComponent("peercraft.mixin.share_to_lan.friends_only"),
                 PeerCraftHostOptions.friendsOnly,
                 value -> {
@@ -113,7 +138,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
         publicRoomCheckbox.visible = PeerCraftHostOptions.internetPlayRequested;
         worldNameBox.visible = PeerCraftHostOptions.internetPlayRequested && PeerCraftHostOptions.publicRoom;
 
-        CallbackCheckbox internetCheckbox = new CallbackCheckbox(left, y, 20, 20,
+        CallbackCheckbox internetCheckbox = new CallbackCheckbox(colLeft, internetY, 20, 20,
                 new TranslatableComponent("peercraft.mixin.share_to_lan.internet_play"),
                 PeerCraftHostOptions.internetPlayRequested,
                 value -> {

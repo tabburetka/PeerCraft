@@ -146,14 +146,16 @@ public class PeerCraftJoinScreen extends Screen {
         if (!stillOnThisScreen()) {
             return;
         }
-        this.statusMessage = Component.literal(message);
+        // P2PBridge/RendezvousClient report progress as peercraft.p2p.* translation keys now,
+        // not prose — resolve here (the screen is the layer allowed to touch i18n).
+        this.statusMessage = Component.translatable(message);
     }
 
     private void handleFailed(String reason) {
         if (!stillOnThisScreen()) {
             return;
         }
-        this.statusMessage = Component.literal(reason);
+        this.statusMessage = Component.translatable(reason);
         this.connectButton.active = true;
     }
 

@@ -91,10 +91,12 @@ The rest of this document is for people building or contributing to PeerCraft, n
 
 ### Repository layout
 
-Two independent Gradle projects in one repo:
+Several independent Gradle projects in one repo:
 
 - `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
 - `rendezvous-server/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd rendezvous-server && ./gradlew jar`.
+- `peercraft-forge-1122/` — a Minecraft **1.12.2 Forge** backport, built on RetroFuturaGradle (Gradle 8.8, Java 8) instead of Stonecutter/Loom. It reuses the shared networking/account code straight from `peercraft/src/` via `srcDir` (with hand-resolved Java-8 / 1.12.2-API twins under `peercraft/src/shared-forge1122/` and `peercraft/src/client-1122/`). Build with `cd peercraft-forge-1122 && ./gradlew build` (first run is slow — it decompiles Minecraft) → `build/libs/peercraft-forge-1.12.2-<version>.jar`; try it with `./gradlew runClient`. Requires [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The mod ships a coremod (`PeerCraftCoreMod`) that registers its mixin config, so it does **not** need to be extracted. This backport builds and loads; it's not yet as thoroughly runtime-tested as the 1.21.x / 26.x targets.
+- `peercraft-forge-1710/` — a Minecraft **1.7.10 Forge** backport, same toolchain as the 1.12.2 one (RetroFuturaGradle, Gradle 8.8, Java 8) and ported almost file-for-file from it — 1.7.10 and 1.12.2 share the pre-1.13 immediate-mode GUI (`GuiScreen` + `buttonList`), so most of the work was mechanical API renames (`fontRendererObj`, the `cpw.mods.fml.*` package, MCP `stable_12` names). It reuses the shared code from `peercraft/src/` via `srcDir` with twins under `peercraft/src/shared-forge1710/` and `peercraft/src/client-1710/`. Build with `cd peercraft-forge-1710 && ./gradlew build` → `build/libs/peercraft-forge-1.7.10-<version>.jar`; try it with `./gradlew runClient`. Requires [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The `build` (including the mixin refmap) is green; runtime application of the mixins is not yet verified.
 
 ### Configuration
 
