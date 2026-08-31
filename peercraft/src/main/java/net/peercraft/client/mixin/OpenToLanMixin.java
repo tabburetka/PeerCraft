@@ -18,8 +18,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.peercraft.client.PeerCraftHostOptions;
+import net.peercraft.client.modsync.HostModSyncProviderImpl;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
+import net.peercraft.platform.Services;
 
 @Mixin(IntegratedServer.class)
 public abstract class OpenToLanMixin {
@@ -80,6 +83,14 @@ public abstract class OpenToLanMixin {
             // checkbox on this same screen (ShareToLanScreenMixin), not a launch flag.
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
+                ModSyncHostProvider modSyncProvider = null;
+                if (PeerCraftConfig.modSync()) {
+                    try {
+                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir());
+                    } catch (RuntimeException e) {
+                        LOGGER.warn("[PeerCraft P2P] Не удалось подготовить mod-sync для хоста: {}", e.toString());
+                    }
+                }
                 P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly,
                         PeerCraftHostOptions.publicRoom, publicRoomWorldName(server), currentMinecraftVersion(), new P2PBridge.HostListener() {
                     @Override
@@ -96,7 +107,7 @@ public abstract class OpenToLanMixin {
                         // a nested Component so the chat line comes out localized, not as a raw key.
                         sendChatMessage(Component.translatable("peercraft.mixin.open_to_lan.failed_prefix", Component.translatable(reason)));
                     }
-                });
+                }, modSyncProvider);
             } else {
                 P2PBridge.INSTANCE.startHost(lanPort);
             }

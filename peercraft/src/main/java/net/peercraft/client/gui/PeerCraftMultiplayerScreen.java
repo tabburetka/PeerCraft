@@ -21,6 +21,7 @@ import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
+import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
@@ -727,7 +728,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private void onConnectToFriend(AccountClient.FriendInfo friend) {
         this.friendsStatusMessage = Component.translatable("peercraft.gui.multiplayer.connecting_to", friend.displayName());
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
-        P2PBridge.INSTANCE.startClientViaRendezvous(friend.roomCode(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
+        String friendRoomCode = friend.roomCode();
+        P2PBridge.INSTANCE.startClientViaRendezvous(friendRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override
                     public void onStatus(String message) {
@@ -761,7 +763,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, friendRoomCode));
     }
 
     // ==================== DISCOVER (FIND PLAYERS) TAB ====================
@@ -1050,7 +1052,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         String label = game.worldName().isBlank() ? game.code() : game.worldName();
         this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.joining_game", label);
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
-        P2PBridge.INSTANCE.startClientViaRendezvous(game.code(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
+        String gameRoomCode = game.code();
+        P2PBridge.INSTANCE.startClientViaRendezvous(gameRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override
                     public void onStatus(String message) {
@@ -1084,7 +1087,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, gameRoomCode));
     }
 
     // ==================== shared plumbing ====================

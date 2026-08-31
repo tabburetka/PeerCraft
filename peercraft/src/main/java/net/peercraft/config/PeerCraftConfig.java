@@ -77,6 +77,31 @@ public final class PeerCraftConfig {
         return intValueInRange("maxPlayers", 4, 1, 32);
     }
 
+    // Mod sync: when joining a friend's world, offer to download server-side mods the joiner
+    // is missing (then restart). Master switch — false disables the whole handshake, join
+    // behaves exactly as before.
+    public static boolean modSync() {
+        return boolValue("modSync", true);
+    }
+
+    // Skip the "these mods will be downloaded" confirmation screen and install straight away.
+    // Opt-in — only for a closed group of trusted friends on a private rendezvous server.
+    public static boolean modSyncAutoAccept() {
+        return boolValue("modSync.autoAccept", false);
+    }
+
+    // Cap on the combined size of one mod-sync batch, in MiB — the plan is rejected before any
+    // download starts if the manifest totals more than this.
+    public static int modSyncMaxTotalMb() {
+        return intValueInRange("modSync.maxTotalMb", 512, 1, 4096);
+    }
+
+    // Cap on any single downloaded jar, in MiB — enforced against the manifest size up front
+    // and against the actual byte count during transfer.
+    public static int modSyncMaxModMb() {
+        return intValueInRange("modSync.maxModMb", 256, 1, 2048);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         //? if >=1.17
@@ -124,6 +149,13 @@ public final class PeerCraftConfig {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < key.length(); i++) {
             char c = key.charAt(i);
+            // A dotted key (peercraft.modSync.autoAccept) maps its dots to underscores too, so
+            // -Dpeercraft.modSync.autoAccept <-> PEERCRAFT_MOD_SYNC_AUTO_ACCEPT. Dot-free keys
+            // are unaffected.
+            if (c == '.') {
+                builder.append('_');
+                continue;
+            }
             if (Character.isUpperCase(c)) {
                 builder.append('_');
             }

@@ -12,6 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
+import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.p2p.P2PBridge;
 
@@ -114,7 +115,8 @@ public class PeerCraftJoinScreen extends Screen {
 
         this.connectButton.active = false;
         this.statusMessage = Component.translatable("peercraft.gui.join.connecting");
-        P2PBridge.INSTANCE.startClientViaRendezvous(code, target.host(), target.port(), this.listener);
+        P2PBridge.INSTANCE.startClientViaRendezvous(code, target.host(), target.port(), this.listener,
+                new ClientModSyncAgent(this, code));
     }
 
     private record HostPort(String host, int port) {

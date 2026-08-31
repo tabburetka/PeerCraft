@@ -81,6 +81,26 @@ public final class PeerCraftConfig {
         return intValueInRange("maxPlayers", 4, 1, 32);
     }
 
+    // Mod sync: when joining a friend's world, offer to download server-side mods the joiner
+    // is missing (then restart). Master switch — false disables the whole handshake.
+    // NOTE: mod-sync feature code is Fabric/NeoForge only; these accessors exist here purely
+    // to keep the three PeerCraftConfig copies byte-synced.
+    public static boolean modSync() {
+        return boolValue("modSync", true);
+    }
+
+    public static boolean modSyncAutoAccept() {
+        return boolValue("modSync.autoAccept", false);
+    }
+
+    public static int modSyncMaxTotalMb() {
+        return intValueInRange("modSync.maxTotalMb", 512, 1, 4096);
+    }
+
+    public static int modSyncMaxModMb() {
+        return intValueInRange("modSync.maxModMb", 256, 1, 2048);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         if (property != null && !property.trim().isEmpty()) {
@@ -122,6 +142,10 @@ public final class PeerCraftConfig {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < key.length(); i++) {
             char c = key.charAt(i);
+            if (c == '.') {
+                builder.append('_');
+                continue;
+            }
             if (Character.isUpperCase(c)) {
                 builder.append('_');
             }

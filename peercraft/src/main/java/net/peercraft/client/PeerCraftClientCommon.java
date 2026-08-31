@@ -3,9 +3,11 @@ package net.peercraft.client;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
+import net.peercraft.client.modsync.ModSyncFilesystem;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
+import net.peercraft.platform.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +22,14 @@ public final class PeerCraftClientCommon {
 
     public static void initClient() {
         String mode = PeerCraftConfig.mode();
+
+        // Best-effort: clear any half-written mod-sync temp files (*.jar.part, serving/) from a
+        // previous run. Never touches real .jar files. Tolerant — never throws.
+        try {
+            ModSyncFilesystem.sweepOnStartup(Services.PLATFORM.getModsDir());
+        } catch (RuntimeException e) {
+            LOGGER.debug("[PeerCraft] Уборка mod-sync пропущена: {}", e.toString());
+        }
 
         // Accounts/friends work independently of hosting/joining mode — a player might only
         // ever use the friends list, never P2P itself this session.

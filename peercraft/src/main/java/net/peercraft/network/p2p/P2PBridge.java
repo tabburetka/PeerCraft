@@ -1,6 +1,11 @@
 package net.peercraft.network.p2p;
 
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.network.modsync.ModSyncAgent;
+import net.peercraft.network.modsync.ModSyncCoordinator;
+import net.peercraft.network.modsync.ModSyncHostProvider;
+import net.peercraft.network.modsync.ModSyncLink;
+import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.network.proxy.LocalProxy;
 import net.peercraft.network.rendezvous.PunchCoordinator;
 import net.peercraft.network.rendezvous.RendezvousClient;
@@ -93,6 +98,16 @@ public class P2PBridge {
     // one is added (unlike rendezvousListener below, which stays a single slot only for the
     // joiner role, where only one attempt can ever be in flight at once).
     private final Map<PeerAddress, PunchCoordinator> activePunches = new ConcurrentHashMap<>();
+
+    // HOST: one mod-sync coordinator per authorized joiner, keyed by peer address. Lives from
+    // the joiner's first 0xE2 datagram (after its punch succeeded) until it graduates to a real
+    // relay session (startNewHostConnection) or the world closes (cancelRendezvous). Only an
+    // address already in authorizedPeers may open one — same admission gate as handleHostIncoming.
+    private final Map<PeerAddress, ModSyncCoordinator> modSyncHostSessions = new ConcurrentHashMap<>();
+
+    // HOST: what to tell joiners about this host's mods; null when the host isn't participating
+    // in mod-sync (feature off, or startHost's static local path). Set in startHostViaRendezvous.
+    private volatile ModSyncHostProvider modSyncHostProvider;
 
     private volatile ClientSession currentClientSession;
 
@@ -205,9 +220,20 @@ public class P2PBridge {
      * the caller computes it and passes it in, same as {@code worldName}.
      */
     public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, HostListener listener) {
+        startHostViaRendezvous(mcPort, maxPlayers, friendsOnly, publicRoom, worldName, mcVersion, listener, null);
+    }
+
+    /**
+     * As {@link #startHostViaRendezvous(int, int, boolean, boolean, String, String, HostListener)},
+     * but also answers joiners' mod-sync handshakes from {@code modSyncProvider} (see
+     * {@link ModSyncHostProvider}). A {@code null} provider means this host doesn't participate —
+     * joiners get no manifest and connect straight through.
+     */
+    public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, HostListener listener, ModSyncHostProvider modSyncProvider) {
         this.isHost = true;
         this.localMinecraftPort = mcPort;
         this.maxPlayers = maxPlayers;
+        this.modSyncHostProvider = modSyncProvider;
         if (!restartReceiver(PeerCraftConfig.hostUdpPort())) {
             // The UDP socket couldn't bind (port already taken — most often a second running
             // Minecraft client with PeerCraft). Without this the RendezvousClient below would
@@ -311,6 +337,16 @@ public class P2PBridge {
     // supplied explicitly by the caller (e.g. an in-game screen) instead of being read from
     // PeerCraftConfig — and join progress is reported through the listener, not just logged.
     public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener) {
+        startClientViaRendezvous(code, rendezvousHost, rendezvousPort, listener, null);
+    }
+
+    /**
+     * As {@link #startClientViaRendezvous(String, String, int, ConnectListener)}, but once the
+     * NAT punch succeeds — and before {@code listener.onConnected()} — runs {@code modSync}'s
+     * mod-sync handshake with the host over the punched link. A {@code null} agent (or
+     * {@code peercraft.modSync=false}) skips it and connects immediately, exactly as before.
+     */
+    public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, ModSyncAgent modSync) {
         //? if >=1.17
         if (code == null || code.isBlank()) {
         //? if <1.17
@@ -327,6 +363,13 @@ public class P2PBridge {
             listener.onFailed("peercraft.p2p.fail.already_connecting");
             return;
         }
+        // Safety net: rendezvousClientBusy is normally cleared on failure, on a clean
+        // LocalProxy disconnect (endClientSession), or by abortModSyncClient(). If none of
+        // those fire (e.g. the join screen navigated away before onConnected could start
+        // ConnectScreen, or ConnectScreen bounced straight back), the flag would stick true
+        // and every later "Connect" would say "already connecting". Force-clear it after a
+        // grace period if no local MC session ever opened.
+        armBusyWatchdog();
         ConnectListener guardedListener = new ConnectListener() {
             @Override
             public void onStatus(String message) {
@@ -377,7 +420,7 @@ public class P2PBridge {
         RendezvousClient.MatchCallback matchCallback = new RendezvousClient.MatchCallback() {
             @Override
             public void onMatched(RendezvousProtocol.Address peer, long token) {
-                beginClientPunch(peer, token, guardedListener);
+                beginClientPunch(peer, token, guardedListener, modSync);
             }
 
             @Override
@@ -467,7 +510,7 @@ public class P2PBridge {
     // JOINER: starts a NAT punch to the host. A joiner always punches to exactly one peer
     // at a time, so a single rendezvousListener slot here is correct (unlike the host, see
     // beginHostPunch above).
-    private void beginClientPunch(RendezvousProtocol.Address peer, long token, ConnectListener listener) {
+    private void beginClientPunch(RendezvousProtocol.Address peer, long token, ConnectListener listener, ModSyncAgent modSync) {
         LOGGER.info("[P2PBridge] Пир найден: {}:{}, начинаем hole punching...", peer.host().getHostAddress(), peer.port());
         listener.onStatus("peercraft.p2p.status.peer_found");
         PunchCoordinator punch = new PunchCoordinator(sender, peer, token, new PunchCoordinator.Callback() {
@@ -476,7 +519,11 @@ public class P2PBridge {
                 clearRendezvousListener();
                 setClientTargetPeer(ip, port);
                 LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
-                listener.onConnected();
+                if (modSync == null || !PeerCraftConfig.modSync()) {
+                    listener.onConnected();
+                    return;
+                }
+                runModSyncHandshake(modSync, listener);
             }
 
             @Override
@@ -488,6 +535,74 @@ public class P2PBridge {
         });
         setRendezvousListener(punch);
         punch.start();
+    }
+
+    // JOINER: the mod-sync handshake occupies the single rendezvousListener slot between a
+    // successful punch and onConnected(). The agent (client layer) drives the handshake over
+    // the link and calls exactly one Outcome method.
+    private void runModSyncHandshake(ModSyncAgent modSync, ConnectListener listener) {
+        ModSyncLink link = new ModSyncLink() {
+            @Override
+            public void send(byte[] data) {
+                sendEncoded(clientTargetPeer, data);
+            }
+
+            @Override
+            public void bindInbound(RawPacketListener inbound) {
+                setRendezvousListener(inbound);
+            }
+
+            @Override
+            public void unbind() {
+                clearRendezvousListener();
+            }
+        };
+        modSync.run(link, new ModSyncAgent.Outcome() {
+            @Override
+            public void proceedToConnect() {
+                clearRendezvousListener();
+                listener.onConnected();
+            }
+
+            @Override
+            public void abortJoin() {
+                abortModSyncClient();
+            }
+
+            @Override
+            public void fail(String reasonKey) {
+                clearRendezvousListener();
+                listener.onFailed(reasonKey);
+            }
+        });
+    }
+
+    // JOINER: mod sync finished without a live LocalProxy TCP session (mods installed and a
+    // restart is needed, or the player cancelled), so neither endClientSession nor
+    // guardedListener.onFailed will reset rendezvousClientBusy — do it here, or a second
+    // "Connect" this launch wedges on peercraft.p2p.fail.already_connecting.
+    public void abortModSyncClient() {
+        clearRendezvousListener();
+        rendezvousClientBusy.set(false);
+    }
+
+    // See the comment at its call site in startClientViaRendezvous.
+    private void armBusyWatchdog() {
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(45_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (rendezvousClientBusy.get() && currentClientSession == null) {
+                LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за 45 с — снимаем флаг \"идёт подключение\".");
+                rendezvousClientBusy.set(false);
+                clearRendezvousListener();
+            }
+        }, "PeerCraft-Busy-Watchdog");
+        t.setDaemon(true);
+        t.start();
     }
 
     // Replaces the current rendezvousListener with a new one, first stopping (cancel()) the
@@ -530,6 +645,13 @@ public class P2PBridge {
                 punch.cancel();
             }
         }
+        for (PeerAddress addr : modSyncHostSessions.keySet()) {
+            ModSyncCoordinator c = modSyncHostSessions.remove(addr);
+            if (c != null) {
+                c.cancel();
+            }
+        }
+        this.modSyncHostProvider = null;
         authorizedPeers.clear();
         joinerAccountIdByAddress.clear();
     }
@@ -664,6 +786,30 @@ public class P2PBridge {
 
     // Receives a UDP packet from P2PReceiver: strips the framing and forwards it to the local Minecraft TCP socket
     public void handleIncomingPacket(byte[] data, int length, InetAddress senderAddress, int senderPort) {
+        // Mod-sync control traffic has its own magic byte (0xE2), routed before the relay path
+        // and separately from rendezvous (0xE1). On the joiner it goes to the single
+        // rendezvousListener slot (which the ModSyncAgent binds its coordinator into via
+        // ModSyncLink); on the host, one coordinator per already-punched joiner address.
+        if (length >= 2 && data[0] == ModSyncProtocol.MAGIC) {
+            if (this.isHost) {
+                PeerAddress from = new PeerAddress(senderAddress, senderPort);
+                ModSyncHostProvider provider = this.modSyncHostProvider;
+                if (provider == null || !authorizedPeers.contains(from)) {
+                    return;
+                }
+                modSyncHostSessions
+                        .computeIfAbsent(from, addr -> ModSyncCoordinator.host(
+                                bytes -> sendEncoded(addr, bytes), provider, provider.servingTempDir()))
+                        .onPacket(data, length, senderAddress, senderPort);
+            } else {
+                RawPacketListener listener = this.rendezvousListener;
+                if (listener != null) {
+                    listener.onPacket(data, length, senderAddress, senderPort);
+                }
+            }
+            return;
+        }
+
         // Rendezvous/punch traffic is recognized by its own magic byte (FramedPacket.decode
         // would reject it anyway, since the first byte doesn't match VERSION) — hand it off
         // to the active rendezvous listeners and leave the normal relay path untouched.
@@ -771,6 +917,13 @@ public class P2PBridge {
             HostConnection conn = new HostConnection(sessionId, peerAddress, mcSocket);
             hostConnectionsBySessionId.put(sessionId, conn);
             hostConnectionsByAddress.put(peerAddress, conn);
+
+            // This joiner has moved on to the real relay stream — its mod-sync coordinator (if
+            // any) has done its job; stop its threads and drop it.
+            ModSyncCoordinator finishedModSync = modSyncHostSessions.remove(peerAddress);
+            if (finishedModSync != null) {
+                finishedModSync.cancel();
+            }
 
             java.util.UUID joinerAccountId = joinerAccountIdByAddress.get(peerAddress);
             if (joinerAccountId != null) {

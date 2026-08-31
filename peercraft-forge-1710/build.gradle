@@ -39,6 +39,7 @@ def java8Twins = [
 	"net/peercraft/network/rendezvous/RendezvousProtocol.java",
 	"net/peercraft/PeerCraftCommon.java",
 	"net/peercraft/platform/Services.java",
+	"net/peercraft/platform/services/PlatformMod.java",
 ]
 def sharedForgeTwins = [
 	"net/peercraft/network/rendezvous/RendezvousClient.java",
@@ -57,6 +58,8 @@ def syncSharedMain = tasks.register("syncSharedMain", Sync) {
 	exclude "net/peercraft/client/gui/**"
 	exclude "net/peercraft/client/mixin/**"
 	exclude "net/peercraft/mixin/**"
+	exclude "net/peercraft/network/modsync/**"
+	exclude "net/peercraft/client/modsync/**"
 	(java8Twins + sharedForgeTwins).each { exclude it }
 }
 

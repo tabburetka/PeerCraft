@@ -114,6 +114,16 @@ The mod reads Java system properties first and environment variables second. If 
 | `peercraft.rendezvousHost` | `PEERCRAFT_RENDEZVOUS_HOST` | the project's public rendezvous server | Rendezvous server address, overridable in-game via "Override server address" on the Join screen. |
 | `peercraft.rendezvousPort` | `PEERCRAFT_RENDEZVOUS_PORT` | `51000` | UDP port of the rendezvous server. |
 | `peercraft.roomCode` | `PEERCRAFT_ROOM_CODE` | *(empty)* | Pre-fills the room-code box on the in-game Join screen. |
+| `peercraft.modSync` | `PEERCRAFT_MOD_SYNC` | `true` | Master switch for mod sync (see below). `false` disables the handshake entirely — joining behaves exactly as before. |
+| `peercraft.modSync.autoAccept` | `PEERCRAFT_MOD_SYNC_AUTO_ACCEPT` | `false` | Skip the "these mods will be downloaded" confirmation screen and install straight away. Opt-in — only sensible for a closed group of trusted friends on a private rendezvous server. |
+| `peercraft.modSync.maxTotalMb` | `PEERCRAFT_MOD_SYNC_MAX_TOTAL_MB` | `512` | Reject a mod-sync batch whose jars total more than this many MiB, before any download starts. |
+| `peercraft.modSync.maxModMb` | `PEERCRAFT_MOD_SYNC_MAX_MOD_MB` | `256` | Reject / abort any single jar larger than this many MiB. |
+
+### Mod sync
+
+When you join a friend's world over PeerCraft and the host has server-side mods you're missing, PeerCraft can fetch them for you. After the NAT punch succeeds (and before Minecraft actually connects), the two sides compare mod lists; if anything is missing you get a screen listing each jar — id, version, size, and whether it will come as an HTTP download (resolved from Modrinth by the jar's SHA-512) or streamed from the host over the P2P tunnel. **Nothing is written to disk until you click "Download & install."** Every jar is SHA-512-verified against the host's manifest before it lands in `mods/`, an older jar with the same mod id is moved aside (not deleted) into `mods/.peercraft-modsync-tmp/superseded/`, and what was installed is logged to `config/peercraft/modsync-installed.json`.
+
+Minecraft can't load mods without a relaunch, so PeerCraft does **not** continue the join — it shows a "restart required" screen. Quit, relaunch, and reconnect; this time the mods are present and the join goes straight through. `peercraft.modSync.autoAccept=true` skips the confirmation screen; `peercraft.modSync=false` turns the whole thing off.
 
 ### Local self-connect test
 
