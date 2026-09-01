@@ -114,10 +114,20 @@ The mod reads Java system properties first and environment variables second. If 
 | `peercraft.rendezvousHost` | `PEERCRAFT_RENDEZVOUS_HOST` | the project's public rendezvous server | Rendezvous server address, overridable in-game via "Override server address" on the Join screen. |
 | `peercraft.rendezvousPort` | `PEERCRAFT_RENDEZVOUS_PORT` | `51000` | UDP port of the rendezvous server. |
 | `peercraft.roomCode` | `PEERCRAFT_ROOM_CODE` | *(empty)* | Pre-fills the room-code box on the in-game Join screen. |
+| `peercraft.reorder.maxPending` | *(system property only)* | `4096` | How many out-of-order datagrams the receiver buffers behind one missing packet before it gives up and drops the session. Raise it on a very lossy or DPI-mangled link (see below); range `64`–`1048576`. |
+| `peercraft.reorder.gapTimeoutMillis` | *(system property only)* | `12000` | How long the receiver waits for one missing packet (while re-requesting it) before dropping the session. Kept under Minecraft's own 30 s read timeout; range `1000`–`600000`. |
+| `peercraft.reorder.nackDebounceMillis` | *(system property only)* | `120` | Minimum gap between repeat resend-requests for the same missing packet; range `10`–`5000`. |
+| `peercraft.send.pacingMillis` | *(system property only)* | `0` | Delay inserted between the datagrams of one large payload. `0` sends them in a burst (original behavior); `1`–`2` spreads world-sync traffic so a congested uplink drops fewer packets, at the cost of slightly slower bulk transfer. Max `50`. |
 | `peercraft.modSync` | `PEERCRAFT_MOD_SYNC` | `true` | Master switch for mod sync (see below). `false` disables the handshake entirely — joining behaves exactly as before. |
 | `peercraft.modSync.autoAccept` | `PEERCRAFT_MOD_SYNC_AUTO_ACCEPT` | `false` | Skip the "these mods will be downloaded" confirmation screen and install straight away. Opt-in — only sensible for a closed group of trusted friends on a private rendezvous server. |
 | `peercraft.modSync.maxTotalMb` | `PEERCRAFT_MOD_SYNC_MAX_TOTAL_MB` | `512` | Reject a mod-sync batch whose jars total more than this many MiB, before any download starts. |
 | `peercraft.modSync.maxModMb` | `PEERCRAFT_MOD_SYNC_MAX_MOD_MB` | `256` | Reject / abort any single jar larger than this many MiB. |
+
+### Random mid-session disconnects on a lossy or DPI-mangled link
+
+The relay runs Minecraft's TCP stream over UDP with its own resend-on-loss layer. If a datagram goes missing and can't be re-fetched fast enough, that layer deliberately drops the session (you're kicked to the title screen but can reconnect straight away). Ordinary internet loss rarely trips it, but anything that reorders, duplicates or drops UDP by design — most notably **ZAPRET** and similar DPI-bypass tools — makes it far more likely the longer you play, because every burst of world data is another chance to hit the limit.
+
+First, scope the DPI-bypass tool so it does **not** touch PeerCraft's UDP ports (`50001`/`50002` by default, or whatever you set) or the peer's IP — if the disconnects stop, that was the cause. If you can't, widen the recovery window: `-Dpeercraft.reorder.gapTimeoutMillis=20000 -Dpeercraft.reorder.maxPending=16384`, and optionally add `-Dpeercraft.send.pacingMillis=1` on the **sending** side (the host, for the joiner's world-load; both sides is fine). These only need to change on the machine that's getting kicked, but matching them on both is harmless.
 
 ### Mod sync
 

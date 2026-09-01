@@ -1,5 +1,8 @@
 package net.peercraft.network.p2p;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
 import java.util.TreeMap;
@@ -15,12 +18,46 @@ import java.util.TreeMap;
  * {@link #GAP_TIMEOUT_MILLIS}, or a backlog that grows past {@link #MAX_PENDING}, is
  * treated as an unrecoverable session error (e.g. the NACK itself got lost repeatedly,
  * or the peer is gone) so the caller can close the connection cleanly as a last resort.
+ *
+ * <p>The three limits below are deliberately generous and can be overridden at launch with
+ * {@code -Dpeercraft.reorder.maxPending}, {@code -Dpeercraft.reorder.gapTimeoutMillis} and
+ * {@code -Dpeercraft.reorder.nackDebounceMillis}. On a lossy or DPI-mangled path — e.g.
+ * running ZAPRET, which by design reorders / duplicates / drops UDP datagrams — the old
+ * 3 s / 128-packet ceilings were reached routinely during ordinary chunk-sync bursts and
+ * tore the player out of the world; a transient burst of loss should cost a brief stutter
+ * while the NACKs do their job, not a full disconnect. {@link #GAP_TIMEOUT_MILLIS} still
+ * stays well under vanilla Minecraft's own 30 s read timeout, so a genuinely dead peer is
+ * still dropped within a reasonable time.
  */
 public final class ReorderBuffer {
 
-    public static final int MAX_PENDING = 128;
-    public static final long GAP_TIMEOUT_MILLIS = 3000;
-    public static final long NACK_DEBOUNCE_MILLIS = 200;
+    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+
+    /** Max datagrams buffered behind one missing seq before the session is declared broken. */
+    public static final int MAX_PENDING = (int) longProp("peercraft.reorder.maxPending", 4096, 64, 1 << 20);
+    /** How long a single unfilled gap may block delivery before the session is declared broken. */
+    public static final long GAP_TIMEOUT_MILLIS = longProp("peercraft.reorder.gapTimeoutMillis", 12_000L, 1_000L, 600_000L);
+    /** Minimum spacing between successive NACKs for the same missing seq. */
+    public static final long NACK_DEBOUNCE_MILLIS = longProp("peercraft.reorder.nackDebounceMillis", 120L, 10L, 5_000L);
+
+    private static long longProp(String key, long def, long min, long max) {
+        String raw = System.getProperty(key);
+        if (raw == null || raw.trim().isEmpty()) {
+            return def;
+        }
+        try {
+            long parsed = Long.parseLong(raw.trim());
+            if (parsed < min || parsed > max) {
+                LOGGER.warn("[ReorderBuffer] {}={} вне допустимого диапазона [{}, {}] — использую {}", key, parsed, min, max, def);
+                return def;
+            }
+            LOGGER.info("[ReorderBuffer] {} переопределён на {} (по умолчанию {})", key, parsed, def);
+            return parsed;
+        } catch (NumberFormatException e) {
+            LOGGER.warn("[ReorderBuffer] {}='{}' — не число, использую {}", key, raw, def);
+            return def;
+        }
+    }
 
     private final TreeMap<Long, byte[]> pending = new TreeMap<>();
     private long expectedSeq = 0;

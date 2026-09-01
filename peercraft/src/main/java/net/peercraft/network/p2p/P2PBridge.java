@@ -33,10 +33,13 @@ public class P2PBridge {
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     public static final P2PBridge INSTANCE = new P2PBridge();
 
-    // How many recently-sent DATA packets we keep around per connection so a NACK can
-    // be honored by resending the exact original bytes. LAN-appropriate default; revisit
-    // once this runs over real (higher-latency, lossier) internet P2P.
-    private static final int RETRANSMIT_BUFFER_CAPACITY = 256;
+    // How many recently-sent DATA packets we keep around per connection so a NACK can be
+    // honored by resending the exact original bytes. Must stay >= ReorderBuffer.MAX_PENDING's
+    // default: a NACK for a seq we've already evicted here can't be answered, which then
+    // strands the peer's reorder buffer on that gap until it times out and kills the session.
+    // Bumped from the old LAN-appropriate 256 now that this runs over real (lossier,
+    // DPI-mangled) internet P2P.
+    private static final int RETRANSMIT_BUFFER_CAPACITY = 4096;
 
     // Some local network stacks/firewalls silently drop UDP datagrams above a certain size on
     // certain ports (empirically found: ~16.3KB on this dev machine's default PeerCraft ports,
@@ -46,6 +49,22 @@ public class P2PBridge {
     // will vary by machine/NAT/router once this is real internet P2P), never send a chunk larger
     // than this — well under every size limit observed, real or firewall-imposed.
     private static final int MAX_CHUNK_SIZE = 8000;
+
+    // Optional pacing (milliseconds) inserted between the datagrams of one multi-chunk
+    // payload — 0 (default) keeps the original send-them-all-at-once behavior. A small
+    // value (1–2) smears the world-sync firehose out over time so a congested or
+    // DPI-mangled uplink drops fewer datagrams, at the cost of slightly slower bulk
+    // transfer. Override with -Dpeercraft.send.pacingMillis.
+    private static final long SEND_PACING_MILLIS = readSendPacingMillis();
+
+    private static long readSendPacingMillis() {
+        try {
+            long v = Long.parseLong(System.getProperty("peercraft.send.pacingMillis", "0").trim());
+            return (v < 0 || v > 50) ? 0 : v;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 
     private P2PReceiver receiver;
     private P2PSender sender;
@@ -752,6 +771,13 @@ public class P2PBridge {
             byte[] chunk = Arrays.copyOfRange(data, offset, offset + len);
             sendFramedAndBuffer(dest, sessionId, outSeq.getAndIncrement(), (byte) 0, chunk, retransmitBuffer);
             offset += len;
+            if (SEND_PACING_MILLIS > 0 && offset < data.length) {
+                try {
+                    Thread.sleep(SEND_PACING_MILLIS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         } while (offset < data.length);
     }
 
