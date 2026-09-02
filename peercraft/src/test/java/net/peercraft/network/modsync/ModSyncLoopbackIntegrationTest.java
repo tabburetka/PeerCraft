@@ -20,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -58,7 +59,7 @@ class ModSyncLoopbackIntegrationTest {
         List<ModSyncProtocol.ModRef> joinerMods =
                 Arrays.asList(new ModSyncProtocol.ModRef("alpha-lib", "1.0.0"));
 
-        Harness h = start(dir, new FakeHostProvider(hostMods, jars, dir.resolve("host-serve")), joinerMods);
+        Harness h = start(dir, new FakeHostProvider(hostMods, jars, dir.resolve("host-serve")), joinerMods, 0.0);
         try {
             List<ModEntry> missing = h.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS);
             assertEquals(1, missing.size(), "exactly the one jar the joiner lacks");
@@ -72,6 +73,39 @@ class ModSyncLoopbackIntegrationTest {
             Path got = done.get(AWAIT_SECONDS, TimeUnit.SECONDS);
             assertTrue(Files.exists(got), "verified part file exists");
             assertArrayEquals(betaBytes, Files.readAllBytes(got), "transferred bytes match the host jar");
+        } finally {
+            h.close();
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    void transferCompletesDespiteHeavyDatagramLoss(@TempDir Path dir) throws Exception {
+        byte[] alphaBytes = randomBytes(4_096, 1);
+        byte[] betaBytes = randomBytes(220_000, 2); // ~37 FILE_CHUNKs — real work for the repair loop
+
+        Map<String, byte[]> jars = new HashMap<>();
+        jars.put("alpha-lib", alphaBytes);
+        jars.put("beta-widgets", betaBytes);
+        List<ModEntry> hostMods = Arrays.asList(
+                entry("alpha-lib", "1.0.0", alphaBytes),
+                entry("beta-widgets", "1.2.0", betaBytes));
+        List<ModSyncProtocol.ModRef> joinerMods =
+                Arrays.asList(new ModSyncProtocol.ModRef("alpha-lib", "1.0.0"));
+
+        // 35% of every datagram (chunks, ACKs, pings) is dropped — the NACK repair must still converge.
+        Harness h = start(dir, new FakeHostProvider(hostMods, jars, dir.resolve("host-serve")), joinerMods, 0.35);
+        try {
+            List<ModEntry> missing = h.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS);
+            assertEquals(1, missing.size());
+            ModEntry beta = missing.get(0);
+
+            CompletableFuture<Path> done =
+                    h.handler.completed.computeIfAbsent("beta-widgets", k -> new CompletableFuture<>());
+            h.joiner.requestFile(beta);
+
+            Path got = done.get(50, TimeUnit.SECONDS);
+            assertArrayEquals(betaBytes, Files.readAllBytes(got), "lossy transfer still reassembles bit-for-bit");
         } finally {
             h.close();
         }
@@ -93,7 +127,7 @@ class ModSyncLoopbackIntegrationTest {
                 new ModSyncProtocol.ModRef("alpha-lib", "whatever"),
                 new ModSyncProtocol.ModRef("beta-widgets", "also-different"));
 
-        Harness h = start(dir, new FakeHostProvider(hostMods, jars, dir.resolve("host-serve")), joinerMods);
+        Harness h = start(dir, new FakeHostProvider(hostMods, jars, dir.resolve("host-serve")), joinerMods, 0.0);
         try {
             h.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS);
             assertFalse(h.handler.manifest.isDone(), "no manifest is offered when nothing is missing");
@@ -105,7 +139,7 @@ class ModSyncLoopbackIntegrationTest {
     // ================= harness =================
 
     private static Harness start(Path dir, FakeHostProvider provider,
-                                 List<ModSyncProtocol.ModRef> joinerMods) throws Exception {
+                                 List<ModSyncProtocol.ModRef> joinerMods, double dropRate) throws Exception {
         Path joinerTmp = dir.resolve("joiner-tmp");
         Files.createDirectories(joinerTmp);
         Files.createDirectories(provider.tmp);
@@ -120,6 +154,9 @@ class ModSyncLoopbackIntegrationTest {
         ModSyncCoordinator[] joinRef = new ModSyncCoordinator[1];
 
         ModSyncCoordinator.Sender toHost = data -> {
+            if (dropRate > 0 && ThreadLocalRandom.current().nextDouble() < dropRate) {
+                return;
+            }
             byte[] copy = data.clone();
             net.execute(() -> {
                 ModSyncCoordinator c = hostRef[0];
@@ -129,6 +166,9 @@ class ModSyncLoopbackIntegrationTest {
             });
         };
         ModSyncCoordinator.Sender toJoiner = data -> {
+            if (dropRate > 0 && ThreadLocalRandom.current().nextDouble() < dropRate) {
+                return;
+            }
             byte[] copy = data.clone();
             net.execute(() -> {
                 ModSyncCoordinator c = joinRef[0];

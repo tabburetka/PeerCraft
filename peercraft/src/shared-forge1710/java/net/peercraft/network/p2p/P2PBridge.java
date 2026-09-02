@@ -157,6 +157,13 @@ public class P2PBridge {
     // endClientSession).
     private final AtomicBoolean rendezvousClientBusy = new AtomicBoolean(false);
 
+    // JOINER: true while a mod-sync handshake/transfer is running in the rendezvousListener slot
+    // (between a successful punch and onConnected/abort). The busy-watchdog must not touch the
+    // listener or the busy flag while this is set — a large P2P mod transfer legitimately keeps
+    // rendezvousClientBusy true with no ClientSession for minutes. Cleared in every ModSyncAgent
+    // Outcome path (and abortModSyncClient).
+    private final AtomicBoolean modSyncActive = new AtomicBoolean(false);
+
     private P2PBridge() {
         this.receiver = new P2PReceiver();
         this.sender = new P2PSender(null);
@@ -557,6 +564,7 @@ public class P2PBridge {
     // successful punch and onConnected(). The agent (client layer) drives the handshake over
     // the link and calls exactly one Outcome method.
     private void runModSyncHandshake(ModSyncAgent modSync, final ConnectListener listener) {
+        modSyncActive.set(true);
         ModSyncLink link = new ModSyncLink() {
             @Override
             public void send(byte[] data) {
@@ -576,17 +584,20 @@ public class P2PBridge {
         modSync.run(link, new ModSyncAgent.Outcome() {
             @Override
             public void proceedToConnect() {
+                modSyncActive.set(false);
                 clearRendezvousListener();
                 listener.onConnected();
             }
 
             @Override
             public void abortJoin() {
+                modSyncActive.set(false);
                 abortModSyncClient();
             }
 
             @Override
             public void fail(String reasonKey) {
+                modSyncActive.set(false);
                 clearRendezvousListener();
                 listener.onFailed(reasonKey);
             }
@@ -597,25 +608,48 @@ public class P2PBridge {
     // restart is needed, or the player cancelled), so neither endClientSession nor
     // guardedListener.onFailed will reset rendezvousClientBusy — do it here.
     public void abortModSyncClient() {
+        modSyncActive.set(false);
         clearRendezvousListener();
         rendezvousClientBusy.set(false);
     }
 
-    // See the comment at its call site in startClientViaRendezvous.
+    // See the comment at its call site in startClientViaRendezvous. Polls rather than sleeping
+    // one fixed 45 s: mod sync legitimately holds the rendezvousListener slot (with no
+    // ClientSession) for the whole of a large P2P mod transfer, so while modSyncActive is set
+    // the watchdog waits it out instead of yanking the listener. An absolute cap still fires so
+    // a genuinely wedged attempt can't pin the busy flag forever.
     private void armBusyWatchdog() {
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    Thread.sleep(45_000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                if (rendezvousClientBusy.get() && currentClientSession == null) {
-                    LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за 45 с — снимаем флаг \"идёт подключение\".");
+                final long start = System.currentTimeMillis();
+                final long idleLimitMillis = 45_000L;
+                final long absoluteCapMillis = 40 * 60_000L;
+                while (true) {
+                    try {
+                        Thread.sleep(5_000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    if (!rendezvousClientBusy.get() || currentClientSession != null) {
+                        return; // resolved normally (connected, failed, or cleared elsewhere)
+                    }
+                    long elapsed = System.currentTimeMillis() - start;
+                    if (modSyncActive.get()) {
+                        if (elapsed < absoluteCapMillis) {
+                            continue; // mod sync still working — keep waiting
+                        }
+                        LOGGER.warn("[P2PBridge] Mod sync висит уже {} мин — принудительно снимаем флаг \"идёт подключение\".", elapsed / 60_000);
+                    } else if (elapsed < idleLimitMillis) {
+                        continue;
+                    } else {
+                        LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за {} с — снимаем флаг \"идёт подключение\".", elapsed / 1000);
+                    }
+                    modSyncActive.set(false);
                     rendezvousClientBusy.set(false);
                     clearRendezvousListener();
+                    return;
                 }
             }
         }, "PeerCraft-Busy-Watchdog");

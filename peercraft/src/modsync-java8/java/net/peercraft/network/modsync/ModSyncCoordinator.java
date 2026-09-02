@@ -47,6 +47,14 @@ public final class ModSyncCoordinator implements RawPacketListener {
     private static final long REQUEST_TIMEOUT_MILLIS = 90_000;
     /** After this many chunks in the first pass, pause briefly so the relay/receiver isn't buried under an instant burst. */
     private static final int CHUNK_BURST = 12;
+    /**
+     * Optional per-chunk send throttle (ms), read from {@code -Dpeercraft.modSync.sendPacingMillis}
+     * (0 = off, clamped to 50). Applied after every chunk in BOTH the first pass and the repair
+     * pass — set it on the HOST to roughly its upload rate when big mods keep stalling on a
+     * lossy link (a 6000-byte chunk every 8 ms ≈ 750 KiB/s).
+     */
+    private static final long CHUNK_PACING_MILLIS =
+            Math.max(0L, Math.min(50L, Long.getLong("peercraft.modSync.sendPacingMillis", 0L)));
     /** Payload bytes per FILE_CHUNK — well under P2PBridge's 8000-byte per-datagram ceiling once the small header is added. */
     static final int FILE_CHUNK_PAYLOAD = 6000;
     /** A single MANIFEST datagram above this is streamed as a file under {@link ModSyncProtocol#MANIFEST_STREAM_ID} instead. */
@@ -778,6 +786,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
         final AtomicBoolean stopped = new AtomicBoolean(false);
         volatile Thread sendThread;
         volatile int highestAcked = -1;
+        /** Chunk indices the joiner last reported missing. Set (cheaply) by {@link #onAck}, drained by the repair loop on this transfer's own thread. */
+        volatile int[] outstandingGaps = new int[0];
 
         OutboundTransfer(String modId, Path servingFile, byte[] servingBytes, long size, byte[] sha512) {
             this.modId = modId;
@@ -807,17 +817,29 @@ public final class ModSyncCoordinator implements RawPacketListener {
                 // First pass: send every chunk once, pacing lightly so the relay isn't buried.
                 for (int i = 0; i < chunkCount && !stopped.get() && !cancelled.get(); i++) {
                     sendChunk(src, i);
-                    if (i % CHUNK_BURST == CHUNK_BURST - 1) {
-                        Thread.sleep(3);
-                    }
+                    pace(i);
                 }
-                // Repair pass: keep resending whatever the joiner still reports missing.
+                // Repair pass: on THIS thread (not the packet-demux thread) keep resending the
+                // chunks the joiner still reports missing, paced the same way. onAck only records
+                // the gap list; all disk reads and sends happen here.
                 while (!stopped.get() && !cancelled.get() && System.currentTimeMillis() < deadline) {
                     Thread.sleep(ACK_INTERVAL_MILLIS);
                     if (highestAcked >= chunkCount) {
                         break;
                     }
-                    sender.send(ModSyncProtocol.encodeFileBegin(modId, size, chunkCount, sha512, FILE_CHUNK_PAYLOAD));
+                    int[] gaps = this.outstandingGaps;
+                    if (gaps.length == 0) {
+                        // No gap list yet (or a spurious empty ACK) — nudge the joiner to ACK.
+                        sender.send(ModSyncProtocol.encodeFileBegin(modId, size, chunkCount, sha512, FILE_CHUNK_PAYLOAD));
+                        continue;
+                    }
+                    for (int g = 0; g < gaps.length && !stopped.get() && !cancelled.get(); g++) {
+                        int gap = gaps[g];
+                        if (gap >= 0 && gap < chunkCount) {
+                            sendChunk(src, gap);
+                            pace(g);
+                        }
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -829,22 +851,22 @@ public final class ModSyncCoordinator implements RawPacketListener {
             }
         }
 
+        // Runs on the packet-demux thread — must stay cheap: no disk IO, no sends. Just record
+        // what the joiner needs; the repair loop in run() does the resending, paced.
         void onAck(ModSyncProtocol.FileAck ack) {
             this.highestAcked = Math.max(this.highestAcked, ack.nextContiguous());
-            if (stopped.get() || cancelled.get()) {
-                return;
-            }
-            try (RandomSource src = openSource()) {
-                for (int gap : ack.gapIndices()) {
-                    if (gap >= 0 && gap < chunkCount) {
-                        sendChunk(src, gap);
-                    }
-                }
-            } catch (IOException e) {
-                LOGGER.warn("[ModSync] Ошибка повторной отдачи {}: {}", modId, e.toString());
-            }
+            int[] gaps = ack.gapIndices();
+            this.outstandingGaps = gaps != null ? gaps : new int[0];
             if (ack.nextContiguous() >= chunkCount) {
                 stop();
+            }
+        }
+
+        void pace(int step) throws InterruptedException {
+            if (CHUNK_PACING_MILLIS > 0) {
+                Thread.sleep(CHUNK_PACING_MILLIS);
+            } else if (step % CHUNK_BURST == CHUNK_BURST - 1) {
+                Thread.sleep(3);
             }
         }
 
