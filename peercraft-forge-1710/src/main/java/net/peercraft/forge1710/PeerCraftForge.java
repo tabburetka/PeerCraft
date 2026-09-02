@@ -17,9 +17,18 @@ import net.peercraft.network.p2p.P2PBridge;
  *
  * <p>1.7.10 delta vs the 1.12.2 backport: FML lives under {@code cpw.mods.fml.*}, not
  * {@code net.minecraftforge.fml.*} (the package was renamed in 1.8).
+ *
+ * <p>{@code dependencies} declares the hard requirement on the Mixin loader: PeerCraft's
+ * coremod ({@link PeerCraftCoreMod}) implements {@code io.github.tox1cozz.mixinbooterlegacy}'s
+ * {@code IEarlyMixinLoader}, which is supplied by <b>UniMixins</b> (it bundles MixinBooterLegacy
+ * and registers the {@code mixinbooterlegacy} mod id for compatibility). Without it FML would
+ * either skip the coremod silently (mixins never apply — "Open to LAN" does nothing) or crash
+ * with a bare {@code NoClassDefFoundError}; with this line the player instead gets FML's
+ * standard "missing mod" screen naming what to install.
  */
 @Mod(modid = PeerCraftForge.MOD_ID, name = PeerCraftForge.MOD_NAME, version = PeerCraftForge.VERSION,
-        acceptedMinecraftVersions = "[1.7.10]")
+        acceptedMinecraftVersions = "[1.7.10]",
+        dependencies = "required-after:mixinbooterlegacy")
 public class PeerCraftForge {
 
     public static final String MOD_ID = "peercraft";
