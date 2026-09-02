@@ -856,19 +856,22 @@ public class P2PBridge {
                 if (provider == null || !authorizedPeers.contains(from)) {
                     return;
                 }
-                modSyncHostSessions
-                        .computeIfAbsent(from, new java.util.function.Function<PeerAddress, ModSyncCoordinator>() {
-                            @Override
-                            public ModSyncCoordinator apply(final PeerAddress addr) {
-                                return ModSyncCoordinator.host(new ModSyncCoordinator.Sender() {
-                                    @Override
-                                    public void send(byte[] bytes) {
-                                        sendEncoded(addr, bytes);
-                                    }
-                                }, provider, provider.servingTempDir());
-                            }
-                        })
-                        .onPacket(data, length, senderAddress, senderPort);
+                // One coordinator per punched joiner. A previous attempt from this peer that
+                // failed mid-transfer leaves its coordinator cancelled (the joiner sent T_ABORT);
+                // it can serve nothing, so replace it — otherwise every retry's HELLO is swallowed
+                // and the joiner just times out with no screen. handleIncomingPacket is
+                // single-threaded (the P2PReceiver processing thread), so no lock is needed.
+                ModSyncCoordinator coord = modSyncHostSessions.get(from);
+                if (coord == null || coord.isCancelled()) {
+                    coord = ModSyncCoordinator.host(new ModSyncCoordinator.Sender() {
+                        @Override
+                        public void send(byte[] bytes) {
+                            sendEncoded(from, bytes);
+                        }
+                    }, provider, provider.servingTempDir());
+                    modSyncHostSessions.put(from, coord);
+                }
+                coord.onPacket(data, length, senderAddress, senderPort);
             } else {
                 RawPacketListener listener = this.rendezvousListener;
                 if (listener != null) {

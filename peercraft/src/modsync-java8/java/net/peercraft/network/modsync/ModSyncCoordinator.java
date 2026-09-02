@@ -60,6 +60,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
     /** A single MANIFEST datagram above this is streamed as a file under {@link ModSyncProtocol#MANIFEST_STREAM_ID} instead. */
     static final int MANIFEST_INLINE_LIMIT = 7000;
     private static final int MAX_GAPS_PER_ACK = 256;
+    /** Host serves jars up to this size straight from memory; larger ones spill to a scratch file. */
+    private static final long MAX_IN_MEMORY_SERVE_BYTES = 128L * 1024 * 1024;
 
     public interface Sender {
         void send(byte[] data);
@@ -259,6 +261,11 @@ public final class ModSyncCoordinator implements RawPacketListener {
         } catch (RuntimeException e) {
             LOGGER.warn("[ModSync] Ошибка обработки пакета типа {}: {}", type, e.toString());
         }
+    }
+
+    /** True once {@link #cancel()} has run — a host-side coordinator in this state can serve nothing and must be replaced for the peer's next attempt. */
+    public boolean isCancelled() {
+        return cancelled.get();
     }
 
     @Override
@@ -570,12 +577,23 @@ public final class ModSyncCoordinator implements RawPacketListener {
             @Override
             public OutboundTransfer apply(String id) {
                 try {
-                    Path serving = hostTmpDir.resolve(safeName(id) + ".serving.jar");
-                    Files.createDirectories(hostTmpDir);
-                    try (InputStream in = provider.openJar(id)) {
-                        Files.copy(in, serving, StandardCopyOption.REPLACE_EXISTING);
+                    OutboundTransfer t;
+                    if (entry.sizeBytes() > 0 && entry.sizeBytes() <= MAX_IN_MEMORY_SERVE_BYTES) {
+                        // Serve straight from RAM — no scratch file for a mods/-folder watcher
+                        // (ModrinthApp etc.) to delete mid-transfer, and one fewer failure point.
+                        byte[] jarBytes;
+                        try (InputStream in = provider.openJar(id)) {
+                            jarBytes = readAll(in);
+                        }
+                        t = new OutboundTransfer(id, null, jarBytes, jarBytes.length, entry.sha512());
+                    } else {
+                        Path serving = hostTmpDir.resolve(safeName(id) + ".serving.jar");
+                        Files.createDirectories(hostTmpDir);
+                        try (InputStream in = provider.openJar(id)) {
+                            Files.copy(in, serving, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        t = new OutboundTransfer(id, serving, null, Files.size(serving), entry.sha512());
                     }
-                    OutboundTransfer t = new OutboundTransfer(id, serving, null, Files.size(serving), entry.sha512());
                     t.start();
                     return t;
                 } catch (IOException e) {
@@ -963,5 +981,15 @@ public final class ModSyncCoordinator implements RawPacketListener {
         MessageDigest md = FileReassembler.sha512();
         md.update(data);
         return md.digest();
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(1 << 16);
+        byte[] buf = new byte[1 << 16];
+        int n;
+        while ((n = in.read(buf)) != -1) {
+            bos.write(buf, 0, n);
+        }
+        return bos.toByteArray();
     }
 }
