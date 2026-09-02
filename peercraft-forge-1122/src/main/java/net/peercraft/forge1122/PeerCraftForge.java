@@ -11,9 +11,17 @@ import net.peercraft.PeerCraftCommon;
  * Forge 1.12.2 entry point for the PeerCraft backport. The real work lives in the shared,
  * loader-agnostic {@code PeerCraftCommon} / {@code PeerCraftClientCommon}; this class only
  * bridges Forge's {@code @Mod} lifecycle to them and picks the client/server proxy.
+ *
+ * <p>{@code dependencies} declares the hard requirement on the Mixin loader: PeerCraft's
+ * coremod ({@link PeerCraftCoreMod}) implements {@code zone.rong.mixinbooter}'s
+ * {@code IEarlyMixinLoader}, which is supplied by <b>MixinBooter</b> (mod id {@code mixinbooter}).
+ * Without it FML would either skip the coremod silently (mixins never apply — "Open to LAN"
+ * does nothing) or crash with a bare {@code NoClassDefFoundError}; with this line the player
+ * instead gets FML's standard "missing mod" screen naming what to install.
  */
 @Mod(modid = PeerCraftForge.MOD_ID, name = PeerCraftForge.MOD_NAME, version = PeerCraftForge.VERSION,
-        acceptedMinecraftVersions = "[1.12.2]")
+        acceptedMinecraftVersions = "[1.12.2]",
+        dependencies = "required-after:mixinbooter")
 public class PeerCraftForge {
 
     public static final String MOD_ID = "peercraft";

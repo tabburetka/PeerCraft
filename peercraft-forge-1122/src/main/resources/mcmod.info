@@ -9,6 +9,7 @@
     "authorList": ["tabburetka"],
     "logoFile": "",
     "screenshots": [],
-    "dependencies": []
+    "requiredMods": ["mixinbooter"],
+    "dependencies": ["required-after:mixinbooter"]
   }
 ]
