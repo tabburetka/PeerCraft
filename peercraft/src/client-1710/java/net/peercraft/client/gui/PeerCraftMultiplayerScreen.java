@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiSlot;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.GuiYesNo;
 import net.minecraft.client.multiplayer.GuiConnecting;
+import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
@@ -715,7 +716,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, friend.roomCode()));
     }
 
     private void startVanillaConnect() {
@@ -1012,7 +1013,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, game.code()));
     }
 
     // ==================== shared plumbing ====================

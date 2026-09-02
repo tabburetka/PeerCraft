@@ -1,7 +1,7 @@
 package net.peercraft.config;
 
-// Forge 1.7.10 backport of src/main/java/net/peercraft/config/PeerCraftConfig.java — byte-identical to the src/shared-forge1122 twin
-// (the `//? if <1.17` gates resolve to the same Java 8 / pre-1.13 branch for both).
+// Forge 1.7.10 backport of src/main/java/net/peercraft/config/PeerCraftConfig.java — byte-identical to the
+// src/shared-forge1122 twin (the `//? if <1.17` gates resolve to the same Java 8 / pre-1.13 branch for both).
 // Keep all three copies (src/main, shared-forge1122, shared-forge1710) in sync.
 
 import org.slf4j.Logger;
@@ -83,8 +83,8 @@ public final class PeerCraftConfig {
 
     // Mod sync: when joining a friend's world, offer to download server-side mods the joiner
     // is missing (then restart). Master switch — false disables the whole handshake.
-    // NOTE: mod-sync feature code is Fabric/NeoForge only; these accessors exist here purely
-    // to keep the three PeerCraftConfig copies byte-synced.
+    // Backported to 1.12.2 (joiner streams every missing jar from the host over P2P — the
+    // Modrinth HTTP fast-path is Fabric/NeoForge only).
     public static boolean modSync() {
         return boolValue("modSync", true);
     }
@@ -99,6 +99,14 @@ public final class PeerCraftConfig {
 
     public static int modSyncMaxModMb() {
         return intValueInRange("modSync.maxModMb", 256, 1, 2048);
+    }
+
+    // The confirm screen normally stays hidden on re-join once every missing mod is one the
+    // player already made a call on (client-side mods they unchecked are remembered in
+    // config/peercraft/modsync-declined.json). Set this to force the screen whenever anything
+    // is missing — the way back to a mod that was unchecked earlier.
+    public static boolean modSyncReofferDeclined() {
+        return boolValue("modSync.reofferDeclined", false);
     }
 
     private static String stringValue(String key, String defaultValue) {

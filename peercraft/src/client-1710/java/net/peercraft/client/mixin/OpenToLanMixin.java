@@ -10,8 +10,11 @@ import net.minecraft.util.IChatComponent;
 import net.minecraft.world.WorldSettings;
 import net.peercraft.client.PeerCraftHostOptions;
 import net.peercraft.client.gui.PeerCraftLang;
+import net.peercraft.client.modsync.HostModSyncProviderImpl;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
+import net.peercraft.platform.Services;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
@@ -69,6 +72,14 @@ public abstract class OpenToLanMixin {
         }
 
         if (PeerCraftHostOptions.internetPlayRequested) {
+            ModSyncHostProvider modSyncProvider = null;
+            if (PeerCraftConfig.modSync()) {
+                try {
+                    modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir());
+                } catch (RuntimeException e) {
+                    LOGGER.warn("[PeerCraft P2P] Не удалось подготовить mod-sync для хоста: {}", e.toString());
+                }
+            }
             P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers,
                     PeerCraftHostOptions.friendsOnly, PeerCraftHostOptions.publicRoom,
                     publicRoomWorldName(server), server.getMinecraftVersion(), new P2PBridge.HostListener() {
@@ -94,7 +105,7 @@ public abstract class OpenToLanMixin {
                             sendChat(new ChatComponentText(PeerCraftLang.tr("peercraft.mixin.open_to_lan.failed_prefix",
                                     PeerCraftLang.tr(reason))));
                         }
-                    });
+                    }, modSyncProvider);
         } else {
             P2PBridge.INSTANCE.startHost(lanPort);
         }

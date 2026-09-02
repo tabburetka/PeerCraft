@@ -102,8 +102,14 @@ sourceSets {
 			srcDir(syncSharedMain)
 			srcDir(syncSharedJava8)
 			srcDir(new File(peercraftDir, "src/shared-forge1122/java"))
-			// GUI + client-mixin twins rewritten against the 1.12.2 MCP API.
+			// GUI + client-mixin twins rewritten against the 1.12.2 MCP API. Also holds the
+			// client/modsync twins (Screen -> GuiScreen, Component -> PeerCraftLang, no
+			// java.net.http) — the whole client/modsync package is excluded from syncSharedMain.
 			srcDir(new File(peercraftDir, "src/client-1122/java"))
+			// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
+			// arrow-switch -> colon-switch); network/modsync/** is excluded from syncSharedMain.
+			// Shared verbatim with the 1.7.10 backport.
+			srcDir(new File(peercraftDir, "src/modsync-java8/java"))
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))

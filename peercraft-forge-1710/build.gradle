@@ -106,8 +106,15 @@ sourceSets {
 			srcDir(syncSharedMain)
 			srcDir(syncSharedJava8)
 			srcDir(new File(peercraftDir, "src/shared-forge1710/java"))
-			// GUI + client-mixin twins rewritten against the 1.7.10 MCP API.
+			// GUI + client-mixin twins rewritten against the 1.7.10 MCP API. Also holds the
+			// client/modsync twins (Screen -> GuiScreen, Component -> PeerCraftLang, no
+			// java.net.http; mcmod.info instead of fabric.mod.json) and the four ModSync*Screen
+			// twins — the whole client/modsync package is excluded from syncSharedMain.
 			srcDir(new File(peercraftDir, "src/client-1710/java"))
+			// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
+			// arrow-switch -> colon-switch); network/modsync/** is excluded from syncSharedMain.
+			// Shared verbatim with the 1.12.2 backport.
+			srcDir(new File(peercraftDir, "src/modsync-java8/java"))
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))
@@ -180,6 +187,48 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = "UTF-8"
 }
+
+// ---------------------------------------------------------------------------------------
+// Lightweight mod-sync test suite — proves the loader-agnostic core (src/modsync-java8, as
+// compiled into this project's main output) works end to end WITHOUT a Minecraft runtime:
+// ModSyncLoopbackIntegrationTest cross-wires a joiner + host ModSyncCoordinator in one JVM
+// and runs the real handshake + chunked transfer + SHA-512 verify. `./gradlew
+// :peercraft-forge-1710:modsyncTest` (also wired into `check`).
+// NOTE: the other src/test modsync tests (ModSyncProtocolTest, FileReassemblerTest, …) are
+// Java 21 source (records / List.of / switch expressions) and only run on the 1.21.1-fabric
+// node; the loopback test here is written in Java 8 so it compiles on both.
+def modsyncTestSrc = layout.buildDirectory.dir("modsync-test/java")
+def syncModsyncTest = tasks.register("syncModsyncTest", Sync) {
+	from(new File(peercraftDir, "src/test/java"))
+	into(modsyncTestSrc)
+	include "net/peercraft/network/modsync/ModSyncLoopbackIntegrationTest.java"
+}
+sourceSets {
+	modsyncTest {
+		java {
+			srcDir(syncModsyncTest)
+		}
+		compileClasspath += sourceSets.main.output
+		runtimeClasspath += sourceSets.main.output
+	}
+}
+dependencies {
+	modsyncTestImplementation platform("org.junit:junit-bom:5.10.2")
+	modsyncTestImplementation "org.junit.jupiter:junit-jupiter"
+	// The mod-sync core logs through the in-jar org.slf4j shim -> org.apache.logging.log4j.
+	// The MC/Forge classpath (which normally provides Log4j2) isn't on this lightweight test
+	// classpath, so bring a standalone Log4j2 just for the test JVM.
+	modsyncTestImplementation "org.apache.logging.log4j:log4j-api:2.17.1"
+	modsyncTestImplementation "org.apache.logging.log4j:log4j-core:2.17.1"
+}
+def modsyncTest = tasks.register("modsyncTest", Test) {
+	description = "Runs the loader-agnostic mod-sync unit + loopback tests (no Minecraft runtime)."
+	group = "verification"
+	testClassesDirs = sourceSets.modsyncTest.output.classesDirs
+	classpath = sourceSets.modsyncTest.runtimeClasspath
+	useJUnitPlatform()
+}
+tasks.named("check") { dependsOn(modsyncTest) }
 
 if (project.use_mixin.toBoolean()) {
 	jar {
