@@ -36,6 +36,17 @@ public class P2PReceiver {
     private Thread listenThread;
     private Thread processingThread;
     private final BlockingQueue<IncomingDatagram> processingQueue = new LinkedBlockingQueue<>(PROCESSING_QUEUE_CAPACITY);
+
+    // Per-datagram receive logging used to be a single LOGGER.info per packet, which floods
+    // latest.log (100k+ lines in a session) and can fill the disk during chunk sync. Now the
+    // per-packet line is DEBUG only, and processingLoop emits one aggregated INFO summary at
+    // most once per this interval — enough to see traffic is flowing without the spam.
+    private static final long RECV_SUMMARY_INTERVAL_NANOS = 10_000_000_000L;
+    // Only touched by the single processing thread — no synchronisation needed.
+    private boolean recvSummaryWindowOpen = false;
+    private long recvSummaryWindowStartNanos = 0L;
+    private long recvSummaryCount = 0L;
+    private long recvSummaryBytes = 0L;
     // A static instance field on P2PReceiver itself:
     public static final P2PReceiver INSTANCE = new P2PReceiver();
 
@@ -112,7 +123,10 @@ public class P2PReceiver {
             try {
                 IncomingDatagram datagram = processingQueue.take();
                 P2PBridge.INSTANCE.handleIncomingPacket(datagram.data, datagram.data.length, datagram.address, datagram.port);
-                LOGGER.info("[P2PReceiver] Получено {} байт от {}:{}", datagram.data.length, datagram.address, datagram.port);
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("[P2PReceiver] Получено {} байт от {}:{}", datagram.data.length, datagram.address, datagram.port);
+                }
+                logReceiveSummary(datagram.data.length);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (Exception e) {
@@ -121,6 +135,28 @@ public class P2PReceiver {
                 }
             }
         }
+    }
+
+    // Aggregates per-datagram counts and flushes a single INFO line per RECV_SUMMARY_INTERVAL_NANOS.
+    private void logReceiveSummary(int datagramBytes) {
+        long now = System.nanoTime();
+        if (!recvSummaryWindowOpen) {
+            recvSummaryWindowOpen = true;
+            recvSummaryWindowStartNanos = now;
+        }
+        recvSummaryCount++;
+        recvSummaryBytes += datagramBytes;
+
+        long elapsed = now - recvSummaryWindowStartNanos;
+        if (elapsed < RECV_SUMMARY_INTERVAL_NANOS) {
+            return;
+        }
+        LOGGER.info("[P2PReceiver] За {} с: {} датаграмм, {} КиБ",
+                elapsed / 1_000_000_000L, recvSummaryCount, recvSummaryBytes / 1024);
+        recvSummaryWindowStartNanos = now;
+        recvSummaryCount = 0L;
+        recvSummaryBytes = 0L;
+        recvSummaryWindowOpen = true;
     }
 
     public int getBoundPort() {
@@ -146,6 +182,10 @@ public class P2PReceiver {
             processingThread.interrupt();
         }
         processingQueue.clear();
+        recvSummaryWindowOpen = false;
+        recvSummaryWindowStartNanos = 0L;
+        recvSummaryCount = 0L;
+        recvSummaryBytes = 0L;
     }
 
     private static final class IncomingDatagram {
