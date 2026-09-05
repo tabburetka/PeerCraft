@@ -20,8 +20,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.peercraft.client.PeerCraftHostOptions;
+import net.peercraft.client.modsync.HostModSyncProviderImpl;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
+import net.peercraft.platform.Services;
 
 /**
  * Minecraft 1.16.5 backport of {@code src/main/.../OpenToLanMixin.java}. The hook target is
@@ -67,6 +70,14 @@ public abstract class OpenToLanMixin {
 
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
+                ModSyncHostProvider modSyncProvider = null;
+                if (PeerCraftConfig.modSync()) {
+                    try {
+                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir());
+                    } catch (RuntimeException e) {
+                        LOGGER.warn("[PeerCraft P2P] Не удалось подготовить mod-sync для хоста: {}", e.toString());
+                    }
+                }
                 P2PBridge.INSTANCE.startHostViaRendezvous(lanPort, PeerCraftHostOptions.maxPlayers, PeerCraftHostOptions.friendsOnly,
                         PeerCraftHostOptions.publicRoom, publicRoomWorldName(server), currentMinecraftVersion(), new P2PBridge.HostListener() {
                     @Override
@@ -84,7 +95,7 @@ public abstract class OpenToLanMixin {
                         sendChatMessage(new TranslatableComponent("peercraft.mixin.open_to_lan.failed_prefix",
                                 new TranslatableComponent(reason)));
                     }
-                });
+                }, modSyncProvider);
             } else {
                 P2PBridge.INSTANCE.startHost(lanPort);
             }

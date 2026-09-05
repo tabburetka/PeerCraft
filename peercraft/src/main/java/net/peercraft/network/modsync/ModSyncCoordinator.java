@@ -47,13 +47,26 @@ public final class ModSyncCoordinator implements RawPacketListener {
     private static final long KEEPALIVE_INTERVAL_MILLIS = 3_000;
     private static final long REQUEST_RETRY_MILLIS = 1_500;
     private static final long REQUEST_TIMEOUT_MILLIS = 90_000;
-    /** After this many chunks in the first pass, pause briefly so the relay/receiver isn't buried under an instant burst. */
-    private static final int CHUNK_BURST = 12;
+    /**
+     * After this many chunks (first pass or repair), pause ~3 ms so a multi-MB burst can't
+     * outrun the joiner's UDP receive buffer (~4 MiB) and get a whole tail dropped every time.
+     */
+    private static final int CHUNK_BURST = 6;
+    /**
+     * Optional per-chunk send throttle (ms), read from {@code -Dpeercraft.modSync.sendPacingMillis}
+     * (0 = off, clamped to 50). Applied after every chunk in BOTH the first pass and the repair
+     * pass — set it on the HOST to roughly its upload rate when big mods keep stalling on a
+     * lossy link (a 6000-byte chunk every 8 ms ≈ 750 KiB/s).
+     */
+    private static final long CHUNK_PACING_MILLIS =
+            Math.max(0L, Math.min(50L, Long.getLong("peercraft.modSync.sendPacingMillis", 0L)));
     /** Payload bytes per FILE_CHUNK — well under P2PBridge's 8000-byte per-datagram ceiling once the small header is added. */
     static final int FILE_CHUNK_PAYLOAD = 6000;
     /** A single MANIFEST datagram above this is streamed as a file under {@link ModSyncProtocol#MANIFEST_STREAM_ID} instead. */
     static final int MANIFEST_INLINE_LIMIT = 7000;
     private static final int MAX_GAPS_PER_ACK = 256;
+    /** Host serves jars up to this size straight from memory; larger ones spill to a scratch file. */
+    private static final long MAX_IN_MEMORY_SERVE_BYTES = 128L * 1024 * 1024;
 
     public interface Sender {
         void send(byte[] data);
@@ -237,6 +250,11 @@ public final class ModSyncCoordinator implements RawPacketListener {
         }
     }
 
+    /** True once {@link #cancel()} has run — a host-side coordinator in this state can serve nothing and must be replaced for the peer's next attempt. */
+    public boolean isCancelled() {
+        return cancelled.get();
+    }
+
     @Override
     public void cancel() {
         if (!cancelled.compareAndSet(false, true)) {
@@ -297,8 +315,13 @@ public final class ModSyncCoordinator implements RawPacketListener {
                 }
             }
             case ModSyncProtocol.T_ABORT -> {
-                manifestSettled.set(true);
-                handler.onAbort(reasonKeyOr(ModSyncProtocol.decodeAbort(data, length).reasonKey(), "peercraft.modsync.fail.transfer"));
+                // Ignore a reasonless abort — it's a single-bit-mangled keepalive
+                // (T_PING 0x0A -> T_ABORT 0x09) off a middlebox, not the host bailing out.
+                String reason = ModSyncProtocol.decodeAbort(data, length).reasonKey();
+                if (reason != null && !reason.isEmpty()) {
+                    manifestSettled.set(true);
+                    handler.onAbort(reasonKeyOr(reason, "peercraft.modsync.fail.transfer"));
+                }
             }
             case ModSyncProtocol.T_FILE_BEGIN -> handleFileBegin(ModSyncProtocol.decodeFileBegin(data, length));
             case ModSyncProtocol.T_FILE_CHUNK -> handleFileChunk(ModSyncProtocol.decodeFileChunk(data, length));
@@ -427,7 +450,14 @@ public final class ModSyncCoordinator implements RawPacketListener {
                     t.stop();
                 }
             }
-            case ModSyncProtocol.T_ABORT -> cancel();
+            case ModSyncProtocol.T_ABORT -> {
+                // A real abort carries a reason string; an empty one is a bit-mangled keepalive
+                // (T_PING 0x0A -> T_ABORT 0x09). Don't tear down the coordinator over noise.
+                String reason = ModSyncProtocol.decodeAbort(data, length).reasonKey();
+                if (reason != null && !reason.isEmpty()) {
+                    cancel();
+                }
+            }
             default -> { /* joiner-directed */ }
         }
     }
@@ -519,12 +549,23 @@ public final class ModSyncCoordinator implements RawPacketListener {
         }
         outbound.computeIfAbsent(modId, id -> {
             try {
-                Path serving = hostTmpDir.resolve(safeName(id) + ".serving.jar");
-                Files.createDirectories(hostTmpDir);
-                try (InputStream in = provider.openJar(id)) {
-                    Files.copy(in, serving, StandardCopyOption.REPLACE_EXISTING);
+                OutboundTransfer t;
+                if (entry.sizeBytes() > 0 && entry.sizeBytes() <= MAX_IN_MEMORY_SERVE_BYTES) {
+                    // Serve straight from RAM — no scratch file for a mods/-folder watcher
+                    // (ModrinthApp etc.) to delete mid-transfer, and one fewer failure point.
+                    byte[] jarBytes;
+                    try (InputStream in = provider.openJar(id)) {
+                        jarBytes = in.readAllBytes();
+                    }
+                    t = new OutboundTransfer(id, null, jarBytes, jarBytes.length, entry.sha512());
+                } else {
+                    Path serving = hostTmpDir.resolve(safeName(id) + ".serving.jar");
+                    Files.createDirectories(hostTmpDir);
+                    try (InputStream in = provider.openJar(id)) {
+                        Files.copy(in, serving, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    t = new OutboundTransfer(id, serving, null, Files.size(serving), entry.sha512());
                 }
-                OutboundTransfer t = new OutboundTransfer(id, serving, null, Files.size(serving), entry.sha512());
                 t.start();
                 return t;
             } catch (IOException e) {
@@ -612,7 +653,7 @@ public final class ModSyncCoordinator implements RawPacketListener {
                     deleteQuietly(reassembler.partFile());
                     return;
                 }
-                sender.send(ModSyncProtocol.encodeFileDone(modId, true));
+                sendDoneRepeatedly();
                 handler.onFileComplete(modId, reassembler.partFile());
             } catch (IOException e) {
                 sender.send(ModSyncProtocol.encodeFileDone(modId, false));
@@ -620,6 +661,34 @@ public final class ModSyncCoordinator implements RawPacketListener {
             } finally {
                 inbound.remove(modId);
             }
+        }
+
+        /**
+         * The joiner's single "done, verified" signal is easy to lose on a flaky link, and a
+         * host that never hears it keeps its repair loop resending until the 30-min transfer
+         * timeout. Re-send T_FILE_DONE a handful of times off a short-lived daemon; the host's
+         * handler is idempotent.
+         */
+        void sendDoneRepeatedly() {
+            byte[] done = ModSyncProtocol.encodeFileDone(modId, true);
+            sender.send(done);
+            Thread t = new Thread(() -> {
+                for (int i = 0; i < 5; i++) {
+                    try {
+                        Thread.sleep(250L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    try {
+                        sender.send(done);
+                    } catch (RuntimeException ignored) {
+                        return;
+                    }
+                }
+            }, "PeerCraft-ModSync-Done-" + safeName(modId));
+            t.setDaemon(true);
+            t.start();
         }
 
         void finishFailed(String key) {
@@ -724,6 +793,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
         final AtomicBoolean stopped = new AtomicBoolean(false);
         volatile Thread sendThread;
         volatile int highestAcked = -1;
+        /** Chunk indices the joiner last reported missing. Set (cheaply) by {@link #onAck}, drained by the repair loop on this transfer's own thread. */
+        volatile int[] outstandingGaps = new int[0];
 
         OutboundTransfer(String modId, Path servingFile, byte[] servingBytes, long size, byte[] sha512) {
             this.modId = modId;
@@ -748,17 +819,40 @@ public final class ModSyncCoordinator implements RawPacketListener {
                 // First pass: send every chunk once, pacing lightly so the relay isn't buried.
                 for (int i = 0; i < chunkCount && !stopped.get() && !cancelled.get(); i++) {
                     sendChunk(src, i);
-                    if (i % CHUNK_BURST == CHUNK_BURST - 1) {
-                        Thread.sleep(3);
-                    }
+                    pace(i);
                 }
-                // Repair pass: keep resending whatever the joiner still reports missing.
+                // Repair pass: on THIS thread (not the packet-demux thread) keep resending the
+                // chunks the joiner still reports missing, paced the same way. onAck only records
+                // the gap list; all disk reads and sends happen here.
                 while (!stopped.get() && !cancelled.get() && System.currentTimeMillis() < deadline) {
                     Thread.sleep(ACK_INTERVAL_MILLIS);
-                    if (highestAcked >= chunkCount) {
+                    int hi = this.highestAcked;
+                    int[] gaps = this.outstandingGaps;
+                    // Only finish on an unambiguous "joiner has everything" — a high highestAcked
+                    // AND no outstanding holes. (onAck already drops impossible ACK values, but
+                    // requiring both here means one stray ACK can never end a live transfer.)
+                    if (hi >= chunkCount && gaps.length == 0) {
                         break;
                     }
-                    sender.send(ModSyncProtocol.encodeFileBegin(modId, size, chunkCount, sha512, FILE_CHUNK_PAYLOAD));
+                    if (gaps.length == 0) {
+                        // Not done, yet no hole named: every ACK since the first pass was lost,
+                        // or the joiner is missing a tail past its selective-ACK window. Re-announce
+                        // and resend from the last acked index forward instead of only nudging.
+                        sender.send(ModSyncProtocol.encodeFileBegin(modId, size, chunkCount, sha512, FILE_CHUNK_PAYLOAD));
+                        int from = Math.max(0, hi);
+                        for (int i = from; i < chunkCount && !stopped.get() && !cancelled.get(); i++) {
+                            sendChunk(src, i);
+                            pace(i - from);
+                        }
+                        continue;
+                    }
+                    for (int g = 0; g < gaps.length && !stopped.get() && !cancelled.get(); g++) {
+                        int gap = gaps[g];
+                        if (gap >= 0 && gap < chunkCount) {
+                            sendChunk(src, gap);
+                            pace(g);
+                        }
+                    }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -770,22 +864,32 @@ public final class ModSyncCoordinator implements RawPacketListener {
             }
         }
 
+        // Runs on the packet-demux thread — must stay cheap: no disk IO, no sends. Just record
+        // what the joiner needs; the repair loop in run() does the resending, paced.
         void onAck(ModSyncProtocol.FileAck ack) {
-            this.highestAcked = Math.max(this.highestAcked, ack.nextContiguous());
-            if (stopped.get() || cancelled.get()) {
+            int next = ack.nextContiguous();
+            // nextContiguous can never legitimately exceed chunkCount (nor be negative). An
+            // out-of-range value is a mangled/truncated ACK datagram — ignore it. Acting on
+            // one used to latch highestAcked past chunkCount, which broke the repair loop for
+            // good and left the joiner stalled at ~100%.
+            if (next < 0 || next > chunkCount) {
                 return;
             }
-            try (RandomSource src = openSource()) {
-                for (int gap : ack.gapIndices()) {
-                    if (gap >= 0 && gap < chunkCount) {
-                        sendChunk(src, gap);
-                    }
-                }
-            } catch (IOException e) {
-                LOGGER.warn("[ModSync] Ошибка повторной отдачи {}: {}", modId, e.toString());
-            }
-            if (ack.nextContiguous() >= chunkCount) {
+            this.highestAcked = Math.max(this.highestAcked, next);
+            int[] gaps = ack.gapIndices();
+            this.outstandingGaps = gaps != null ? gaps : new int[0];
+            // Fast-path stop only on a clean "have everything" ACK; T_FILE_DONE stays the
+            // authoritative completion signal (see onHostPacket).
+            if (next == chunkCount && this.outstandingGaps.length == 0) {
                 stop();
+            }
+        }
+
+        void pace(int step) throws InterruptedException {
+            if (CHUNK_PACING_MILLIS > 0) {
+                Thread.sleep(CHUNK_PACING_MILLIS);
+            } else if (step % CHUNK_BURST == CHUNK_BURST - 1) {
+                Thread.sleep(3);
             }
         }
 

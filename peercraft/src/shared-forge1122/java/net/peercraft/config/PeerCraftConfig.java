@@ -7,6 +7,9 @@ package net.peercraft.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 public final class PeerCraftConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
@@ -18,7 +21,28 @@ public final class PeerCraftConfig {
     private static final String PROPERTY_PREFIX = "peercraft.";
     private static final String ENV_PREFIX = "PEERCRAFT_";
 
+    // Optional baked-in overrides shipped as a classpath resource. Absent from a normal build;
+    // the "-DEVELOP" jars carry one (rendezvousHost=127.0.0.1 + shifted local ports) so a
+    // second game instance on the same machine talks to a local rendezvous server with no
+    // launch flags. Read below -Dpeercraft.* / PEERCRAFT_* but above the hardcoded defaults.
+    private static final String BAKED_DEFAULTS_RESOURCE = "/peercraft-defaults.properties";
+    private static final Properties BAKED_DEFAULTS = loadBakedDefaults();
+
     private PeerCraftConfig() {
+    }
+
+    private static Properties loadBakedDefaults() {
+        Properties props = new Properties();
+        try (InputStream in = PeerCraftConfig.class.getResourceAsStream(BAKED_DEFAULTS_RESOURCE)) {
+            if (in != null) {
+                props.load(in);
+                LOGGER.info("[PeerCraftConfig] Загружен встроенный конфиг {} ({} ключей) — это DEVELOP-сборка.",
+                        BAKED_DEFAULTS_RESOURCE, props.size());
+            }
+        } catch (Exception e) {
+            LOGGER.warn("[PeerCraftConfig] Не удалось прочитать {}: {}", BAKED_DEFAULTS_RESOURCE, e.toString());
+        }
+        return props;
     }
 
     public static String mode() {
@@ -83,8 +107,8 @@ public final class PeerCraftConfig {
 
     // Mod sync: when joining a friend's world, offer to download server-side mods the joiner
     // is missing (then restart). Master switch — false disables the whole handshake.
-    // NOTE: mod-sync feature code is Fabric/NeoForge only; these accessors exist here purely
-    // to keep the three PeerCraftConfig copies byte-synced.
+    // Backported to 1.12.2 (joiner streams every missing jar from the host over P2P — the
+    // Modrinth HTTP fast-path is Fabric/NeoForge only).
     public static boolean modSync() {
         return boolValue("modSync", true);
     }
@@ -101,6 +125,14 @@ public final class PeerCraftConfig {
         return intValueInRange("modSync.maxModMb", 256, 1, 2048);
     }
 
+    // The confirm screen normally stays hidden on re-join once every missing mod is one the
+    // player already made a call on (client-side mods they unchecked are remembered in
+    // config/peercraft/modsync-declined.json). Set this to force the screen whenever anything
+    // is missing — the way back to a mod that was unchecked earlier.
+    public static boolean modSyncReofferDeclined() {
+        return boolValue("modSync.reofferDeclined", false);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         if (property != null && !property.trim().isEmpty()) {
@@ -110,6 +142,11 @@ public final class PeerCraftConfig {
         String env = System.getenv(ENV_PREFIX + toEnvName(key));
         if (env != null && !env.trim().isEmpty()) {
             return env.trim();
+        }
+
+        String baked = BAKED_DEFAULTS.getProperty(key);
+        if (baked != null && !baked.trim().isEmpty()) {
+            return baked.trim();
         }
 
         return defaultValue;

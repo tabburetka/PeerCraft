@@ -2,6 +2,7 @@ package net.peercraft.network.modsync;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * What the joiner is about to do once the player confirms: for every missing {@link ModEntry},
@@ -33,6 +34,21 @@ public record ModSyncPlan(List<PlannedMod> mods, long totalBytes) {
 
     public int count() {
         return mods.size();
+    }
+
+    /**
+     * A copy of this plan with every mod whose id is in {@code modIds} left out and
+     * {@code totalBytes} recomputed. Used by the confirm screen to drop the client-side mods
+     * the player unchecked before handing the plan to the download step.
+     */
+    public ModSyncPlan excluding(Set<String> modIds) {
+        List<PlannedMod> kept = new ArrayList<>();
+        for (PlannedMod m : mods) {
+            if (!modIds.contains(m.entry().id())) {
+                kept.add(m);
+            }
+        }
+        return ModSyncPlan.of(kept);
     }
 
     public List<PlannedMod> http() {

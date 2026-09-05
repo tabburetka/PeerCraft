@@ -18,6 +18,11 @@ public final class Logger {
         this.delegate = LogManager.getLogger(name);
     }
 
+    public void trace(String msg) { delegate.trace(msg); }
+    public void trace(String fmt, Object arg) { delegate.trace(fmt, arg); }
+    public void trace(String fmt, Object a, Object b) { delegate.trace(fmt, a, b); }
+    public void trace(String fmt, Object... args) { delegate.trace(fmt, args); }
+
     public void debug(String msg) { delegate.debug(msg); }
     public void debug(String fmt, Object arg) { delegate.debug(fmt, arg); }
     public void debug(String fmt, Object a, Object b) { delegate.debug(fmt, a, b); }
@@ -38,5 +43,6 @@ public final class Logger {
     public void error(String fmt, Object a, Object b) { delegate.error(fmt, a, b); }
     public void error(String fmt, Object... args) { delegate.error(fmt, args); }
 
+    public boolean isTraceEnabled() { return delegate.isTraceEnabled(); }
     public boolean isDebugEnabled() { return delegate.isDebugEnabled(); }
 }

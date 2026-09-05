@@ -52,10 +52,12 @@ public final class FileReassembler implements AutoCloseable {
                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.READ, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
-    /** Accepts one chunk. Ignores a duplicate. Throws on an out-of-range index or an overrun past the size cap. */
+    /** Accepts one chunk. Ignores a duplicate or a mangled/stray index. Throws only on an overrun past the declared size. */
     public void accept(int index, byte[] data) throws IOException {
         if (index < 0 || index >= chunkCount) {
-            throw new IOException("chunk index out of range: " + index + " / " + chunkCount);
+            // A single mangled datagram (DPI/bit-rot on the relay) must not fail the whole
+            // transfer — drop it silently; the selective ACK still re-requests the real chunk.
+            return;
         }
         if (received.get(index)) {
             return;

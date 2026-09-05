@@ -2,7 +2,7 @@
 
 **Play Minecraft with your friends over the real internet — no dedicated server, no port forwarding, no hassle.**
 
-PeerCraft is a Fabric mod that turns a normal singleplayer world into a multiplayer session your friends can join directly, peer-to-peer. Click "Open to LAN" like you always do, tick one checkbox, and share a 6-character code — PeerCraft handles NAT traversal (UDP hole punching) behind the scenes so your friend connects straight to you, with nobody needing to forward a router port.
+PeerCraft is a client mod — **Fabric, NeoForge, or Forge** — that turns a normal singleplayer world into a multiplayer session your friends can join directly, peer-to-peer. Click "Open to LAN" like you always do, tick one checkbox, and share a 6-character code — PeerCraft handles NAT traversal (UDP hole punching) behind the scenes so your friend connects straight to you, with nobody needing to forward a router port.
 
 On top of that, PeerCraft has its own lightweight account and friends system, so once you've added a friend you don't even need to share a code again — if they're hosting, you'll see it in your friends list and can join with one click.
 
@@ -30,29 +30,54 @@ No dedicated server, no always-on hosting machine, no router configuration on ei
 
 ## Requirements
 
-- Minecraft **1.21.1 – 1.21.11** and **26.1 – 26.2** — see the version table below for per-version loader availability
-- [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, with [Fabric API](https://modrinth.com/mod/fabric-api) — **or** [NeoForge](https://neoforged.net/)
-- Java 21 for the 1.21.x builds, Java 25 for the 26.x builds
+PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-2.0.0.jar` or `peercraft-forge-1.12.2-2.0.0.jar`.
 
-Both loaders ship a separate jar per Minecraft version (e.g. `peercraft-fabric-1.21.7-1.0.0.jar`, `peercraft-neoforge-1.21.7-1.0.0.jar`) — pick the one matching your game version and loader.
+- **Minecraft** — the main builds target **1.21.1 – 1.21.11** and **26.1 – 26.2**. Older versions (**1.12.2**, **1.7.10**) are covered by separate experimental backports; see the table below.
+- **Loader**
+  - **Fabric** — [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, plus [Fabric API](https://modrinth.com/mod/fabric-api).
+  - **NeoForge** — [NeoForge](https://neoforged.net/). No extra API mod.
+  - **Forge** (1.12.2 / 1.7.10 backports only) — plus a Mixin loader: [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) on 1.12.2, [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) on 1.7.10.
+- **Java** — 21 for the 1.21.x builds, 25 for the 26.x builds, 8 for the 1.12.2 / 1.7.10 backports (the same Java those game versions already need).
+- **Both players run the same Minecraft version.** Minecraft's own protocol only connects same-version clients, so you and your friend must be on the same MC version. The loader may differ — a Fabric host and a NeoForge joiner on the same version is fine.
 
-| Minecraft | Fabric | NeoForge |
-|---|---|---|
-| 1.21.1 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ |
-| 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (NeoForge only ever shipped a `-beta`-tagged build for these — still a real, working release, just never marked stable) |
-| 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version at all — it moved straight to 1.21.3, released the next day) |
-| 26.1.2, 26.2 | ✅ | ✅ |
-| 26.1, 26.1.1 | ✅ | ✅ (NeoForge only ever shipped a `-beta`-tagged build for these — same as 1.21.6/1.21.7/1.21.9) |
+### Version & loader support
+
+| Minecraft | Fabric | NeoForge | Forge |
+|---|---|---|---|
+| 1.21.1 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ | — |
+| 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (`-beta`-tagged build only — still a real, working release, just never marked stable) | — |
+| 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version — it moved straight to 1.21.3, out the next day) | — |
+| 26.1.2, 26.2 | ✅ | ✅ | — |
+| 26.1, 26.1.1 | ✅ | ✅ (`-beta`-tagged build only — same as 1.21.6/1.21.7/1.21.9) | — |
+| 1.12.2 | — | — | 🧪 (needs MixinBooter) |
+| 1.7.10 | — | — | 🧪 (needs UniMixins) |
+
+**✅** released &nbsp;·&nbsp; **🧪** experimental backport — it builds and loads, but it hasn't been play-tested as thoroughly as the 1.21.x / 26.x builds; expect rough edges and please [report anything broken](#feedback--support) &nbsp;·&nbsp; **❌ / —** that loader was never released for that Minecraft version (a limitation of the loader, not of PeerCraft)
+
+> **"There's a 1.7.10 (or 1.12.2) file, but the page also says 1.21 — which is it?"**
+> Both. The main builds are for modern Minecraft (1.21.x / 26.x on Fabric and NeoForge); the 1.7.10 and 1.12.2 files are experimental Forge backports for players still on those versions. Download whichever matches your game — PeerCraft does **not** run on every version in between, only the ones in the table above.
+
+A Fabric-only **1.16.5** backport is in progress but not yet released.
 
 Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jars are built without mappings against Minecraft as shipped.
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) or [NeoForge](https://neoforged.net/) for your Minecraft version.
-2. Fabric: download **Fabric API** and **PeerCraft** (the `-fabric-` jar matching your version) into `.minecraft/mods`. NeoForge: download the `-neoforge-` jar matching your version into `.minecraft/mods` — no separate API mod needed.
-3. Launch the game using the matching profile.
+1. Install the loader for your Minecraft version: [Fabric Loader](https://fabricmc.net/use/), [NeoForge](https://neoforged.net/), or [Forge](https://files.minecraftforge.net/) (1.12.2 / 1.7.10).
+2. Put the mods into `.minecraft/mods`:
+   - **Fabric** — [Fabric API](https://modrinth.com/mod/fabric-api) + the `peercraft-fabric-<version>` jar.
+   - **NeoForge** — the `peercraft-neoforge-<version>` jar. No separate API mod.
+   - **Forge 1.12.2** — [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) + the `peercraft-forge-1.12.2-<version>` jar.
+   - **Forge 1.7.10** — [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) + the `peercraft-forge-1.7.10-<version>` jar.
+3. Launch the game using the matching profile. Your friend needs PeerCraft too, on the same Minecraft version.
 
 ## FAQ
+
+**Which Minecraft versions does it actually work on? I saw a 1.7.10 file but the page mentions 1.21.**
+Both, plus more. The main builds are for Minecraft 1.21.x and 26.x (Fabric and NeoForge). Separately, there are experimental Forge backports for 1.12.2 and 1.7.10, and a 1.16.5 Fabric backport in progress. Download the file whose name matches the version you play — it does **not** run on every version in between. See the [support table](#version--loader-support) for the exact list.
+
+**Can my friend and I be on different Minecraft versions / different loaders?**
+Different versions, no — Minecraft's networking only connects same-version clients, so you must both be on the same Minecraft version. Different loaders, yes — a Fabric host and a NeoForge joiner on the same Minecraft version works fine.
 
 **Do I need to forward any ports?**
 No — as a player (host or joiner) you never need to touch your router. Only the person running the shared rendezvous server needs a forwarded UDP port, and PeerCraft already points at a public one by default.
@@ -93,7 +118,7 @@ The rest of this document is for people building or contributing to PeerCraft, n
 
 Several independent Gradle projects in one repo:
 
-- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
+- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build), plus an in-progress Fabric-only **1.16.5** backport target (Java 8, its own `build.fabric-1165.gradle.kts`). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
 - `rendezvous-server/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd rendezvous-server && ./gradlew jar`.
 - `peercraft-forge-1122/` — a Minecraft **1.12.2 Forge** backport, built on RetroFuturaGradle (Gradle 8.8, Java 8) instead of Stonecutter/Loom. It reuses the shared networking/account code straight from `peercraft/src/` via `srcDir` (with hand-resolved Java-8 / 1.12.2-API twins under `peercraft/src/shared-forge1122/` and `peercraft/src/client-1122/`). Build with `cd peercraft-forge-1122 && ./gradlew build` (first run is slow — it decompiles Minecraft) → `build/libs/peercraft-forge-1.12.2-<version>.jar`; try it with `./gradlew runClient`. Requires [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The mod ships a coremod (`PeerCraftCoreMod`) that registers its mixin config, so it does **not** need to be extracted. This backport builds and loads; it's not yet as thoroughly runtime-tested as the 1.21.x / 26.x targets.
 - `peercraft-forge-1710/` — a Minecraft **1.7.10 Forge** backport, same toolchain as the 1.12.2 one (RetroFuturaGradle, Gradle 8.8, Java 8) and ported almost file-for-file from it — 1.7.10 and 1.12.2 share the pre-1.13 immediate-mode GUI (`GuiScreen` + `buttonList`), so most of the work was mechanical API renames (`fontRendererObj`, the `cpw.mods.fml.*` package, MCP `stable_12` names). It reuses the shared code from `peercraft/src/` via `srcDir` with twins under `peercraft/src/shared-forge1710/` and `peercraft/src/client-1710/`, and the loader-agnostic mod-sync core from `peercraft/src/modsync-java8/` (shared with the 1.12.2 backport). Build with `cd peercraft-forge-1710 && ./gradlew build` → `build/libs/peercraft-forge-1.7.10-<version>.jar`; try it with `./gradlew runClient`. Requires [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). Mod sync is backported here too — P2P-only (no Modrinth/HTTP fast-path on Java 8), reading `mcmod.info` for the jar list; `./gradlew :peercraft-forge-1710:modsyncTest` runs a Minecraft-free loopback check of the handshake + transfer. The `build` (including the mixin refmap) is green; runtime application of the mixins is not yet verified.
@@ -123,6 +148,7 @@ The mod reads Java system properties first and environment variables second. If 
 | `peercraft.modSync.maxTotalMb` | `PEERCRAFT_MOD_SYNC_MAX_TOTAL_MB` | `512` | Reject a mod-sync batch whose jars total more than this many MiB, before any download starts. |
 | `peercraft.modSync.maxModMb` | `PEERCRAFT_MOD_SYNC_MAX_MOD_MB` | `256` | Reject / abort any single jar larger than this many MiB. |
 | `peercraft.modSync.reofferDeclined` | `PEERCRAFT_MOD_SYNC_REOFFER_DECLINED` | `false` | Always show the confirmation screen when anything is missing, even mods you unchecked before. The way back to a client-side mod you previously turned down (otherwise delete its line from `config/peercraft/modsync-declined.json`). |
+| `peercraft.modSync.sendPacingMillis` | *(system property only)* | `0` | Per-chunk send throttle for the P2P jar transfer, set on the **host**. `0` uses the built-in light pacing; a small value (a 6000-byte chunk every `8` ms ≈ 750 KiB/s) throttles the host's upload so a big mod stops stalling on a lossy uplink. Max `50`. |
 
 ### Random mid-session disconnects on a lossy or DPI-mangled link
 
@@ -137,6 +163,8 @@ When you join a friend's world over PeerCraft and the host has mods you're missi
 What you untick is remembered in `config/peercraft/modsync-declined.json`, so the screen doesn't nag on every re-join — it only comes back when the host offers a mod that isn't on that list (or with `peercraft.modSync.reofferDeclined=true`). If every missing mod is one you've already ruled out, the join proceeds silently.
 
 Minecraft can't load newly installed mods without a relaunch, so after a download PeerCraft does **not** continue the join — it shows a "restart required" screen. Quit, relaunch, and reconnect; this time the mods are present and the join goes straight through. If you untick everything and nothing is required, PeerCraft connects right away with no restart. `peercraft.modSync.autoAccept=true` skips the confirmation screen; `peercraft.modSync=false` turns the whole thing off.
+
+The P2P transfer tolerates ordinary packet loss (a mangled or dropped chunk is silently re-requested, and a transfer that fails outright can simply be retried by reconnecting — the host re-serves from a fresh session). On a badly congested or DPI-mangled uplink where a large jar keeps stalling near the end, set `-Dpeercraft.modSync.sendPacingMillis=8` on the **host** to cap its upload rate; raise the number if it still stalls, lower it for more speed.
 
 ### Local self-connect test
 

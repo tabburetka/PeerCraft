@@ -153,6 +153,13 @@ public class P2PBridge {
     // endClientSession).
     private final AtomicBoolean rendezvousClientBusy = new AtomicBoolean(false);
 
+    // JOINER: true while a mod-sync handshake/transfer is running in the rendezvousListener slot
+    // (between a successful punch and onConnected/abort). The busy-watchdog must not touch the
+    // listener or the busy flag while this is set — a large P2P mod transfer legitimately keeps
+    // rendezvousClientBusy true with no ClientSession for minutes. Cleared in every ModSyncAgent
+    // Outcome path (and abortModSyncClient).
+    private final AtomicBoolean modSyncActive = new AtomicBoolean(false);
+
     private P2PBridge() {
         this.receiver = new P2PReceiver();
         this.sender = new P2PSender(null);
@@ -459,7 +466,17 @@ public class P2PBridge {
     // honestly reset after a SUCCESSFUL join, without permanently blocking a repeat Join
     // after leaving the world.
     public void endClientSession(long sessionId) {
-        if (this.currentClientSession != null && this.currentClientSession.sessionId == sessionId) {
+        ClientSession session = this.currentClientSession;
+        if (session != null && session.sessionId == sessionId) {
+            // Tell the host we're gone *now* with a best-effort FIN, so it drops its TCP
+            // connection to the integrated server and that server runs its normal
+            // player-quit path immediately. Without this the host only notices once its
+            // own keep-alive to us times out (~15-30s), and until then the joiner's
+            // avatar is still standing in the world — damageable, and not kickable.
+            PeerAddress dest = this.clientTargetPeer;
+            if (dest != null) {
+                sendFramed(dest, sessionId, session.outSeq.getAndIncrement(), (byte) FramedPacket.FLAG_FIN, new byte[0]);
+            }
             this.currentClientSession = null;
         }
         rendezvousClientBusy.set(false);
@@ -560,6 +577,7 @@ public class P2PBridge {
     // successful punch and onConnected(). The agent (client layer) drives the handshake over
     // the link and calls exactly one Outcome method.
     private void runModSyncHandshake(ModSyncAgent modSync, ConnectListener listener) {
+        modSyncActive.set(true);
         ModSyncLink link = new ModSyncLink() {
             @Override
             public void send(byte[] data) {
@@ -579,17 +597,20 @@ public class P2PBridge {
         modSync.run(link, new ModSyncAgent.Outcome() {
             @Override
             public void proceedToConnect() {
+                modSyncActive.set(false);
                 clearRendezvousListener();
                 listener.onConnected();
             }
 
             @Override
             public void abortJoin() {
+                modSyncActive.set(false);
                 abortModSyncClient();
             }
 
             @Override
             public void fail(String reasonKey) {
+                modSyncActive.set(false);
                 clearRendezvousListener();
                 listener.onFailed(reasonKey);
             }
@@ -601,23 +622,46 @@ public class P2PBridge {
     // guardedListener.onFailed will reset rendezvousClientBusy — do it here, or a second
     // "Connect" this launch wedges on peercraft.p2p.fail.already_connecting.
     public void abortModSyncClient() {
+        modSyncActive.set(false);
         clearRendezvousListener();
         rendezvousClientBusy.set(false);
     }
 
-    // See the comment at its call site in startClientViaRendezvous.
+    // See the comment at its call site in startClientViaRendezvous. Polls rather than sleeping
+    // one fixed 45 s: mod sync legitimately holds the rendezvousListener slot (with no
+    // ClientSession) for the whole of a large P2P mod transfer, so while modSyncActive is set
+    // the watchdog waits it out instead of yanking the listener. An absolute cap still fires so
+    // a genuinely wedged attempt can't pin the busy flag forever.
     private void armBusyWatchdog() {
         Thread t = new Thread(() -> {
-            try {
-                Thread.sleep(45_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            if (rendezvousClientBusy.get() && currentClientSession == null) {
-                LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за 45 с — снимаем флаг \"идёт подключение\".");
+            long start = System.currentTimeMillis();
+            long idleLimitMillis = 45_000L;
+            long absoluteCapMillis = 40 * 60_000L;
+            while (true) {
+                try {
+                    Thread.sleep(5_000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                if (!rendezvousClientBusy.get() || currentClientSession != null) {
+                    return; // resolved normally (connected, failed, or cleared elsewhere)
+                }
+                long elapsed = System.currentTimeMillis() - start;
+                if (modSyncActive.get()) {
+                    if (elapsed < absoluteCapMillis) {
+                        continue; // mod sync still working — keep waiting
+                    }
+                    LOGGER.warn("[P2PBridge] Mod sync висит уже {} мин — принудительно снимаем флаг \"идёт подключение\".", elapsed / 60_000);
+                } else if (elapsed < idleLimitMillis) {
+                    continue;
+                } else {
+                    LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за {} с — снимаем флаг \"идёт подключение\".", elapsed / 1000);
+                }
+                modSyncActive.set(false);
                 rendezvousClientBusy.set(false);
                 clearRendezvousListener();
+                return;
             }
         }, "PeerCraft-Busy-Watchdog");
         t.setDaemon(true);
@@ -791,7 +835,7 @@ public class P2PBridge {
             framed = retransmitBuffer.get(seq);
         }
         if (framed != null) {
-            LOGGER.info("[P2PBridge] Повторно отправляем seq={} для сессии {} по NACK", seq, sessionId);
+            LOGGER.debug("[P2PBridge] Повторно отправляем seq={} для сессии {} по NACK", seq, sessionId);
             sendEncoded(dest, framed);
         } else {
             LOGGER.debug("[P2PBridge] NACK на seq={} для сессии {}, но пакет уже вытеснен из буфера ретрансляции", seq, sessionId);
@@ -823,10 +867,17 @@ public class P2PBridge {
                 if (provider == null || !authorizedPeers.contains(from)) {
                     return;
                 }
-                modSyncHostSessions
-                        .computeIfAbsent(from, addr -> ModSyncCoordinator.host(
-                                bytes -> sendEncoded(addr, bytes), provider, provider.servingTempDir()))
-                        .onPacket(data, length, senderAddress, senderPort);
+                // One coordinator per punched joiner. A previous attempt from this peer that
+                // failed mid-transfer leaves its coordinator cancelled (the joiner sent T_ABORT);
+                // it can serve nothing, so replace it — otherwise every retry's HELLO is swallowed
+                // and the joiner just times out with no screen. handleIncomingPacket is
+                // single-threaded (the P2PReceiver processing thread), so no lock is needed.
+                ModSyncCoordinator coord = modSyncHostSessions.get(from);
+                if (coord == null || coord.isCancelled()) {
+                    coord = ModSyncCoordinator.host(bytes -> sendEncoded(from, bytes), provider, provider.servingTempDir());
+                    modSyncHostSessions.put(from, coord);
+                }
+                coord.onPacket(data, length, senderAddress, senderPort);
             } else {
                 RawPacketListener listener = this.rendezvousListener;
                 if (listener != null) {
@@ -893,6 +944,12 @@ public class P2PBridge {
             return;
         }
 
+        if (conn == null && frame.isFin()) {
+            // FIN for a session we hold no connection for — already torn down, or we never
+            // saw its data stream. Nothing to close.
+            return;
+        }
+
         if (conn != null) {
             // Either the same peer as before in this session, or their NAT remapped the
             // external port between packets — tolerated implicitly, as before (this
@@ -905,6 +962,14 @@ public class P2PBridge {
                 hostConnectionsByAddress.put(sender, conn);
             }
             deliverToHost(conn, frame);
+            if (frame.isFin()) {
+                // Joiner left the world — close our TCP link to the integrated server right
+                // away so it removes their player entity now, instead of waiting out its
+                // keep-alive timeout with a frozen, unkickable, still-damageable avatar.
+                LOGGER.info("[P2PBridge] (Хост) Джойнер {}:{} закрыл сессию {} (FIN) — рвём соединение с локальным MC-сервером",
+                        sender.ip(), sender.port(), frame.sessionId());
+                closeHostConnection(conn);
+            }
             return;
         }
 
@@ -977,7 +1042,7 @@ public class P2PBridge {
             }
             if (result.requestSeq != null) {
                 sendNack(conn.peerAddress, conn.sessionId, result.requestSeq);
-                LOGGER.info("[P2PBridge] Запросили повторную отправку seq={} для сессии {}", result.requestSeq, conn.sessionId);
+                LOGGER.debug("[P2PBridge] Запросили повторную отправку seq={} для сессии {}", result.requestSeq, conn.sessionId);
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
             LOGGER.error("[P2PBridge] Сессия {} повреждена: {} — закрываем соединение с MC", conn.sessionId, e.getMessage());
@@ -1010,7 +1075,19 @@ public class P2PBridge {
             }
             if (result.requestSeq != null) {
                 sendNack(this.clientTargetPeer, session.sessionId, result.requestSeq);
-                LOGGER.info("[P2PBridge] Запросили повторную отправку seq={} для клиентской сессии {}", result.requestSeq, session.sessionId);
+                LOGGER.debug("[P2PBridge] Запросили повторную отправку seq={} для клиентской сессии {}", result.requestSeq, session.sessionId);
+            }
+            if (frame.isFin()) {
+                // Host closed our session (they left / closed the world) — drop the local
+                // MC client now so vanilla shows "connection lost" instead of hanging on
+                // the socket until its 30s read timeout.
+                LOGGER.info("[P2PBridge] Хост закрыл сессию {} (FIN) — отключаем локальный MC-клиент", session.sessionId);
+                if (this.currentClientSession == session) {
+                    this.currentClientSession = null;
+                }
+                if (this.proxy != null) {
+                    this.proxy.disconnectClient();
+                }
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
             LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, e.getMessage());
@@ -1032,7 +1109,7 @@ public class P2PBridge {
                 byte[] payload = new byte[bytesRead];
                 System.arraycopy(buffer, 0, payload, 0, bytesRead);
 
-                LOGGER.info("[P2PBridge] Получен ответ от Minecraft-сервера ({} байт, сессия {}). Отправляем по UDP...", bytesRead, conn.sessionId);
+                LOGGER.debug("[P2PBridge] Получен ответ от Minecraft-сервера ({} байт, сессия {}). Отправляем по UDP...", bytesRead, conn.sessionId);
                 sendChunked(conn.peerAddress, conn.sessionId, conn.outSeq, payload, conn.sentPackets);
             }
         } catch (Exception e) {

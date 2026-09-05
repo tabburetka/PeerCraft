@@ -1,5 +1,9 @@
 package net.peercraft.client.modsync;
 
+// Forge 1.12.2 backport of src/main/.../client/modsync/HostModSyncProviderImpl.java —
+// arrow-switch expression -> colon switch; List.of()/List.copyOf() -> Collections.
+// Keep in sync with the original.
+
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.modsync.ModSyncHostProvider;
@@ -12,6 +16,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +27,7 @@ import java.util.concurrent.TimeUnit;
  * Host side of the mod-sync seam: every {@code *.jar} file in the host's {@code mods/} folder,
  * with its real size + SHA-512 (hashed on a background thread so world load isn't blocked) and
  * a stream of any one of them. Built from {@code OpenToLanMixin} when {@code peercraft.modSync}
- * is on. Jar-file enumeration (not the loader's mod list) so Sinytra Connector's relocated
- * mods and jar-in-jar libraries are handled correctly — the joiner needs the literal jar set.
+ * is on.
  */
 public final class HostModSyncProviderImpl implements ModSyncHostProvider {
 
@@ -33,7 +37,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     private final Path modsDir;
     private final Path servingDir;
     private final CountDownLatch hashed = new CountDownLatch(1);
-    private volatile List<ModEntry> cached = List.of();
+    private volatile List<ModEntry> cached = Collections.emptyList();
     private final Map<String, Path> jarById = new LinkedHashMap<>();
 
     private HostModSyncProviderImpl(Path modsDir) {
@@ -43,8 +47,13 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
 
     /** Kicks off hashing straight away; the coordinator's {@link #hostMods()} waits on it. */
     public static HostModSyncProviderImpl start(Path modsDir) {
-        HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir);
-        Thread t = new Thread(p::hashAll, "PeerCraft-ModSync-Hash");
+        final HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir);
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                p.hashAll();
+            }
+        }, "PeerCraft-ModSync-Hash");
         t.setDaemon(true);
         t.start();
         return p;
@@ -54,11 +63,18 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
         for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir)) {
-            String envStr = switch (sj.env()) {
-                case CLIENT -> "client";
-                case SERVER -> "server";
-                default -> "both";
-            };
+            String envStr;
+            switch (sj.env()) {
+                case CLIENT:
+                    envStr = "client";
+                    break;
+                case SERVER:
+                    envStr = "server";
+                    break;
+                default:
+                    envStr = "both";
+                    break;
+            }
             if (ModSyncFilter.isExcluded(sj.id(), envStr, false, sj.fileName())) {
                 skipped++;
                 continue;
@@ -72,7 +88,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 LOGGER.warn("[ModSync] Не удалось захешировать {}: {}", sj.fileName(), e.toString());
             }
         }
-        cached = List.copyOf(out);
+        cached = Collections.unmodifiableList(new ArrayList<>(out));
         hashed.countDown();
         LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим ({} пропущено как загрузчик/PeerCraft).", cached.size(), skipped);
     }

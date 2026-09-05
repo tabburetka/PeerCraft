@@ -42,10 +42,19 @@ val backportReplaced = listOf(
 	"**/net/peercraft/network/p2p/PeerAddress.java",
 	"**/net/peercraft/client/account/AccountState.java",
 	"**/net/peercraft/platform/Services.java",
+	// record — the Java 8 twin in src/main-java8 provides it (mod-sync pulled this type into
+	// PeercraftPlatform; only surfaced here once network/modsync stopped shadowing it).
+	"**/net/peercraft/platform/services/PlatformMod.java",
 	"**/net/peercraft/PeerCraftCommon.java",
 	"**/net/peercraft/client/gui/**",
 	"**/net/peercraft/client/mixin/**",
 	"**/net/peercraft/mixin/**",
+	// Mod sync: the loader-agnostic core is records / switch-expressions (compiled from
+	// src/modsync-java8 instead), and the client layer twins drop the Java-11 HTTP fast-path
+	// (P2P-only on Java 8) and target the 1.16.5 GUI API — see src/client-1165/.../modsync
+	// and the four ModSync*Screen twins (already covered by the client/gui/** entry above).
+	"**/net/peercraft/network/modsync/**",
+	"**/net/peercraft/client/modsync/**",
 )
 
 // Stonecutter emits preprocessed sources into build/generated/stonecutter/main/java; the twin
@@ -72,6 +81,10 @@ sourceSets {
 	main {
 		java.srcDir(rootProject.file("src/main-java8/java"))
 		java.srcDir(rootProject.file("src/client-1165/java"))
+		// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
+		// arrow-switch -> colon-switch); shared verbatim with the 1.12.2 / 1.7.10 backports.
+		// network/modsync/** is stripped from the generated tree above.
+		java.srcDir(rootProject.file("src/modsync-java8/java"))
 		java.srcDir(rootProject.file("src/fabric/java"))
 		resources.srcDir(rootProject.file("src/fabric/resources"))
 	}

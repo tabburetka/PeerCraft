@@ -1,13 +1,26 @@
 package net.peercraft.client.modsync;
 
+// Forge 1.12.2 backport of src/main/.../client/modsync/ClientModSyncAgent.java. Deltas:
+//   * Screen -> GuiScreen; TitleScreen -> GuiMainMenu; Minecraft.getInstance() ->
+//     getMinecraft(); mc.execute(r) -> mc.addScheduledTask(r); mc.setScreen(s) ->
+//     mc.displayGuiScreen(s).
+//   * net.minecraft.network.chat.Component -> plain translation-key Strings; the GuiScreen
+//     twins resolve them through PeerCraftLang.
+//   * HTTP / Modrinth fast-path NOT ported for 1.12.2 — every missing mod is streamed from the
+//     host over P2P. So ModrinthClient / ModDownloader / selfVersion() are gone; resolveSources
+//     collapses to "every entry -> PlannedMod.p2p"; fetch() always goes P2P; recordInstall
+//     always writes source="p2p".
+//   * `record ModrinthDownloadDeps` removed.
+// Keep in sync with the original where the shared behaviour is unchanged.
+
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiMainMenu;
 import net.peercraft.client.gui.ModSyncConfirmScreen;
 import net.peercraft.client.gui.ModSyncPreparingScreen;
 import net.peercraft.client.gui.ModSyncProgressScreen;
 import net.peercraft.client.gui.ModSyncRestartRequiredScreen;
+import net.peercraft.client.gui.PeerCraftLang;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModDiff;
 import net.peercraft.network.modsync.ModEntry;
@@ -15,48 +28,36 @@ import net.peercraft.network.modsync.ModSyncAgent;
 import net.peercraft.network.modsync.ModSyncCoordinator;
 import net.peercraft.network.modsync.ModSyncLink;
 import net.peercraft.network.modsync.ModSyncPlan;
-import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.platform.Services;
-import net.peercraft.platform.services.PlatformMod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Joiner-side orchestrator for mod sync: runs the handshake through {@link ModSyncCoordinator},
- * turns the host's manifest into a {@link ModSyncPlan} (HTTP-from-Modrinth where a hash
- * lookup resolves, peer-to-peer otherwise), gets the player's consent, downloads + verifies +
- * installs each jar, writes the install manifest, and shows the "restart required" screen —
- * then tells {@code P2PBridge} to abort the join (no connect this launch).
- *
- * <p>Implements {@link ModSyncAgent} (the seam {@code P2PBridge} calls) and
- * {@link ModSyncCoordinator.JoinerHandler} (the coordinator's callbacks). All coordinator
- * callbacks arrive on background threads; screen work is marshalled to the client thread.
+ * turns the host's manifest into a {@link ModSyncPlan} (peer-to-peer stream from the host for
+ * every jar on 1.12.2), gets the player's consent, downloads + verifies + installs each jar,
+ * writes the install manifest, shows the "restart required" screen — then tells
+ * {@code P2PBridge} to abort the join (no connect this launch).
  */
 public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinator.JoinerHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     private static final long P2P_FILE_TIMEOUT_MILLIS = 12 * 60_000;
 
-    private final Screen previousScreen;
+    private final GuiScreen previousScreen;
     private final String roomCode;
 
     private volatile ModSyncLink link;
@@ -69,11 +70,11 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     private volatile int currentModsDone;    // mods fully installed so far
     private final ConcurrentHashMap<String, CompletableFuture<Path>> p2pFiles = new ConcurrentHashMap<>();
 
-    public ClientModSyncAgent(Screen previousScreen) {
+    public ClientModSyncAgent(GuiScreen previousScreen) {
         this(previousScreen, "");
     }
 
-    public ClientModSyncAgent(Screen previousScreen, String roomCode) {
+    public ClientModSyncAgent(GuiScreen previousScreen, String roomCode) {
         this.previousScreen = previousScreen;
         this.roomCode = roomCode == null ? "" : roomCode;
     }
@@ -102,10 +103,10 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    private void prepStatus(Component status) {
+    private void prepStatus(String key, Object... args) {
         ModSyncPreparingScreen s = preparingScreen;
         if (s != null) {
-            s.setStatus(status);
+            s.setStatus(PeerCraftLang.tr(key, args));
         }
     }
 
@@ -123,18 +124,16 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     @Override
     public void onAbort(String reasonKey) {
-        // Mod sync is an enhancement, not a gate. If the host aborts the handshake (loader
-        // mismatch, incompatible PeerCraft version, its own error), don't dead-end the join —
-        // proceed to connect and let vanilla show its "missing mods" screen if it comes to that.
-        // Failing here instead just left the player re-clicking Connect in a loop.
+        // Mod sync is an enhancement, not a gate. If the host aborts the handshake, don't
+        // dead-end the join — proceed to connect and let vanilla show its "missing mods"
+        // screen if it comes to that.
         LOGGER.info("[ModSync] Хост прервал синхронизацию ({}) — подключаемся обычным образом.", reasonKey);
         finishProceed();
     }
 
     @Override
     public void onManifest(List<ModEntry> missing) {
-        prepStatus(Component.translatable("peercraft.modsync.prepare.checking", 0, missing.size()));
-        // HTTP resolution + downloads must not run on the packet thread.
+        prepStatus("peercraft.modsync.prepare.checking", missing.size(), missing.size());
         Thread t = new Thread(() -> planAndPrompt(missing), "PeerCraft-ModSync-Plan");
         t.setDaemon(true);
         t.start();
@@ -174,8 +173,6 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         try {
             Set<String> declined = ModSyncDeclinedStore.load();
 
-            // What would actually download if we went ahead with the remembered choices: the
-            // missing set minus the client-side mods the player turned down on an earlier join.
             List<ModEntry> toFetch = new ArrayList<>();
             for (ModEntry e : missing) {
                 if (!declined.contains(e.id())) {
@@ -200,36 +197,31 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
-            // Show the screen when the host offers something the player hasn't ruled on yet
-            // (or when reofferDeclined forces it). Otherwise go straight through with the
-            // remembered choices — no screen on a plain re-join.
             boolean forceScreen = PeerCraftConfig.modSyncReofferDeclined();
             boolean anythingNew = !toFetch.isEmpty();
             if (!forceScreen && (PeerCraftConfig.modSyncAutoAccept() || !anythingNew)) {
                 if (!anythingNew) {
                     finishProceed();
                 } else {
-                    runDownloads(ModSyncPlan.of(resolveSources(toFetch)));
+                    runDownloads(ModSyncPlan.of(plannedP2p(toFetch)));
                 }
                 return;
             }
 
-            // Interactive: list the whole missing set so a previously-declined mod can be
-            // re-checked; start its checkbox unticked. Use the plan's mods — their env has been
-            // refined by Modrinth, so "is this client-side" matches what the screen will show.
-            ModSyncPlan plan = ModSyncPlan.of(resolveSources(missing));
+            ModSyncPlan plan = ModSyncPlan.of(plannedP2p(missing));
             Set<String> preDeselected = new LinkedHashSet<>();
-            for (ModSyncPlan.PlannedMod pm : plan.mods()) {
-                if (pm.entry().env() == ModEntry.Env.CLIENT && declined.contains(pm.entry().id())) {
-                    preDeselected.add(pm.entry().id());
+            for (ModEntry e : missing) {
+                if (e.env() == ModEntry.Env.CLIENT && declined.contains(e.id())) {
+                    preDeselected.add(e.id());
                 }
             }
+            final ModSyncPlan finalPlan = plan;
             runOnClientThread(() -> setScreen(new ModSyncConfirmScreen(
-                    plan,
+                    finalPlan,
                     preDeselected,
                     deselectedIds -> {
                         ModSyncDeclinedStore.save(deselectedIds);
-                        startDownloadThread(plan.excluding(deselectedIds));
+                        startDownloadThread(finalPlan.excluding(deselectedIds));
                     },
                     this::onUserCancel)));
         } catch (RuntimeException e) {
@@ -238,67 +230,13 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    /**
-     * For every missing mod: look its jar up on Modrinth by hash (parallel), pick HTTP-vs-P2P
-     * from whether a {@code cdn.modrinth.com} URL came back, then in one bulk call refine each
-     * mod's {@link ModEntry.Env} from Modrinth's curated {@code client_side}/{@code server_side}
-     * — the host's jar-metadata guess is only a fallback (on NeoForge it's always {@code BOTH}).
-     */
-    private List<ModSyncPlan.PlannedMod> resolveSources(List<ModEntry> missing) {
-        ModrinthClient modrinth = new ModrinthClient(selfVersion());
-        ModrinthClient.Resolved[] resolved = new ModrinthClient.Resolved[missing.size()];
-        AtomicInteger done = new AtomicInteger(0);
-        int parallel = Math.min(6, Math.max(1, missing.size()));
-        ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
-            Thread t = new Thread(r, "PeerCraft-ModSync-Resolve");
-            t.setDaemon(true);
-            return t;
-        });
-        try {
-            List<CompletableFuture<Void>> tasks = new ArrayList<>();
-            for (int i = 0; i < missing.size(); i++) {
-                final int idx = i;
-                final ModEntry e = missing.get(i);
-                tasks.add(CompletableFuture.runAsync(() -> {
-                    resolved[idx] = modrinth.resolve(e).orElse(null);
-                    int n = done.incrementAndGet();
-                    prepStatus(Component.translatable("peercraft.modsync.prepare.checking", n, missing.size()));
-                }, pool));
-            }
-            CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
-        } finally {
-            pool.shutdownNow();
-        }
-
-        List<String> projectIds = new ArrayList<>();
-        for (ModrinthClient.Resolved r : resolved) {
-            if (r != null) {
-                projectIds.add(r.projectId());
-            }
-        }
-        Map<String, ModEntry.Env> sideByProject = modrinth.projectSides(projectIds);
-
-        int reclassified = 0;
+    /** 1.12.2 has no Modrinth fast-path — every missing jar is streamed from the host over P2P. */
+    private static List<ModSyncPlan.PlannedMod> plannedP2p(List<ModEntry> missing) {
         List<ModSyncPlan.PlannedMod> out = new ArrayList<>(missing.size());
-        for (int i = 0; i < missing.size(); i++) {
-            ModEntry e = missing.get(i);
-            ModrinthClient.Resolved r = resolved[i];
-            ModEntry.Env env = (r != null) ? sideByProject.getOrDefault(r.projectId(), e.env()) : e.env();
-            if (env != e.env()) {
-                reclassified++;
-            }
-            ModEntry entry = (env == e.env()) ? e : withEnv(e, env);
-            boolean httpOk = r != null && r.hasDownloadUrl() && r.sha512Hex().equalsIgnoreCase(e.sha512Hex());
-            out.add(httpOk ? ModSyncPlan.PlannedMod.http(entry, r.url()) : ModSyncPlan.PlannedMod.p2p(entry));
-        }
-        if (reclassified > 0) {
-            LOGGER.info("[ModSync] Modrinth уточнил сторону для {} из {} модов.", reclassified, missing.size());
+        for (ModEntry e : missing) {
+            out.add(ModSyncPlan.PlannedMod.p2p(e));
         }
         return out;
-    }
-
-    private static ModEntry withEnv(ModEntry e, ModEntry.Env env) {
-        return new ModEntry(e.id(), e.version(), e.sizeBytes(), e.sha512(), e.fileName(), env, e.homepageUrl(), e.sourcesUrl());
     }
 
     private void abortTooBig() {
@@ -315,9 +253,8 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     /** Cancel button on the progress screen: stop everything, drop partial files, back out of the join. */
     private void onDownloadCancel() {
-        terminated.set(true); // stop the download loop at its next iteration
+        terminated.set(true);
         safeSendAbort("peercraft.modsync.cancelled");
-        // Unblock a fetchP2p() that's parked on a file future.
         p2pFiles.values().forEach(f -> f.completeExceptionally(new TransferFailed("peercraft.modsync.cancelled")));
         ModSyncCoordinator c = coordinator;
         if (c != null) {
@@ -330,8 +267,6 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     }
 
     private void startDownloadThread(ModSyncPlan plan) {
-        // Everything the host offered was unchecked (and nothing is required) — nothing to
-        // install, no restart needed: just connect to the world this launch.
         if (plan.mods().isEmpty()) {
             finishProceed();
             return;
@@ -351,7 +286,6 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         Path modsDir = Services.PLATFORM.getModsDir();
         Path tmpDir = ModSyncFilesystem.tempDir(modsDir);
         long maxModBytes = mib(PeerCraftConfig.modSyncMaxModMb());
-        ModrinthDownloadDeps deps = new ModrinthDownloadDeps(new ModDownloader(selfVersion()));
         ModSyncManifest manifest = ModSyncManifestStore.load();
         List<String> installedNames = new ArrayList<>();
         this.currentBase = 0;
@@ -373,7 +307,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             });
             Path part = tmpDir.resolve(ModSyncCoordinator.safeName(e.id()) + ".jar.part");
 
-            Path verified = fetch(pm, part, maxModBytes, deps, screen);
+            Path verified = fetch(pm, part, maxModBytes, screen);
             if (terminated.get()) {
                 return;
             }
@@ -399,26 +333,14 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
         ModSyncManifestStore.save(manifest);
         safeSendAbort("done");
-        List<String> names = List.copyOf(installedNames);
+        final List<String> names = new ArrayList<>(installedNames);
         runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names)));
         finishAbort();
     }
 
-    /** HTTP first when planned; on any HTTP failure fall back to a peer-to-peer transfer. Returns a hash-verified part file or null. */
-    private Path fetch(ModSyncPlan.PlannedMod pm, Path part, long maxModBytes, ModrinthDownloadDeps deps, ModSyncProgressScreen screen) {
-        ModEntry e = pm.entry();
-        if (pm.source() == ModSyncPlan.Source.HTTP) {
-            runOnClientThread(() -> screen.setState(e.id(), ModSyncProgressScreen.State.DOWNLOADING));
-            byte[] got = deps.downloader().download(pm.httpUrl(), part, e.sizeBytes(), maxModBytes,
-                    (r, t) -> onFileProgress(e.id(), r, t));
-            if (got != null && MessageDigest.isEqual(got, e.sha512())) {
-                runOnClientThread(() -> screen.setState(e.id(), ModSyncProgressScreen.State.VERIFYING));
-                return part;
-            }
-            ModSyncFilesystem.deleteQuietly(part);
-            LOGGER.info("[ModSync] HTTP-загрузка {} не удалась — переходим на P2P.", e.id());
-        }
-        return fetchP2p(e, screen);
+    /** 1.12.2: always a peer-to-peer transfer. Returns a hash-verified part file or null. */
+    private Path fetch(ModSyncPlan.PlannedMod pm, Path part, long maxModBytes, ModSyncProgressScreen screen) {
+        return fetchP2p(pm.entry(), screen);
     }
 
     private Path fetchP2p(ModEntry e, ModSyncProgressScreen screen) {
@@ -451,8 +373,8 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         rec.modVersion = pm.entry().version();
         rec.fileName = done.fileName();
         rec.sha512 = pm.entry().sha512Hex();
-        rec.source = pm.source() == ModSyncPlan.Source.HTTP ? "http" : "p2p";
-        rec.url = pm.httpUrl() == null ? "" : pm.httpUrl();
+        rec.source = "p2p";
+        rec.url = "";
         rec.sizeBytes = pm.entry().sizeBytes();
         rec.installedAt = System.currentTimeMillis();
         rec.hostRoomCode = roomCode;
@@ -470,9 +392,6 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     private void finishProceed() {
         if (terminated.compareAndSet(false, true)) {
-            // Restore the screen the join was started from BEFORE proceeding: the join/games
-            // screen's onConnected() bails via stillOnThisScreen() if we're still showing the
-            // mod-sync preparing screen, so ConnectScreen.startConnecting would never fire.
             runOnClientThread(() -> setScreen(previousScreen));
             outcome.proceedToConnect();
         }
@@ -499,33 +418,18 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    private void setScreen(Screen screen) {
-        Minecraft mc = Minecraft.getInstance();
-        Screen target = screen != null ? screen : new TitleScreen();
-        //? if <26.2
-        mc.setScreen(target);
-        //? if >=26.2
-        /*mc.gui.setScreen(target);*/
+    private void setScreen(GuiScreen screen) {
+        Minecraft mc = Minecraft.getMinecraft();
+        GuiScreen target = screen != null ? screen : new GuiMainMenu();
+        mc.displayGuiScreen(target);
     }
 
     private static void runOnClientThread(Runnable r) {
-        Minecraft.getInstance().execute(r);
+        Minecraft.getMinecraft().addScheduledTask(r);
     }
 
     private static long mib(int mb) {
         return (long) mb * 1024L * 1024L;
-    }
-
-    private static String selfVersion() {
-        for (PlatformMod pm : InstalledModScanner.allInstalled()) {
-            if ("peercraft".equals(pm.id())) {
-                return pm.version();
-            }
-        }
-        return "2.0.0";
-    }
-
-    private record ModrinthDownloadDeps(ModDownloader downloader) {
     }
 
     private static final class TransferFailed extends RuntimeException {

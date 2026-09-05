@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.multiplayer.GuiConnecting;
 import net.minecraft.client.resources.I18n;
+import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.p2p.P2PBridge;
 import org.lwjgl.input.Keyboard;
@@ -140,7 +141,8 @@ public class PeerCraftJoinScreen extends GuiScreen {
 
         this.connectButton.enabled = false;
         this.statusMessage = PeerCraftLang.tr("peercraft.gui.join.connecting");
-        P2PBridge.INSTANCE.startClientViaRendezvous(code, target.host, target.port, this.listener);
+        P2PBridge.INSTANCE.startClientViaRendezvous(code, target.host, target.port, this.listener,
+                new ClientModSyncAgent(this, code));
     }
 
     private static final class HostPort {

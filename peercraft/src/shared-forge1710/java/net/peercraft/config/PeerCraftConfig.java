@@ -7,6 +7,9 @@ package net.peercraft.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 public final class PeerCraftConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
@@ -18,7 +21,28 @@ public final class PeerCraftConfig {
     private static final String PROPERTY_PREFIX = "peercraft.";
     private static final String ENV_PREFIX = "PEERCRAFT_";
 
+    // Optional baked-in overrides shipped as a classpath resource. Absent from a normal build;
+    // the "-DEVELOP" jars carry one (rendezvousHost=127.0.0.1 + shifted local ports) so a
+    // second game instance on the same machine talks to a local rendezvous server with no
+    // launch flags. Read below -Dpeercraft.* / PEERCRAFT_* but above the hardcoded defaults.
+    private static final String BAKED_DEFAULTS_RESOURCE = "/peercraft-defaults.properties";
+    private static final Properties BAKED_DEFAULTS = loadBakedDefaults();
+
     private PeerCraftConfig() {
+    }
+
+    private static Properties loadBakedDefaults() {
+        Properties props = new Properties();
+        try (InputStream in = PeerCraftConfig.class.getResourceAsStream(BAKED_DEFAULTS_RESOURCE)) {
+            if (in != null) {
+                props.load(in);
+                LOGGER.info("[PeerCraftConfig] Загружен встроенный конфиг {} ({} ключей) — это DEVELOP-сборка.",
+                        BAKED_DEFAULTS_RESOURCE, props.size());
+            }
+        } catch (Exception e) {
+            LOGGER.warn("[PeerCraftConfig] Не удалось прочитать {}: {}", BAKED_DEFAULTS_RESOURCE, e.toString());
+        }
+        return props;
     }
 
     public static String mode() {
@@ -118,6 +142,11 @@ public final class PeerCraftConfig {
         String env = System.getenv(ENV_PREFIX + toEnvName(key));
         if (env != null && !env.trim().isEmpty()) {
             return env.trim();
+        }
+
+        String baked = BAKED_DEFAULTS.getProperty(key);
+        if (baked != null && !baked.trim().isEmpty()) {
+            return baked.trim();
         }
 
         return defaultValue;

@@ -38,7 +38,9 @@ public class P2PSender {
             }
 
             InetAddress ipAdrr = InetAddress.getByName(ip);
-            LOGGER.info("[PeerCraft Sender] ip adres: {}", ipAdrr);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("[P2PSender] Отправляем {} байт на {}:{}", data.length, ipAdrr.getHostAddress(), port);
+            }
             DatagramPacket packet = new DatagramPacket(data, data.length, ipAdrr, port);
 
             if (socket == null || socket.isClosed()) {

@@ -1,5 +1,11 @@
 package net.peercraft.client.modsync;
 
+// Minecraft 1.16.5 Fabric backport of src/main/.../client/modsync/ModJarScanner.java —
+// `record ScannedJar` lowered to a static final class with the same accessor names;
+// InputStream.readAllBytes() (Java 9) -> a manual read loop. Reads fabric.mod.json /
+// neoforge.mods.toml exactly like the original (1.16.5 mods all carry fabric.mod.json).
+// Keep in sync with the original.
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -7,6 +13,7 @@ import net.peercraft.network.modsync.ModEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -27,11 +34,6 @@ import java.util.zip.ZipFile;
  * each one's declared mod id / version straight from {@code fabric.mod.json} /
  * {@code META-INF/neoforge.mods.toml} inside the jar — WITHOUT going through the loader's
  * runtime mod list.
- *
- * <p>This is what makes "clone the host's whole modpack" work: the loader's {@code ModList}
- * hides jar-in-jar'd sub-modules and, on a Sinytra Connector setup, doesn't point at the real
- * jar file for relocated mods (Sodium, Kotlin For Forge). The set of jar files in {@code mods/}
- * is exactly what a fresh joiner needs.
  */
 public final class ModJarScanner {
 
@@ -41,18 +43,41 @@ public final class ModJarScanner {
     private ModJarScanner() {
     }
 
-    /**
-     * @param jarPath  the jar on disk
-     * @param id       primary mod id (from metadata, or the filename stem if unreadable)
-     * @param version  version string, or {@code ""} if unknown / a build placeholder
-     * @param env      which side needs the mod: {@code fabric.mod.json} {@code "environment"}
-     *                 ({@code client}/{@code server}/{@code *}), or a best-effort {@code side}
-     *                 read from the {@code [[mods]]} block of {@code neoforge.mods.toml}.
-     *                 Anything unreadable or ambiguous falls back to {@link ModEntry.Env#BOTH}
-     *                 (treated as "required to join" — no opt-out on the confirm screen).
-     * @param fileName {@code jarPath.getFileName()} — the name the joiner writes it back as
-     */
-    public record ScannedJar(Path jarPath, String id, String version, ModEntry.Env env, String fileName) {
+    /** Java 8 twin of the original {@code record ScannedJar(...)} — same component accessor names. */
+    public static final class ScannedJar {
+        private final Path jarPath;
+        private final String id;
+        private final String version;
+        private final ModEntry.Env env;
+        private final String fileName;
+
+        public ScannedJar(Path jarPath, String id, String version, ModEntry.Env env, String fileName) {
+            this.jarPath = jarPath;
+            this.id = id;
+            this.version = version;
+            this.env = env;
+            this.fileName = fileName;
+        }
+
+        public Path jarPath() {
+            return jarPath;
+        }
+
+        public String id() {
+            return id;
+        }
+
+        public String version() {
+            return version;
+        }
+
+        public ModEntry.Env env() {
+            return env;
+        }
+
+        public String fileName() {
+            return fileName;
+        }
     }
 
     /** Every {@code *.jar} directly in {@code modsDir}, one {@link ScannedJar} each. */
@@ -96,8 +121,8 @@ public final class ModJarScanner {
             return null;
         }
         try (Reader r = new InputStreamReader(zf.getInputStream(e), StandardCharsets.UTF_8)) {
-            JsonElement root = JsonParser.parseReader(r);
-            if (!root.isJsonObject()) {
+            JsonElement root = new JsonParser().parse(r);
+            if (root == null || !root.isJsonObject()) {
                 return null;
             }
             JsonObject o = root.getAsJsonObject();
@@ -120,13 +145,6 @@ public final class ModJarScanner {
         return ModEntry.Env.BOTH;
     }
 
-    /**
-     * Best-effort side from a NeoForge/Forge {@code *.mods.toml}: NeoForge has no dependable
-     * per-{@code [[mods]]} side field, and {@code side = "…"} keys mostly live on
-     * {@code [[dependencies]]} entries. So look only at the text before the first
-     * {@code [[dependencies}, and only trust an explicit {@code CLIENT}/{@code SERVER} there;
-     * everything else is {@link ModEntry.Env#BOTH}.
-     */
     private static ModEntry.Env envFromToml(String toml) {
         int depIdx = toml.indexOf("[[dependencies");
         String modsRegion = depIdx >= 0 ? toml.substring(0, depIdx) : toml;
@@ -150,7 +168,7 @@ public final class ModJarScanner {
             }
             String toml;
             try (InputStream in = zf.getInputStream(e)) {
-                toml = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                toml = new String(readAll(in), StandardCharsets.UTF_8);
             }
             String id = tomlValue(toml, "modId");
             if (id.isEmpty()) {
@@ -159,6 +177,16 @@ public final class ModJarScanner {
             return new ScannedJar(jar, id, sanitizeVersion(tomlValue(toml, "version")), envFromToml(toml), fileName);
         }
         return null;
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) != -1) {
+            bos.write(buf, 0, n);
+        }
+        return bos.toByteArray();
     }
 
     private static String str(JsonObject o, String key) {

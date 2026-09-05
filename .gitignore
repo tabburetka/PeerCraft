@@ -1,2 +1,8 @@
 # Only-for-Claude project brief — not meant to be committed/shared.
 FOR_CLAUDE.txt
+
+# Local-only solo mod-sync test rig: the local rendezvous server (its runtime
+# account/room data) and the baked-config "-DEVELOP" jars. See local-test/.
+/local-test/
+*-DEVELOP.jar
+/rendezvous-server/data/

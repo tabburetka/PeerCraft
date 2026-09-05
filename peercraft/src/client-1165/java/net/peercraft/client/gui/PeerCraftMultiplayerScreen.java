@@ -16,6 +16,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
+import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
@@ -596,7 +597,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, friend.roomCode()));
     }
 
     /** 1.16.5 has no {@code ConnectScreen.startConnecting} — the constructor parses host:port out of ServerData.ip and starts the connection itself. */
@@ -920,7 +921,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                             }
                         });
                     }
-                });
+                }, new ClientModSyncAgent(this, game.code()));
     }
 
     // ==================== shared plumbing ====================

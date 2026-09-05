@@ -58,11 +58,16 @@ public final class FabricPlatform implements PeercraftPlatform {
     }
 
     private static String envString(ModEnvironment env) {
-        return switch (env) {
-            case CLIENT -> "client";
-            case SERVER -> "server";
-            default -> "both";
-        };
+        // Plain if/else rather than a switch expression: this file is also compiled at
+        // --release 8 for the 1.16.5 backport (src/client-1165), where switch expressions
+        // don't exist. Behaviour is identical on every other (Java 21) Fabric target.
+        if (env == ModEnvironment.CLIENT) {
+            return "client";
+        }
+        if (env == ModEnvironment.SERVER) {
+            return "server";
+        }
+        return "both";
     }
 
     private static String contact(ModMetadata md, String key) {

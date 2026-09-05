@@ -1,14 +1,20 @@
 package net.peercraft.client.gui;
 
-//? if <26.1
-import net.minecraft.client.gui.GuiGraphics;
-//? if >=26.1
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
+// Minecraft 1.16.5 Fabric backport of src/main/.../client/gui/ModSyncConfirmScreen.java.
+// Deltas: render(GuiGraphics) -> render(PoseStack); Button.builder -> Btn.builder;
+// addRenderableWidget -> addButton; removeWidget -> clear from this.buttons/this.children;
+// Checkbox.builder(...).onValueChange(...) -> ModSyncCheckbox (1.16.5 Checkbox + callback);
+// mouseScrolled 4-arg -> 3-arg; switch expression -> classic switch; String.isBlank() ->
+// trim().isEmpty(); Component.empty() -> new TextComponent(""). Keep in sync with the original.
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Checkbox;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.client.gui.screens.Screen;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncPlan;
 
@@ -51,7 +57,7 @@ public class ModSyncConfirmScreen extends Screen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
-        super(Component.translatable("peercraft.modsync.confirm.title"));
+        super(new TranslatableComponent("peercraft.modsync.confirm.title"));
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -76,15 +82,15 @@ public class ModSyncConfirmScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        this.filterButton = Button.builder(filterLabel(), b -> cycleFilter())
+        this.filterButton = Btn.builder(filterLabel(), (Button.OnPress) b -> cycleFilter())
                 .bounds(centerX + 62, 42, 150, 20).build();
-        this.addRenderableWidget(this.filterButton);
+        this.addButton(this.filterButton);
         rebuildRows();
 
         int y = this.height - 52;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.confirm.accept"), b -> accept())
+        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.confirm.accept"), (Button.OnPress) b -> accept())
                 .bounds(centerX - 154, y, 150, 20).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.confirm.cancel"), b -> onCancel.run())
+        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.confirm.cancel"), (Button.OnPress) b -> onCancel.run())
                 .bounds(centerX + 4, y, 150, 20).build());
     }
 
@@ -98,12 +104,19 @@ public class ModSyncConfirmScreen extends Screen {
     }
 
     private Component filterLabel() {
-        String key = switch (filter) {
-            case CLIENT_ONLY -> "peercraft.modsync.confirm.filter_client";
-            case REQUIRED -> "peercraft.modsync.confirm.filter_required";
-            default -> "peercraft.modsync.confirm.filter_all";
-        };
-        return Component.translatable(key);
+        String key;
+        switch (filter) {
+            case CLIENT_ONLY:
+                key = "peercraft.modsync.confirm.filter_client";
+                break;
+            case REQUIRED:
+                key = "peercraft.modsync.confirm.filter_required";
+                break;
+            default:
+                key = "peercraft.modsync.confirm.filter_all";
+                break;
+        }
+        return new TranslatableComponent(key);
     }
 
     private void cycleFilter() {
@@ -135,10 +148,11 @@ public class ModSyncConfirmScreen extends Screen {
         return Math.max(0, Math.min(MAX_ROWS_SHOWN, avail / ROW_HEIGHT));
     }
 
-    /** Client-side rows get a fresh {@link Checkbox} each rebuild — the state lives in {@link #deselected}. */
+    /** Client-side rows get a fresh checkbox each rebuild — the state lives in {@link #deselected}. */
     private void rebuildRows() {
         for (AbstractWidget w : rowWidgets) {
-            this.removeWidget(w);
+            this.buttons.remove(w);
+            this.children.remove(w);
         }
         rowWidgets.clear();
 
@@ -155,36 +169,34 @@ public class ModSyncConfirmScreen extends Screen {
             }
             final String id = m.entry().id();
             int rowY = LIST_TOP + i * ROW_HEIGHT;
-            Checkbox cb = Checkbox.builder(Component.empty(), this.font)
-                    .pos(centerX - 210, rowY + 1)
-                    .selected(!deselected.contains(id))
-                    .onValueChange((box, val) -> {
+            ModSyncCheckbox cb = new ModSyncCheckbox(centerX - 210, rowY + 1, 20, 20, new TextComponent(""),
+                    !deselected.contains(id),
+                    val -> {
                         if (val) {
                             deselected.remove(id);
                         } else {
                             deselected.add(id);
                         }
-                    })
-                    .build();
-            this.addRenderableWidget(cb);
+                    });
+            this.addButton(cb);
             rowWidgets.add(cb);
         }
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         int total = visibleMods().size();
         int visible = visibleRows();
-        if (scrollY != 0 && total > visible
+        if (delta != 0 && total > visible
                 && mouseY >= LIST_TOP && mouseY < LIST_TOP + visible * ROW_HEIGHT) {
-            int next = Math.max(0, Math.min(scroll - (int) Math.signum(scrollY), total - visible));
+            int next = Math.max(0, Math.min(scroll - (int) Math.signum(delta), total - visible));
             if (next != scroll) {
                 scroll = next;
                 rebuildRows();
             }
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     static String humanSize(long bytes) {
@@ -200,25 +212,23 @@ public class ModSyncConfirmScreen extends Screen {
     }
 
     private String sourceLabel(ModSyncPlan.PlannedMod m) {
-        return Component.translatable(m.source() == ModSyncPlan.Source.HTTP
+        return new TranslatableComponent(m.source() == ModSyncPlan.Source.HTTP
                 ? "peercraft.modsync.confirm.source_http"
                 : "peercraft.modsync.confirm.source_p2p").getString();
     }
 
     private static String rowName(ModEntry e) {
-        return e.version().isBlank() ? e.id() : e.id() + "  " + e.version();
+        return e.version().trim().isEmpty() ? e.id() : e.id() + "  " + e.version();
     }
 
-    //? if <26.1 {
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        //? if <1.21.6
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
-        super.render(graphics, mouseX, mouseY, partialTick);
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(poseStack);
+        super.render(poseStack, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, centerX, 14, 0xFFFFFFFF);
-        graphics.drawCenteredString(this.font,
-                Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
+        GuiComponent.drawCenteredString(poseStack, this.font, this.title, centerX, 14, 0xFFFFFFFF);
+        GuiComponent.drawCenteredString(poseStack, this.font,
+                new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
 
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
@@ -228,28 +238,28 @@ public class ModSyncConfirmScreen extends Screen {
             int textY = LIST_TOP + i * ROW_HEIGHT + 6;
             boolean client = isClient(m);
             if (!client) {
-                graphics.drawString(this.font, "—", centerX - 204, textY, 0xFF777777, false);
+                GuiComponent.drawString(poseStack, this.font, "—", centerX - 204, textY, 0xFF777777);
             }
-            graphics.drawString(this.font, rowName(e), centerX - 186, textY, 0xFFFFFFFF, false);
-            graphics.drawString(this.font, Component.translatable(client
+            GuiComponent.drawString(poseStack, this.font, rowName(e), centerX - 186, textY, 0xFFFFFFFF);
+            GuiComponent.drawString(poseStack, this.font, new TranslatableComponent(client
                             ? "peercraft.modsync.confirm.tag_client"
-                            : "peercraft.modsync.confirm.tag_required"),
-                    centerX + 20, textY, client ? 0xFFAAAAAA : 0xFFFFD966, false);
-            graphics.drawString(this.font, humanSize(e.sizeBytes()) + ", " + sourceLabel(m),
-                    centerX + 96, textY, 0xFFAAAAAA, false);
+                            : "peercraft.modsync.confirm.tag_required").getString(),
+                    centerX + 20, textY, client ? 0xFFAAAAAA : 0xFFFFD966);
+            GuiComponent.drawString(poseStack, this.font, humanSize(e.sizeBytes()) + ", " + sourceLabel(m),
+                    centerX + 96, textY, 0xFFAAAAAA);
         }
-        drawScrollbar(graphics, centerX, vis.size());
+        drawScrollbar(poseStack, centerX, vis.size());
 
         ModSyncPlan sel = plan.excluding(deselected);
-        graphics.drawCenteredString(this.font,
-                Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
+        GuiComponent.drawCenteredString(poseStack, this.font,
+                new TranslatableComponent("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
                 centerX, this.height - 86, 0xFFFFFFFF);
-        graphics.drawCenteredString(this.font,
-                Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
+        GuiComponent.drawCenteredString(poseStack, this.font,
+                new TranslatableComponent("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
                 centerX, this.height - 72, 0xFFFFD966);
     }
 
-    private void drawScrollbar(GuiGraphics graphics, int centerX, int total) {
+    private void drawScrollbar(PoseStack poseStack, int centerX, int total) {
         int visible = visibleRows();
         if (visible <= 0 || total <= visible) {
             return;
@@ -257,65 +267,11 @@ public class ModSyncConfirmScreen extends Screen {
         int trackHeight = visible * ROW_HEIGHT;
         int left = centerX + 214;
         int right = left + 6;
-        graphics.fill(left, LIST_TOP, right, LIST_TOP + trackHeight, 0xFF000000);
+        GuiComponent.fill(poseStack, left, LIST_TOP, right, LIST_TOP + trackHeight, 0xFF000000);
         int maxScroll = total - visible;
         int s = Math.max(0, Math.min(scroll, maxScroll));
         int thumbHeight = Math.max(16, trackHeight * visible / total);
         int thumbY = LIST_TOP + (trackHeight - thumbHeight) * s / maxScroll;
-        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
+        GuiComponent.fill(poseStack, left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
     }
-    //?} else {
-    /*@Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        graphics.centeredText(this.font, this.title, centerX, 14, 0xFFFFFFFF);
-        graphics.centeredText(this.font,
-                Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
-
-        List<ModSyncPlan.PlannedMod> vis = visibleMods();
-        int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
-        for (int i = 0; i < rows; i++) {
-            ModSyncPlan.PlannedMod m = vis.get(scroll + i);
-            ModEntry e = m.entry();
-            int textY = LIST_TOP + i * ROW_HEIGHT + 6;
-            boolean client = isClient(m);
-            if (!client) {
-                graphics.text(this.font, "—", centerX - 204, textY, 0xFF777777, false);
-            }
-            graphics.text(this.font, rowName(e), centerX - 186, textY, 0xFFFFFFFF, false);
-            graphics.text(this.font, Component.translatable(client
-                            ? "peercraft.modsync.confirm.tag_client"
-                            : "peercraft.modsync.confirm.tag_required"),
-                    centerX + 20, textY, client ? 0xFFAAAAAA : 0xFFFFD966, false);
-            graphics.text(this.font, humanSize(e.sizeBytes()) + ", " + sourceLabel(m),
-                    centerX + 96, textY, 0xFFAAAAAA, false);
-        }
-        drawScrollbar(graphics, centerX, vis.size());
-
-        ModSyncPlan sel = plan.excluding(deselected);
-        graphics.centeredText(this.font,
-                Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
-                centerX, this.height - 86, 0xFFFFFFFF);
-        graphics.centeredText(this.font,
-                Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
-                centerX, this.height - 72, 0xFFFFD966);
-    }
-
-    private void drawScrollbar(GuiGraphicsExtractor graphics, int centerX, int total) {
-        int visible = visibleRows();
-        if (visible <= 0 || total <= visible) {
-            return;
-        }
-        int trackHeight = visible * ROW_HEIGHT;
-        int left = centerX + 214;
-        int right = left + 6;
-        graphics.fill(left, LIST_TOP, right, LIST_TOP + trackHeight, 0xFF000000);
-        int maxScroll = total - visible;
-        int s = Math.max(0, Math.min(scroll, maxScroll));
-        int thumbHeight = Math.max(16, trackHeight * visible / total);
-        int thumbY = LIST_TOP + (trackHeight - thumbHeight) * s / maxScroll;
-        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
-    }*/
-    //?}
 }
