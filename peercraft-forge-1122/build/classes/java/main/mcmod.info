@@ -3,7 +3,7 @@
     "modid": "peercraft",
     "name": "PeerCraft",
     "description": "Play Minecraft with your friends over the real internet — P2P, no dedicated server, no port forwarding. Forge 1.12.2 backport.",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "mcversion": "1.12.2",
     "url": "https://github.com/tabburetka/PeerCraft",
     "authorList": ["tabburetka"],

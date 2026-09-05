@@ -30,7 +30,7 @@ No dedicated server, no always-on hosting machine, no router configuration on ei
 
 ## Requirements
 
-PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-2.0.0.jar` or `peercraft-forge-1.12.2-2.0.0.jar`.
+PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-2.1.0.jar` or `peercraft-forge-1.12.2-2.1.0.jar`.
 
 - **Minecraft** — the main builds target **1.21.1 – 1.21.11** and **26.1 – 26.2**. Older versions (**1.12.2**, **1.7.10**) are covered by separate experimental backports; see the table below.
 - **Loader**

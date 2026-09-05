@@ -1,13 +1,13 @@
-[21:49:10] [Test worker/WARN]: [AccountStorage] Не удалось прочитать /tmp/junit2244804541069071638/account.json — начинаем без сохранённого аккаунта: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 9 path $.this
+[22:28:35] [Test worker/WARN]: [AccountStorage] Не удалось прочитать /tmp/junit12973438771672290415/account.json — начинаем без сохранённого аккаунта: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 9 path $.this
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
-[21:49:10] [Test worker/WARN]: [ModSync] Не удалось прочитать /tmp/junit12584963951757581400/modsync-declined.json — считаем список отклонённых модов пустым: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected BEGIN_OBJECT but was STRING at line 1 column 1 path $
+[22:28:35] [Test worker/WARN]: [ModSync] Не удалось прочитать /tmp/junit93998823950740300/modsync-declined.json — считаем список отклонённых модов пустым: com.google.gson.JsonSyntaxException: java.lang.IllegalStateException: Expected BEGIN_OBJECT but was STRING at line 1 column 1 path $
 See https://github.com/google/gson/blob/main/Troubleshooting.md#unexpected-json-structure
-[21:49:10] [Test worker/WARN]: [ModSync] Не удалось прочитать /tmp/junit2342044504581659139/modsync-installed.json — начинаем с пустого манифеста: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected value at line 1 column 1 path $
+[22:28:35] [Test worker/WARN]: [ModSync] Не удалось прочитать /tmp/junit4232092880139011331/modsync-installed.json — начинаем с пустого манифеста: com.google.gson.JsonSyntaxException: com.google.gson.stream.MalformedJsonException: Expected value at line 1 column 1 path $
 See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json
-[21:49:16] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=2 (хост-загрузчик=FORGE)
-[21:49:17] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=1 (хост-загрузчик=FORGE)
-[21:49:18] [modsync-loopback-net/INFO]: [ModSync] Манифест хоста: 1 записей, после фильтра к скачиванию 1.
-[21:49:18] [modsync-loopback-net/INFO]: [ModSync] К скачиванию: beta-widgets@1.2.0
-[21:49:20] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=1 (хост-загрузчик=FORGE)
-[21:49:20] [modsync-loopback-net/INFO]: [ModSync] Манифест хоста: 1 записей, после фильтра к скачиванию 1.
-[21:49:20] [modsync-loopback-net/INFO]: [ModSync] К скачиванию: beta-widgets@1.2.0
+[22:28:40] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=2 (хост-загрузчик=FORGE)
+[22:28:40] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=1 (хост-загрузчик=FORGE)
+[22:28:40] [modsync-loopback-net/INFO]: [ModSync] Манифест хоста: 1 записей, после фильтра к скачиванию 1.
+[22:28:40] [modsync-loopback-net/INFO]: [ModSync] К скачиванию: beta-widgets@1.2.0
+[22:28:44] [modsync-loopback-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=1 (хост-загрузчик=FORGE)
+[22:28:44] [modsync-loopback-net/INFO]: [ModSync] Манифест хоста: 1 записей, после фильтра к скачиванию 1.
+[22:28:44] [modsync-loopback-net/INFO]: [ModSync] К скачиванию: beta-widgets@1.2.0
