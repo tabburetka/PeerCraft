@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  */
 public class ModSyncConfirmScreen extends Screen {
 
-    private static final int LIST_TOP = 68;
+    private static final int LIST_TOP = 82;
     private static final int ROW_HEIGHT = 22;
     private static final int MAX_ROWS_SHOWN = 8;
 
@@ -77,7 +77,7 @@ public class ModSyncConfirmScreen extends Screen {
     protected void init() {
         int centerX = this.width / 2;
         this.filterButton = Button.builder(filterLabel(), b -> cycleFilter())
-                .bounds(centerX + 62, 42, 150, 20).build();
+                .bounds(centerX + 62, 54, 150, 20).build();
         this.addRenderableWidget(this.filterButton);
         rebuildRows();
 
@@ -219,6 +219,8 @@ public class ModSyncConfirmScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, centerX, 14, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font,
                 Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
+        graphics.drawCenteredString(this.font,
+                Component.translatable("peercraft.modsync.confirm.trust_reminder"), centerX, 42, 0xFFFF5555);
 
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
@@ -272,6 +274,8 @@ public class ModSyncConfirmScreen extends Screen {
         graphics.centeredText(this.font, this.title, centerX, 14, 0xFFFFFFFF);
         graphics.centeredText(this.font,
                 Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
+        graphics.centeredText(this.font,
+                Component.translatable("peercraft.modsync.confirm.trust_reminder"), centerX, 42, 0xFFFF5555);
 
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));

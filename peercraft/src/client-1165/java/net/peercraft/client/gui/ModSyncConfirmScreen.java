@@ -35,7 +35,7 @@ import java.util.function.Consumer;
  */
 public class ModSyncConfirmScreen extends Screen {
 
-    private static final int LIST_TOP = 68;
+    private static final int LIST_TOP = 82;
     private static final int ROW_HEIGHT = 22;
     private static final int MAX_ROWS_SHOWN = 8;
 
@@ -83,7 +83,7 @@ public class ModSyncConfirmScreen extends Screen {
     protected void init() {
         int centerX = this.width / 2;
         this.filterButton = Btn.builder(filterLabel(), (Button.OnPress) b -> cycleFilter())
-                .bounds(centerX + 62, 42, 150, 20).build();
+                .bounds(centerX + 62, 54, 150, 20).build();
         this.addButton(this.filterButton);
         rebuildRows();
 
@@ -229,6 +229,8 @@ public class ModSyncConfirmScreen extends Screen {
         GuiComponent.drawCenteredString(poseStack, this.font, this.title, centerX, 14, 0xFFFFFFFF);
         GuiComponent.drawCenteredString(poseStack, this.font,
                 new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
+        GuiComponent.drawCenteredString(poseStack, this.font,
+                new TranslatableComponent("peercraft.modsync.confirm.trust_reminder"), centerX, 42, 0xFFFF5555);
 
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));

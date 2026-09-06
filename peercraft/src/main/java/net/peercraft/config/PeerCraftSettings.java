@@ -64,6 +64,14 @@ public final class PeerCraftSettings {
     @SerializedName("_showDeveloper")
     public boolean showDeveloperSection;
 
+    /**
+     * One-time acknowledgement that mod sync installs code chosen by the host. Set true the
+     * first time the player clears {@code ModSyncSecurityNoticeScreen}; consent state, never
+     * part of {@link #toOverrideMap()}.
+     */
+    @SerializedName("_modSyncTrustAcknowledged")
+    public boolean modSyncTrustAcknowledged;
+
     /** Config-key ↔ field, in screen order. Used by both {@link #toOverrideMap()} and the screen. */
     public static final String[] FLAG_KEYS = {
             "modSync.client", "modSync.host", "modSync.reofferDeclined",

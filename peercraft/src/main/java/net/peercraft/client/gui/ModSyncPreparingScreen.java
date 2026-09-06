@@ -63,6 +63,8 @@ public class ModSyncPreparingScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, cx, this.height / 2 - 30, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
         graphics.drawCenteredString(this.font, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
+        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
+                cx, this.height / 2 + 40, 0xFFFF5555);
     }
     //?} else {
     /*@Override
@@ -72,6 +74,8 @@ public class ModSyncPreparingScreen extends Screen {
         graphics.centeredText(this.font, this.title, cx, this.height / 2 - 30, 0xFFFFFFFF);
         graphics.centeredText(this.font, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
         graphics.centeredText(this.font, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
+        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
+                cx, this.height / 2 + 40, 0xFFFF5555);
     }*/
     //?}
 }

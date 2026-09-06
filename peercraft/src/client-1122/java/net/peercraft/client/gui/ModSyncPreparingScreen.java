@@ -76,5 +76,7 @@ public class ModSyncPreparingScreen extends GuiScreen {
         this.drawCenteredString(this.fontRenderer, this.titleText, cx, this.height / 2 - 30, 0xFFFFFFFF);
         this.drawCenteredString(this.fontRenderer, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
         this.drawCenteredString(this.fontRenderer, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
+        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"),
+                cx, this.height / 2 + 40, 0xFFFF5555);
     }
 }

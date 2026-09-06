@@ -22,8 +22,11 @@ import net.peercraft.client.gui.ModSyncConfirmScreen;
 import net.peercraft.client.gui.ModSyncPreparingScreen;
 import net.peercraft.client.gui.ModSyncProgressScreen;
 import net.peercraft.client.gui.ModSyncRestartRequiredScreen;
+import net.peercraft.client.gui.ModSyncSecurityNoticeScreen;
 import net.peercraft.client.gui.PeerCraftLang;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.config.PeerCraftSettings;
+import net.peercraft.config.PeerCraftSettingsStore;
 import net.peercraft.network.modsync.ModDiff;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncAgent;
@@ -173,6 +176,23 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     private void planAndPrompt(List<ModEntry> missing) {
         try {
+            // One-time trust gate: mod sync installs jars the host chooses, and a jar is
+            // arbitrary code. Shown before every branch below so it can't be skipped; once
+            // acknowledged, the recursive call falls straight through.
+            if (!PeerCraftSettingsStore.load().modSyncTrustAcknowledged) {
+                runOnClientThread(() -> setScreen(new ModSyncSecurityNoticeScreen(
+                        () -> {
+                            PeerCraftSettings s = PeerCraftSettingsStore.load();
+                            s.modSyncTrustAcknowledged = true;
+                            PeerCraftSettingsStore.save(s);
+                            Thread t = new Thread(() -> planAndPrompt(missing), "PeerCraft-ModSync-Plan");
+                            t.setDaemon(true);
+                            t.start();
+                        },
+                        this::onUserCancel)));
+                return;
+            }
+
             Set<String> declined = ModSyncDeclinedStore.load();
 
             // "Только обязательные моды" (client side): drop purely client-side mods — keep only
