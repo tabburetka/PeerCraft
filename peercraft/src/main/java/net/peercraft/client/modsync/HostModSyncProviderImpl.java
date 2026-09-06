@@ -1,5 +1,6 @@
 package net.peercraft.client.modsync;
 
+import net.peercraft.config.ModSyncMode;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.modsync.ModSyncHostProvider;
@@ -32,18 +33,20 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
 
     private final Path modsDir;
     private final Path servingDir;
+    private final ModSyncMode mode;
     private final CountDownLatch hashed = new CountDownLatch(1);
     private volatile List<ModEntry> cached = List.of();
     private final Map<String, Path> jarById = new LinkedHashMap<>();
 
-    private HostModSyncProviderImpl(Path modsDir) {
+    private HostModSyncProviderImpl(Path modsDir, ModSyncMode mode) {
         this.modsDir = modsDir;
+        this.mode = mode;
         this.servingDir = ModSyncFilesystem.servingDir(modsDir);
     }
 
     /** Kicks off hashing straight away; the coordinator's {@link #hostMods()} waits on it. */
-    public static HostModSyncProviderImpl start(Path modsDir) {
-        HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir);
+    public static HostModSyncProviderImpl start(Path modsDir, ModSyncMode mode) {
+        HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir, mode);
         Thread t = new Thread(p::hashAll, "PeerCraft-ModSync-Hash");
         t.setDaemon(true);
         t.start();
@@ -53,6 +56,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     private void hashAll() {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
+        int clientOnlyWithheld = 0;
         for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir)) {
             String envStr = switch (sj.env()) {
                 case CLIENT -> "client";
@@ -61,6 +65,12 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
             };
             if (ModSyncFilter.isExcluded(sj.id(), envStr, false, sj.fileName())) {
                 skipped++;
+                continue;
+            }
+            // "Только обязательные моды": share only what a joiner needs to enter the world
+            // (ModEntry.Env BOTH/SERVER). Purely client-side mods are the host's own business.
+            if (mode == ModSyncMode.REQUIRED && sj.env() == ModEntry.Env.CLIENT) {
+                clientOnlyWithheld++;
                 continue;
             }
             try {
@@ -74,7 +84,8 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         }
         cached = List.copyOf(out);
         hashed.countDown();
-        LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим ({} пропущено как загрузчик/PeerCraft).", cached.size(), skipped);
+        LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим (режим {}, {} пропущено как загрузчик/PeerCraft, {} придержано как только клиентские).",
+                cached.size(), mode.key(), skipped, clientOnlyWithheld);
     }
 
     @Override

@@ -81,6 +81,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private Button vanillaRefreshButton;
     private Button vanillaBackButton;
     private Button accountGlyphButton;
+    private Button settingsGlyphButton;
     private Button joinByCodeGlyphButton;
     private Button feedbackButton;
     private Button donateButton;
@@ -320,6 +321,13 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 vanillaBack.getX() + vanillaBack.getWidth() + 6, vanillaBack.getY(), vanillaBack.getHeight(),
                 "☺", Component.translatable("peercraft.gui.multiplayer.account_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this))));
 
+        // PeerCraft Settings — gear glyph right after the account button. All PeerCraft flags
+        // (mod sync host/client modes, ports, rendezvous, …) are edited here and persisted to
+        // config/peercraft/settings.json.
+        this.settingsGlyphButton = this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
+                this.accountGlyphButton.getX() + this.accountGlyphButton.getWidth() + 6, vanillaBack.getY(), vanillaBack.getHeight(),
+                "⚙", Component.translatable("peercraft.gui.settings.glyph_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftSettingsScreen(this))));
+
         // "Join by code" — same relocation, next to Add Server. Skipped in host mode
         // like the old title-screen button was: a host never needs to join someone else's room.
         if (!PeerCraftConfig.MODE_HOST.equals(PeerCraftConfig.mode())) {
@@ -462,6 +470,10 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         if (this.accountGlyphButton != null && this.vanillaBackButton != null) {
             this.accountGlyphButton.setX(this.vanillaBackButton.getX() + this.vanillaBackButton.getWidth() + 6);
             this.accountGlyphButton.setY(this.vanillaBackButton.getY());
+        }
+        if (this.settingsGlyphButton != null && this.accountGlyphButton != null) {
+            this.settingsGlyphButton.setX(this.accountGlyphButton.getX() + this.accountGlyphButton.getWidth() + 6);
+            this.settingsGlyphButton.setY(this.accountGlyphButton.getY());
         }
         if (this.joinByCodeGlyphButton != null && this.favoritesAddButton != null) {
             this.joinByCodeGlyphButton.setX(this.favoritesAddButton.getX() + this.favoritesAddButton.getWidth() + 6);

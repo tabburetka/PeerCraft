@@ -8,6 +8,7 @@ import net.peercraft.client.gui.ModSyncConfirmScreen;
 import net.peercraft.client.gui.ModSyncPreparingScreen;
 import net.peercraft.client.gui.ModSyncProgressScreen;
 import net.peercraft.client.gui.ModSyncRestartRequiredScreen;
+import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModDiff;
 import net.peercraft.network.modsync.ModEntry;
@@ -174,10 +175,26 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         try {
             Set<String> declined = ModSyncDeclinedStore.load();
 
+            // "Только обязательные моды" (client side): drop every purely client-side mod the
+            // host offered — keep only what's needed to join (ModEntry.Env BOTH/SERVER). These
+            // are mode-driven, not the player's choice, so they are NOT written to
+            // ModSyncDeclinedStore. Uses the host's manifest env guess (same guess the host's
+            // own "required only" filter uses), before the Modrinth refinement in resolveSources.
+            boolean requiredOnly = PeerCraftConfig.modSyncClientMode() == ModSyncMode.REQUIRED;
+            List<ModEntry> visible = missing;
+            if (requiredOnly) {
+                visible = new ArrayList<>();
+                for (ModEntry e : missing) {
+                    if (e.env() != ModEntry.Env.CLIENT) {
+                        visible.add(e);
+                    }
+                }
+            }
+
             // What would actually download if we went ahead with the remembered choices: the
-            // missing set minus the client-side mods the player turned down on an earlier join.
+            // visible set minus the client-side mods the player turned down on an earlier join.
             List<ModEntry> toFetch = new ArrayList<>();
-            for (ModEntry e : missing) {
+            for (ModEntry e : visible) {
                 if (!declined.contains(e.id())) {
                     toFetch.add(e);
                 }
@@ -186,7 +203,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             long maxModBytes = mib(PeerCraftConfig.modSyncMaxModMb());
             long maxTotalBytes = mib(PeerCraftConfig.modSyncMaxTotalMb());
             long total = 0;
-            for (ModEntry e : missing) {
+            for (ModEntry e : visible) {
                 if (e.sizeBytes() > maxModBytes) {
                     abortTooBig();
                     return;
@@ -214,10 +231,11 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
-            // Interactive: list the whole missing set so a previously-declined mod can be
-            // re-checked; start its checkbox unticked. Use the plan's mods — their env has been
-            // refined by Modrinth, so "is this client-side" matches what the screen will show.
-            ModSyncPlan plan = ModSyncPlan.of(resolveSources(missing));
+            // Interactive: list the visible set so a previously-declined mod can be re-checked;
+            // start its checkbox unticked. Use the plan's mods — their env has been refined by
+            // Modrinth, so "is this client-side" matches what the screen will show. In
+            // "required only" mode `visible` is already just the join-required mods.
+            ModSyncPlan plan = ModSyncPlan.of(resolveSources(visible));
             Set<String> preDeselected = new LinkedHashSet<>();
             for (ModSyncPlan.PlannedMod pm : plan.mods()) {
                 if (pm.entry().env() == ModEntry.Env.CLIENT && declined.contains(pm.entry().id())) {

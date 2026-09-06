@@ -5,6 +5,7 @@ import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
 import net.peercraft.client.modsync.ModSyncFilesystem;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.config.PeerCraftSettingsStore;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
@@ -21,6 +22,15 @@ public final class PeerCraftClientCommon {
     }
 
     public static void initClient() {
+        // Fold the in-game PeerCraft Settings screen's saved flags (config/peercraft/settings.json)
+        // into PeerCraftConfig before anything reads a flag. Tolerant — a missing/corrupt file
+        // just means the launch flags / built-in defaults apply. An explicit -Dpeercraft.* still wins.
+        try {
+            PeerCraftConfig.applyOverrides(PeerCraftSettingsStore.load().toOverrideMap());
+        } catch (RuntimeException e) {
+            LOGGER.warn("[PeerCraft] settings.json пропущен: {}", e.toString());
+        }
+
         String mode = PeerCraftConfig.mode();
 
         // Best-effort: clear any half-written mod-sync temp files (*.jar.part, serving/) from a

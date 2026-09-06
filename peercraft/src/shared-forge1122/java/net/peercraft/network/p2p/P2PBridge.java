@@ -542,7 +542,7 @@ public class P2PBridge {
                 clearRendezvousListener();
                 setClientTargetPeer(ip, port);
                 LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
-                if (modSync == null || !PeerCraftConfig.modSync()) {
+                if (modSync == null || PeerCraftConfig.modSyncClientMode() == net.peercraft.config.ModSyncMode.OFF) {
                     listener.onConnected();
                     return;
                 }

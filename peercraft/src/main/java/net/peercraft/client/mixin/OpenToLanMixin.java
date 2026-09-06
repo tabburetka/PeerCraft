@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.peercraft.client.PeerCraftHostOptions;
 import net.peercraft.client.modsync.HostModSyncProviderImpl;
+import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
@@ -84,9 +85,10 @@ public abstract class OpenToLanMixin {
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
                 ModSyncHostProvider modSyncProvider = null;
-                if (PeerCraftConfig.modSync()) {
+                ModSyncMode hostMode = PeerCraftConfig.modSyncHostMode();
+                if (hostMode != ModSyncMode.OFF) {
                     try {
-                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir());
+                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir(), hostMode);
                     } catch (RuntimeException e) {
                         LOGGER.warn("[PeerCraft P2P] Не удалось подготовить mod-sync для хоста: {}", e.toString());
                     }

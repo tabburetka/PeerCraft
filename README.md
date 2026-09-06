@@ -125,7 +125,9 @@ Several independent Gradle projects in one repo:
 
 ### Configuration
 
-The mod reads Java system properties first and environment variables second. If a value is not set, the default is used. None of these are needed for normal play — the in-game UI (Join screen, Open to LAN checkbox) drives everything live; these are mainly useful for dev testing or an always-hosting headless machine.
+The mod reads Java system properties first, environment variables second, then the values saved by the in-game **PeerCraft Settings** screen (`config/peercraft/settings.json`), then the built-in default. An explicit `-Dpeercraft.*` / `PEERCRAFT_*` always wins over a saved value. None of these are needed for normal play — the in-game UI (Join screen, Open to LAN checkbox, Settings screen) drives everything live; the launch flags are mainly useful for dev testing or an always-hosting headless machine.
+
+Open the settings screen from the gear icon on the PeerCraft multiplayer screen (**Multiplayer → ⚙**). `mode`, `modSync.autoAccept`, the rendezvous address and the port flags are kept behind a collapsed **Для разработчиков** section since a wrong value there can disable the mod or break connections. On the 1.12.2 / 1.7.10 backports the screen covers the toggle/cycle flags (mod-sync modes, `autoAccept`, `mode`, size limits, max players); the free-text and port flags there remain launch-flag only.
 
 | System property | Environment variable | Default | Description |
 | --- | --- | --- | --- |
@@ -143,7 +145,9 @@ The mod reads Java system properties first and environment variables second. If 
 | `peercraft.reorder.gapTimeoutMillis` | *(system property only)* | `12000` | How long the receiver waits for one missing packet (while re-requesting it) before dropping the session. Kept under Minecraft's own 30 s read timeout; range `1000`–`600000`. |
 | `peercraft.reorder.nackDebounceMillis` | *(system property only)* | `120` | Minimum gap between repeat resend-requests for the same missing packet; range `10`–`5000`. |
 | `peercraft.send.pacingMillis` | *(system property only)* | `0` | Delay inserted between the datagrams of one large payload. `0` sends them in a burst (original behavior); `1`–`2` spreads world-sync traffic so a congested uplink drops fewer packets, at the cost of slightly slower bulk transfer. Max `50`. |
-| `peercraft.modSync` | `PEERCRAFT_MOD_SYNC` | `true` | Master switch for mod sync (see below). `false` disables the handshake entirely — joining behaves exactly as before. |
+| `peercraft.modSync.host` | `PEERCRAFT_MOD_SYNC_HOST` | `all` | What you share with players joining **your** world: `off` (no mod sync for joiners), `required` (only mods needed to join — client+server and server-only), `all` (every non-excluded mod). |
+| `peercraft.modSync.client` | `PEERCRAFT_MOD_SYNC_CLIENT` | `all` | What you download when joining **someone else's** world: `off` (never run the handshake), `required` (only mods needed to join; client-only mods are auto-skipped), `all`. Independent of `modSync.host`. |
+| `peercraft.modSync` | `PEERCRAFT_MOD_SYNC` | `true` | Legacy master switch. Still read as the default for `modSync.host` / `modSync.client` when those are unset: `false` makes both `off`. |
 | `peercraft.modSync.autoAccept` | `PEERCRAFT_MOD_SYNC_AUTO_ACCEPT` | `false` | Skip the "these mods will be downloaded" confirmation screen and install straight away. Opt-in — only sensible for a closed group of trusted friends on a private rendezvous server. |
 | `peercraft.modSync.maxTotalMb` | `PEERCRAFT_MOD_SYNC_MAX_TOTAL_MB` | `512` | Reject a mod-sync batch whose jars total more than this many MiB, before any download starts. |
 | `peercraft.modSync.maxModMb` | `PEERCRAFT_MOD_SYNC_MAX_MOD_MB` | `256` | Reject / abort any single jar larger than this many MiB. |
@@ -162,7 +166,9 @@ When you join a friend's world over PeerCraft and the host has mods you're missi
 
 What you untick is remembered in `config/peercraft/modsync-declined.json`, so the screen doesn't nag on every re-join — it only comes back when the host offers a mod that isn't on that list (or with `peercraft.modSync.reofferDeclined=true`). If every missing mod is one you've already ruled out, the join proceeds silently.
 
-Minecraft can't load newly installed mods without a relaunch, so after a download PeerCraft does **not** continue the join — it shows a "restart required" screen. Quit, relaunch, and reconnect; this time the mods are present and the join goes straight through. If you untick everything and nothing is required, PeerCraft connects right away with no restart. `peercraft.modSync.autoAccept=true` skips the confirmation screen; `peercraft.modSync=false` turns the whole thing off.
+Minecraft can't load newly installed mods without a relaunch, so after a download PeerCraft does **not** continue the join — it shows a "restart required" screen. Quit, relaunch, and reconnect; this time the mods are present and the join goes straight through. If you untick everything and nothing is required, PeerCraft connects right away with no restart. `peercraft.modSync.autoAccept=true` skips the confirmation screen.
+
+Mod sync is split into a **host** side and a **client** side, each set independently in the Settings screen (or via `peercraft.modSync.host` / `peercraft.modSync.client`) to **Отключён / Только обязательные моды / Все моды**. This lets one player download mods when joining a friend's world while, as a host, either turning mod sync off for incoming players or sharing only the mods actually required to enter the world. "Required" means an entry whose `fabric.mod.json` `environment` (or `mods.toml` `side`) is client+server or server-only; purely client-side mods are the optional part.
 
 The P2P transfer tolerates ordinary packet loss (a mangled or dropped chunk is silently re-requested, and a transfer that fails outright can simply be retried by reconnecting — the host re-serves from a fresh session). On a badly congested or DPI-mangled uplink where a large jar keeps stalling near the end, set `-Dpeercraft.modSync.sendPacingMillis=8` on the **host** to cap its upload rate; raise the number if it still stalls, lower it for more speed.
 

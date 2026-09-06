@@ -227,10 +227,15 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
 
     private void addFavoritesGlyphButtons() {
         if (this.vBack != null) {
+            int accountGlyphX = this.vBack.x + this.vBack.width + 6;
             this.buttonList.add(PeerCraftUi.squareGlyphButton(
-                    this.vBack.x + this.vBack.width + 6, this.vBack.y, this.vBack.height,
+                    accountGlyphX, this.vBack.y, this.vBack.height,
                     "☺", PeerCraftLang.tr("peercraft.gui.multiplayer.account_tooltip"),
                     () -> PeerCraftUi.setScreen(this.mc, new PeerCraftAccountScreen(this))));
+            this.buttonList.add(PeerCraftUi.squareGlyphButton(
+                    accountGlyphX + this.vBack.height + 6, this.vBack.y, this.vBack.height,
+                    "⚙", PeerCraftLang.tr("peercraft.gui.settings.glyph_tooltip"),
+                    () -> PeerCraftUi.setScreen(this.mc, new PeerCraftSettingsScreen(this))));
         }
         if (this.vAdd != null && !PeerCraftConfig.MODE_HOST.equals(PeerCraftConfig.mode())) {
             this.buttonList.add(PeerCraftUi.squareGlyphButton(

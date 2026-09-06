@@ -171,8 +171,21 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         try {
             Set<String> declined = ModSyncDeclinedStore.load();
 
+            // "Только обязательные моды" (client side): drop purely client-side mods — keep only
+            // what's needed to join. Mode-driven, so NOT persisted to ModSyncDeclinedStore.
+            boolean requiredOnly = PeerCraftConfig.modSyncClientMode() == net.peercraft.config.ModSyncMode.REQUIRED;
+            List<ModEntry> visible = missing;
+            if (requiredOnly) {
+                visible = new ArrayList<>();
+                for (ModEntry e : missing) {
+                    if (e.env() != ModEntry.Env.CLIENT) {
+                        visible.add(e);
+                    }
+                }
+            }
+
             List<ModEntry> toFetch = new ArrayList<>();
-            for (ModEntry e : missing) {
+            for (ModEntry e : visible) {
                 if (!declined.contains(e.id())) {
                     toFetch.add(e);
                 }
@@ -181,7 +194,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             long maxModBytes = mib(PeerCraftConfig.modSyncMaxModMb());
             long maxTotalBytes = mib(PeerCraftConfig.modSyncMaxTotalMb());
             long total = 0;
-            for (ModEntry e : missing) {
+            for (ModEntry e : visible) {
                 if (e.sizeBytes() > maxModBytes) {
                     abortTooBig();
                     return;
@@ -206,9 +219,9 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
-            ModSyncPlan plan = ModSyncPlan.of(plannedP2p(missing));
+            ModSyncPlan plan = ModSyncPlan.of(plannedP2p(visible));
             Set<String> preDeselected = new LinkedHashSet<>();
-            for (ModEntry e : missing) {
+            for (ModEntry e : visible) {
                 if (e.env() == ModEntry.Env.CLIENT && declined.contains(e.id())) {
                     preDeselected.add(e.id());
                 }

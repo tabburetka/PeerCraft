@@ -1,5 +1,6 @@
 package net.peercraft.network.p2p;
 
+import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncAgent;
 import net.peercraft.network.modsync.ModSyncCoordinator;
@@ -555,7 +556,7 @@ public class P2PBridge {
                 clearRendezvousListener();
                 setClientTargetPeer(ip, port);
                 LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
-                if (modSync == null || !PeerCraftConfig.modSync()) {
+                if (modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) {
                     listener.onConnected();
                     return;
                 }

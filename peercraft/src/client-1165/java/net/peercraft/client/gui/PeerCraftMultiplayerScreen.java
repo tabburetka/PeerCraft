@@ -208,10 +208,17 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 .bounds(vanillaRefresh.x, vanillaRefresh.y, vanillaRefresh.getWidth(), vanillaRefresh.getHeight())
                 .build());
 
+        int glyphSize = vanillaBack.getHeight();
+        int accountGlyphX = vanillaBack.x + vanillaBack.getWidth() + 6;
         this.addButton(PeerCraftUi.squareGlyphButton(
-                vanillaBack.x + vanillaBack.getWidth() + 6, vanillaBack.y, vanillaBack.getHeight(),
+                accountGlyphX, vanillaBack.y, glyphSize,
                 "☺", new TranslatableComponent("peercraft.gui.multiplayer.account_tooltip").getString(),
                 b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this))));
+
+        this.addButton(PeerCraftUi.squareGlyphButton(
+                accountGlyphX + glyphSize + 6, vanillaBack.y, glyphSize,
+                "⚙", new TranslatableComponent("peercraft.gui.settings.glyph_tooltip").getString(),
+                b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftSettingsScreen(this))));
 
         if (!PeerCraftConfig.MODE_HOST.equals(PeerCraftConfig.mode())) {
             this.addButton(PeerCraftUi.squareGlyphButton(

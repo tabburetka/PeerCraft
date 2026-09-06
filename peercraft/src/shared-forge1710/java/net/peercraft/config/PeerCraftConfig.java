@@ -8,6 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 
 public final class PeerCraftConfig {
@@ -20,6 +23,18 @@ public final class PeerCraftConfig {
 
     private static final String PROPERTY_PREFIX = "peercraft.";
     private static final String ENV_PREFIX = "PEERCRAFT_";
+
+    // In-memory override layer fed from config/peercraft/settings.json (the in-game PeerCraft
+    // Settings screen) at client init via applyOverrides(). Resolved BELOW -Dpeercraft.* /
+    // PEERCRAFT_* but ABOVE the baked defaults and the hardcoded fallback.
+    private static volatile Map<String, String> overrides = Collections.emptyMap();
+
+    /** Replaces the settings.json override layer. Called at client init and again from the Settings screen's Save. */
+    public static void applyOverrides(Map<String, String> map) {
+        overrides = (map == null || map.isEmpty())
+                ? Collections.<String, String>emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<String, String>(map));
+    }
 
     // Optional baked-in overrides shipped as a classpath resource. Absent from a normal build;
     // the "-DEVELOP" jars carry one (rendezvousHost=127.0.0.1 + shifted local ports) so a
@@ -133,6 +148,18 @@ public final class PeerCraftConfig {
         return boolValue("modSync.reofferDeclined", false);
     }
 
+    // Host side: what this player shares with joiners when hosting their own world.
+    //   off / required / all — see ModSyncMode. Defaults to ALL, or OFF when legacy modSync=false.
+    public static ModSyncMode modSyncHostMode() {
+        return ModSyncMode.fromKey(stringValue("modSync.host", null), modSync() ? ModSyncMode.ALL : ModSyncMode.OFF);
+    }
+
+    // Client/joiner side: what this player downloads when joining someone else's world.
+    //   off / required / all — see ModSyncMode. Independent of modSyncHostMode().
+    public static ModSyncMode modSyncClientMode() {
+        return ModSyncMode.fromKey(stringValue("modSync.client", null), modSync() ? ModSyncMode.ALL : ModSyncMode.OFF);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         if (property != null && !property.trim().isEmpty()) {
@@ -142,6 +169,11 @@ public final class PeerCraftConfig {
         String env = System.getenv(ENV_PREFIX + toEnvName(key));
         if (env != null && !env.trim().isEmpty()) {
             return env.trim();
+        }
+
+        String override = overrides.get(key);
+        if (override != null && !override.trim().isEmpty()) {
+            return override.trim();
         }
 
         String baked = BAKED_DEFAULTS.getProperty(key);

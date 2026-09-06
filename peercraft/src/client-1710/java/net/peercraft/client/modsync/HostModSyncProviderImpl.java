@@ -36,18 +36,20 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
 
     private final Path modsDir;
     private final Path servingDir;
+    private final net.peercraft.config.ModSyncMode mode;
     private final CountDownLatch hashed = new CountDownLatch(1);
     private volatile List<ModEntry> cached = Collections.emptyList();
     private final Map<String, Path> jarById = new LinkedHashMap<>();
 
-    private HostModSyncProviderImpl(Path modsDir) {
+    private HostModSyncProviderImpl(Path modsDir, net.peercraft.config.ModSyncMode mode) {
         this.modsDir = modsDir;
+        this.mode = mode;
         this.servingDir = ModSyncFilesystem.servingDir(modsDir);
     }
 
     /** Kicks off hashing straight away; the coordinator's {@link #hostMods()} waits on it. */
-    public static HostModSyncProviderImpl start(Path modsDir) {
-        final HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir);
+    public static HostModSyncProviderImpl start(Path modsDir, net.peercraft.config.ModSyncMode mode) {
+        final HostModSyncProviderImpl p = new HostModSyncProviderImpl(modsDir, mode);
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -76,6 +78,10 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                     break;
             }
             if (ModSyncFilter.isExcluded(sj.id(), envStr, false, sj.fileName())) {
+                skipped++;
+                continue;
+            }
+            if (mode == net.peercraft.config.ModSyncMode.REQUIRED && sj.env() == ModEntry.Env.CLIENT) {
                 skipped++;
                 continue;
             }

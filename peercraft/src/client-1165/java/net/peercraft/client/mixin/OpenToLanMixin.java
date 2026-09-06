@@ -71,9 +71,10 @@ public abstract class OpenToLanMixin {
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
                 ModSyncHostProvider modSyncProvider = null;
-                if (PeerCraftConfig.modSync()) {
+                net.peercraft.config.ModSyncMode hostMode = PeerCraftConfig.modSyncHostMode();
+                if (hostMode != net.peercraft.config.ModSyncMode.OFF) {
                     try {
-                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir());
+                        modSyncProvider = HostModSyncProviderImpl.start(Services.PLATFORM.getModsDir(), hostMode);
                     } catch (RuntimeException e) {
                         LOGGER.warn("[PeerCraft P2P] Не удалось подготовить mod-sync для хоста: {}", e.toString());
                     }

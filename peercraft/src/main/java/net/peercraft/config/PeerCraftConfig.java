@@ -4,6 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 
 public final class PeerCraftConfig {
@@ -16,6 +19,20 @@ public final class PeerCraftConfig {
 
     private static final String PROPERTY_PREFIX = "peercraft.";
     private static final String ENV_PREFIX = "PEERCRAFT_";
+
+    // In-memory override layer fed from config/peercraft/settings.json (the in-game PeerCraft
+    // Settings screen) at client init via applyOverrides(). Resolved BELOW -Dpeercraft.* /
+    // PEERCRAFT_* (an explicit launch flag always wins) but ABOVE the baked defaults and the
+    // hardcoded fallback. Empty until applyOverrides() runs, so a server / test with no
+    // settings.json behaves exactly as before.
+    private static volatile Map<String, String> overrides = Collections.emptyMap();
+
+    /** Replaces the settings.json override layer. Called at client init and again from the Settings screen's Save. */
+    public static void applyOverrides(Map<String, String> map) {
+        overrides = (map == null || map.isEmpty())
+                ? Collections.<String, String>emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<String, String>(map));
+    }
 
     // Optional baked-in overrides shipped as a classpath resource. Absent from a normal build;
     // the "-DEVELOP" jars carry one (rendezvousHost=127.0.0.1 + shifted local ports) so a
@@ -134,6 +151,25 @@ public final class PeerCraftConfig {
         return boolValue("modSync.reofferDeclined", false);
     }
 
+    // Host side: what this player shares with joiners when hosting their own world.
+    //   off      — no mod sync for incoming players (like the legacy modSync=false)
+    //   required — only mods needed to join (ModEntry.Env BOTH/SERVER); client-only mods withheld
+    //   all      — every non-excluded mod (original behaviour)
+    // Defaults to ALL, or OFF when the legacy -Dpeercraft.modSync=false is set.
+    public static ModSyncMode modSyncHostMode() {
+        return ModSyncMode.fromKey(stringValue("modSync.host", null), modSync() ? ModSyncMode.ALL : ModSyncMode.OFF);
+    }
+
+    // Client/joiner side: what this player downloads when joining someone else's world.
+    //   off      — never run the mod-sync handshake
+    //   required — only download mods needed to join; auto-skip client-only mods
+    //   all      — offer to download everything the host has (original behaviour)
+    // Independent of modSyncHostMode() so a player can download mods as a guest but share
+    // nothing (or only the essentials) as a host.
+    public static ModSyncMode modSyncClientMode() {
+        return ModSyncMode.fromKey(stringValue("modSync.client", null), modSync() ? ModSyncMode.ALL : ModSyncMode.OFF);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         //? if >=1.17
@@ -149,6 +185,14 @@ public final class PeerCraftConfig {
         //? if <1.17
         /*if (env != null && !env.trim().isEmpty()) {*/
             return env.trim();
+        }
+
+        String override = overrides.get(key);
+        //? if >=1.17
+        if (override != null && !override.isBlank()) {
+        //? if <1.17
+        /*if (override != null && !override.trim().isEmpty()) {*/
+            return override.trim();
         }
 
         String baked = BAKED_DEFAULTS.getProperty(key);

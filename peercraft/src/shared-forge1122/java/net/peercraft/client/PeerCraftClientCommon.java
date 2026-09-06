@@ -8,6 +8,7 @@ import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.config.PeerCraftSettingsStore;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
 import org.slf4j.Logger;
@@ -23,6 +24,14 @@ public final class PeerCraftClientCommon {
     }
 
     public static void initClient() {
+        // Fold the in-game PeerCraft Settings screen's saved flags (config/peercraft/settings.json)
+        // into PeerCraftConfig before anything reads a flag. Tolerant; an explicit -Dpeercraft.* still wins.
+        try {
+            PeerCraftConfig.applyOverrides(PeerCraftSettingsStore.load().toOverrideMap());
+        } catch (RuntimeException e) {
+            LOGGER.warn("[PeerCraft] settings.json пропущен: {}", e.toString());
+        }
+
         String mode = PeerCraftConfig.mode();
 
         // Accounts/friends work independently of hosting/joining mode — a player might only
