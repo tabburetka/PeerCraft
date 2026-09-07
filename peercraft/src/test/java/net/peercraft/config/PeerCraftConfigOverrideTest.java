@@ -16,6 +16,23 @@ class PeerCraftConfigOverrideTest {
         System.clearProperty("peercraft.maxPlayers");
         System.clearProperty("peercraft.modSync.host");
         System.clearProperty("peercraft.modSync");
+        System.clearProperty("peercraft.rendezvousHost");
+    }
+
+    @Test
+    void baselineValueReflectsALaunchFlagAndIgnoresOverrides() {
+        // Nothing set -> "" (the settings screen falls back to its own hardcoded default).
+        assertEquals("", PeerCraftConfig.baselineValue("rendezvousHost"));
+
+        Map<String, String> m = new HashMap<>();
+        m.put("rendezvousHost", "10.0.0.9");
+        PeerCraftConfig.applyOverrides(m);
+        // baselineValue must NOT see the settings.json override layer...
+        assertEquals("", PeerCraftConfig.baselineValue("rendezvousHost"));
+        // ...but a real launch flag does show through (so the screen can display it).
+        System.setProperty("peercraft.rendezvousHost", "1.2.3.4");
+        assertEquals("1.2.3.4", PeerCraftConfig.baselineValue("rendezvousHost"));
+        assertEquals("1.2.3.4", PeerCraftConfig.rendezvousHost());
     }
 
     @Test

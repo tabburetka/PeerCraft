@@ -5,6 +5,7 @@ import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.modsync.ModSyncProtocol;
+import net.peercraft.platform.services.PlatformMod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -56,7 +60,6 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     private void hashAll() {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
-        int clientOnlyWithheld = 0;
         for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir)) {
             String envStr = switch (sj.env()) {
                 case CLIENT -> "client";
@@ -65,12 +68,6 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
             };
             if (ModSyncFilter.isExcluded(sj.id(), envStr, false, sj.fileName())) {
                 skipped++;
-                continue;
-            }
-            // "Только обязательные моды": share only what a joiner needs to enter the world
-            // (ModEntry.Env BOTH/SERVER). Purely client-side mods are the host's own business.
-            if (mode == ModSyncMode.REQUIRED && sj.env() == ModEntry.Env.CLIENT) {
-                clientOnlyWithheld++;
                 continue;
             }
             try {
@@ -82,10 +79,88 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 LOGGER.warn("[ModSync] Не удалось захешировать {}: {}", sj.fileName(), e.toString());
             }
         }
+
+        // "Только обязательные моды": share only what a joiner needs to enter the world. The jar's
+        // own fabric.mod.json "environment" is a weak signal — many client-only mods (AppleSkin, …)
+        // declare "*" for a trivial server component — so refine each mod's side through Modrinth
+        // (the same source the joiner's confirm screen trusts), then withhold the client-only ones.
+        // No network calls in ALL / OFF mode.
+        int clientOnlyWithheld = 0;
+        if (mode == ModSyncMode.REQUIRED && !out.isEmpty()) {
+            Map<String, ModEntry.Env> refined = refineSidesViaModrinth(out);
+            List<ModEntry> required = new ArrayList<>(out.size());
+            for (ModEntry e : out) {
+                ModEntry.Env env = refined.getOrDefault(e.id(), e.env());
+                if (env == ModEntry.Env.CLIENT) {
+                    jarById.remove(e.id());
+                    clientOnlyWithheld++;
+                    continue;
+                }
+                required.add(env == e.env() ? e : withEnv(e, env));
+            }
+            out = required;
+        }
+
         cached = List.copyOf(out);
         hashed.countDown();
         LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим (режим {}, {} пропущено как загрузчик/PeerCraft, {} придержано как только клиентские).",
                 cached.size(), mode.key(), skipped, clientOnlyWithheld);
+    }
+
+    /** modId → Modrinth's curated {@link ModEntry.Env}; only ids with a definitive verdict are present. */
+    private static Map<String, ModEntry.Env> refineSidesViaModrinth(List<ModEntry> entries) {
+        Map<String, ModEntry.Env> byModId = new LinkedHashMap<>();
+        try {
+            ModrinthClient modrinth = new ModrinthClient(selfVersion());
+            String[] projectByIndex = new String[entries.size()];
+            int parallel = Math.min(6, Math.max(1, entries.size()));
+            ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
+                Thread t = new Thread(r, "PeerCraft-ModSync-HostResolve");
+                t.setDaemon(true);
+                return t;
+            });
+            try {
+                List<CompletableFuture<Void>> tasks = new ArrayList<>();
+                for (int i = 0; i < entries.size(); i++) {
+                    final int idx = i;
+                    tasks.add(CompletableFuture.runAsync(() ->
+                            modrinth.resolve(entries.get(idx)).ifPresent(r -> projectByIndex[idx] = r.projectId()), pool));
+                }
+                CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
+            } finally {
+                pool.shutdownNow();
+            }
+
+            List<String> projectIds = new ArrayList<>();
+            for (String p : projectByIndex) {
+                if (p != null && !p.isBlank()) {
+                    projectIds.add(p);
+                }
+            }
+            Map<String, ModEntry.Env> sideByProject = modrinth.projectSides(projectIds);
+            for (int i = 0; i < entries.size(); i++) {
+                ModEntry.Env env = projectByIndex[i] == null ? null : sideByProject.get(projectByIndex[i]);
+                if (env != null) {
+                    byModId.put(entries.get(i).id(), env);
+                }
+            }
+        } catch (RuntimeException e) {
+            LOGGER.debug("[ModSync] Не удалось уточнить сторону модов через Modrinth: {}", e.toString());
+        }
+        return byModId;
+    }
+
+    private static ModEntry withEnv(ModEntry e, ModEntry.Env env) {
+        return new ModEntry(e.id(), e.version(), e.sizeBytes(), e.sha512(), e.fileName(), env, e.homepageUrl(), e.sourcesUrl());
+    }
+
+    private static String selfVersion() {
+        for (PlatformMod pm : InstalledModScanner.allInstalled()) {
+            if ("peercraft".equals(pm.id())) {
+                return pm.version();
+            }
+        }
+        return "2.1.0";
     }
 
     @Override

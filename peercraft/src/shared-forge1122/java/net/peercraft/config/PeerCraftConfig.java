@@ -184,6 +184,29 @@ public final class PeerCraftConfig {
         return defaultValue;
     }
 
+    /**
+     * The value {@code key} resolves to from launch flags only — {@code -Dpeercraft.<key>} →
+     * {@code PEERCRAFT_<KEY>} → the baked {@code peercraft-defaults.properties} — ignoring both
+     * the settings.json override layer and the hardcoded fallback. {@code ""} when none set it.
+     * The in-game settings screen uses this to show the value a flag is currently forcing (and
+     * to avoid re-persisting a flag/baked value into settings.json).
+     */
+    public static String baselineValue(String key) {
+        String property = System.getProperty(PROPERTY_PREFIX + key);
+        if (property != null && !property.trim().isEmpty()) {
+            return property.trim();
+        }
+        String env = System.getenv(ENV_PREFIX + toEnvName(key));
+        if (env != null && !env.trim().isEmpty()) {
+            return env.trim();
+        }
+        String baked = BAKED_DEFAULTS.getProperty(key);
+        if (baked != null && !baked.trim().isEmpty()) {
+            return baked.trim();
+        }
+        return "";
+    }
+
     private static int intValue(String key, int defaultValue) {
         return intValueInRange(key, defaultValue, 0, 65535);
     }

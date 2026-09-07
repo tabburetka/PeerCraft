@@ -84,7 +84,17 @@ public class PeerCraftSettingsScreen extends GuiScreen {
 
     private String seed(String key) {
         String saved = this.settings.get(key);
-        return (saved != null && !saved.trim().isEmpty()) ? saved.trim() : builtinDefault(key);
+        if (saved != null && !saved.trim().isEmpty()) {
+            return saved.trim();
+        }
+        String baseline = PeerCraftConfig.baselineValue(key);
+        return !baseline.isEmpty() ? baseline : builtinDefault(key);
+    }
+
+    // Right-hand column for the cycle controls, pushed toward the edge so the Russian label to
+    // its left has room; drawScreen() clips the label so the two never overlap.
+    private int controlX() {
+        return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);
     }
 
     @Override
@@ -136,7 +146,7 @@ public class PeerCraftSettingsScreen extends GuiScreen {
     private int cycleRow(int y, String key, String labelKey, List<String> values, String langPrefix, boolean warn) {
         String current = seed(key);
         final String prefix = langPrefix;
-        IdButton button = CycleTextButton.create(this.width / 2 + 10, y, CONTROL_W, 20,
+        IdButton button = CycleTextButton.create(controlX(), y, CONTROL_W, 20,
                 values, values.contains(current) ? current : values.get(values.size() - 1),
                 v -> prefix == null ? v : PeerCraftLang.tr("peercraft.gui.settings." + prefix + v),
                 v -> this.settings.set(key, v));
@@ -209,7 +219,9 @@ public class PeerCraftSettingsScreen extends GuiScreen {
     private void onSave() {
         for (String key : PeerCraftSettings.FLAG_KEYS) {
             String value = this.settings.get(key);
-            if (value != null && value.equals(builtinDefault(key))) {
+            if (value != null && (value.equals(builtinDefault(key))
+                    || value.equals(PeerCraftConfig.baselineValue(key))
+                    || forcedByFlag(key))) {
                 this.settings.set(key, null);
             }
         }
@@ -225,8 +237,10 @@ public class PeerCraftSettingsScreen extends GuiScreen {
         int cx = this.width / 2;
         this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.gui.settings.title"),
                 cx, 16, PeerCraftUi.TEXT_TITLE);
+        int labelMax = Math.max(60, controlX() - 12 - (cx - CONTROL_W));
         for (int i = 0; i < this.labels.size(); i++) {
-            this.drawString(this.fontRenderer, this.labels.get(i), cx - CONTROL_W, this.labelYs.get(i),
+            this.drawString(this.fontRenderer, this.fontRenderer.trimStringToWidth(this.labels.get(i), labelMax),
+                    cx - CONTROL_W, this.labelYs.get(i),
                     this.labelWarn.get(i) ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
         }
         if (this.settings != null && this.settings.showDeveloperSection) {

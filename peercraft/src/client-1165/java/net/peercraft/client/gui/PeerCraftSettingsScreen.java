@@ -32,6 +32,7 @@ public class PeerCraftSettingsScreen extends Screen {
     private static final int ROWS_TOP = LIST_TOP + 38;
     private static final int ROW_PITCH = 26;
     private static final int CONTROL_W = 150;
+    private static final int LABEL_X = 20;
 
     private static final int KIND_BOOL = 0;
     private static final int KIND_INT = 1;
@@ -91,7 +92,6 @@ public class PeerCraftSettingsScreen extends Screen {
             case "internetPlay": return "false";
             case "rendezvousHost": return "91.146.31.165";
             case "rendezvousPort": return "51000";
-            case "roomCode": return "";
             case "maxPlayers": return "4";
             case "modSync.host": return "all";
             case "modSync.client": return "all";
@@ -140,8 +140,7 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("modSync.maxTotalMb", KIND_INT, false, false, 1, 4096, "max_total_mb");
         addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
         addRow("internetPlay", KIND_BOOL, false, false, 0, 0, "internet_play");
-        addRow("maxPlayers", KIND_INT, false, false, 1, 32, "max_players");
-        addRow("roomCode", KIND_STRING, false, false, 0, 0, "room_code");
+        addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");
 
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
         addRow("modSync.autoAccept", KIND_BOOL, true, false, 0, 0, "autoaccept").warnOverride = "autoaccept_warning";
@@ -161,7 +160,7 @@ public class PeerCraftSettingsScreen extends Screen {
             this.addButton(row.widget);
         }
 
-        this.developerToggle = new ModSyncCheckbox(this.width / 2 - CONTROL_W, LIST_TOP, 20, 20,
+        this.developerToggle = new ModSyncCheckbox(LABEL_X, LIST_TOP, 20, 20,
                 new TranslatableComponent("peercraft.gui.settings.developer_toggle"),
                 this.settings.showDeveloperSection,
                 value -> {
@@ -190,13 +189,33 @@ public class PeerCraftSettingsScreen extends Screen {
         return row;
     }
 
+    // saved value, else what a launch flag / env / baked default is forcing, else hardcoded default.
     private String seed(String key) {
         String saved = this.settings.get(key);
-        return (saved != null && !saved.trim().isEmpty()) ? saved.trim() : builtinDefault(key);
+        if (saved != null && !saved.trim().isEmpty()) {
+            return saved.trim();
+        }
+        String baseline = PeerCraftConfig.baselineValue(key);
+        return !baseline.isEmpty() ? baseline : builtinDefault(key);
+    }
+
+    private int controlX() {
+        return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);
+    }
+
+    private int labelMaxWidth() {
+        return Math.max(60, controlX() - 12 - LABEL_X);
+    }
+
+    private String clip(String text, int maxWidth) {
+        if (this.font.width(text) <= maxWidth) {
+            return text;
+        }
+        return this.font.plainSubstrByWidth(text, Math.max(0, maxWidth - this.font.width("..."))) + "...";
     }
 
     private AbstractWidget buildWidget(Row row) {
-        int x = this.width / 2 + 10;
+        int x = controlX();
         int y = ROWS_TOP;
         String current = seed(row.key);
         switch (row.kind) {
@@ -262,7 +281,7 @@ public class PeerCraftSettingsScreen extends Screen {
             int y = ROWS_TOP + i * ROW_PITCH;
             row.screenY = y;
             row.widget.visible = true;
-            row.widget.x = this.width / 2 + 10;
+            row.widget.x = controlX();
             row.widget.y = y;
         }
     }
@@ -317,11 +336,14 @@ public class PeerCraftSettingsScreen extends Screen {
 
         for (Row row : this.rows) {
             String value = readWidget(row);
-            String def = builtinDefault(row.key);
-            if (value == null || value.trim().isEmpty() || value.equals(def)) {
+            String value2 = value == null ? "" : value.trim();
+            if (value2.isEmpty()
+                    || value2.equals(builtinDefault(row.key))
+                    || value2.equals(PeerCraftConfig.baselineValue(row.key))
+                    || forcedByFlag(row.key)) {
                 this.settings.set(row.key, null);
             } else {
-                this.settings.set(row.key, value.trim());
+                this.settings.set(row.key, value2);
             }
         }
         this.settings.showDeveloperSection = this.developerToggle != null && this.developerToggle.selected();
@@ -363,22 +385,22 @@ public class PeerCraftSettingsScreen extends Screen {
             }
             int color = !row.widget.active ? PeerCraftUi.TEXT_MUTED
                     : (row.warnOverride != null ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
-            GuiComponent.drawString(poseStack, this.font, rowLabel(row), cx - CONTROL_W, row.screenY + 5, color);
+            GuiComponent.drawString(poseStack, this.font, rowLabel(row), LABEL_X, row.screenY + 5, color);
         }
         if (this.settings != null && this.settings.showDeveloperSection) {
-            GuiComponent.drawString(poseStack, this.font,
-                    new TranslatableComponent("peercraft.gui.settings.developer_warning"),
-                    cx - CONTROL_W, LIST_TOP + 16, PeerCraftUi.TEXT_ERROR);
+            String warn = clip(new TranslatableComponent("peercraft.gui.settings.developer_warning").getString(),
+                    this.width - LABEL_X - 20);
+            GuiComponent.drawString(poseStack, this.font, new TextComponent(warn),
+                    LABEL_X, LIST_TOP + 16, PeerCraftUi.TEXT_ERROR);
         }
         GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, cx, this.height - 68, this.statusColor);
     }
 
     private Component rowLabel(Row row) {
-        TranslatableComponent label = new TranslatableComponent("peercraft.gui.settings." + row.labelKey);
+        String base = new TranslatableComponent("peercraft.gui.settings." + row.labelKey).getString();
         if (row.restart) {
-            return new TextComponent("").append(label).append(" ")
-                    .append(new TranslatableComponent("peercraft.gui.settings.restart_hint"));
+            base = base + " " + new TranslatableComponent("peercraft.gui.settings.restart_hint").getString();
         }
-        return label;
+        return new TextComponent(clip(base, labelMaxWidth()));
     }
 }

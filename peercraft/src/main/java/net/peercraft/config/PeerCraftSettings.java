@@ -37,8 +37,6 @@ public final class PeerCraftSettings {
     public String internetPlay;
     @SerializedName("maxPlayers")
     public String maxPlayers;
-    @SerializedName("roomCode")
-    public String roomCode;
 
     // ---- developer section --------------------------------------------------------------
     @SerializedName("mode")
@@ -75,7 +73,7 @@ public final class PeerCraftSettings {
     /** Config-key ↔ field, in screen order. Used by both {@link #toOverrideMap()} and the screen. */
     public static final String[] FLAG_KEYS = {
             "modSync.client", "modSync.host", "modSync.reofferDeclined",
-            "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers", "roomCode",
+            "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
             "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
             "proxyPort", "clientUdpPort", "hostUdpPort", "peerHost", "peerPort",
     };
@@ -89,7 +87,6 @@ public final class PeerCraftSettings {
             case "modSync.maxModMb": return modSyncMaxModMb;
             case "internetPlay": return internetPlay;
             case "maxPlayers": return maxPlayers;
-            case "roomCode": return roomCode;
             case "mode": return mode;
             case "modSync.autoAccept": return modSyncAutoAccept;
             case "rendezvousHost": return rendezvousHost;
@@ -113,7 +110,6 @@ public final class PeerCraftSettings {
             case "modSync.maxModMb": modSyncMaxModMb = v; break;
             case "internetPlay": internetPlay = v; break;
             case "maxPlayers": maxPlayers = v; break;
-            case "roomCode": roomCode = v; break;
             case "mode": mode = v; break;
             case "modSync.autoAccept": modSyncAutoAccept = v; break;
             case "rendezvousHost": rendezvousHost = v; break;
