@@ -191,6 +191,8 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
             // "Только обязательные моды" (client side): drop purely client-side mods — keep only
             // what's needed to join. Mode-driven, so NOT persisted to ModSyncDeclinedStore.
+            // Uses the host's env tag only — no Modrinth refinement here (no java.net.http on Java 8),
+            // so a client mod the host offered as "*"/BOTH is not caught (src/main does catch it).
             boolean requiredOnly = PeerCraftConfig.modSyncClientMode() == net.peercraft.config.ModSyncMode.REQUIRED;
             List<ModEntry> visible = missing;
             if (requiredOnly) {

@@ -17,10 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -87,7 +84,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         // No network calls in ALL / OFF mode.
         int clientOnlyWithheld = 0;
         if (mode == ModSyncMode.REQUIRED && !out.isEmpty()) {
-            Map<String, ModEntry.Env> refined = refineSidesViaModrinth(out);
+            Map<String, ModEntry.Env> refined = new ModrinthClient(selfVersion()).refineEnvByModId(out);
             List<ModEntry> required = new ArrayList<>(out.size());
             for (ModEntry e : out) {
                 ModEntry.Env env = refined.getOrDefault(e.id(), e.env());
@@ -105,49 +102,6 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         hashed.countDown();
         LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим (режим {}, {} пропущено как загрузчик/PeerCraft, {} придержано как только клиентские).",
                 cached.size(), mode.key(), skipped, clientOnlyWithheld);
-    }
-
-    /** modId → Modrinth's curated {@link ModEntry.Env}; only ids with a definitive verdict are present. */
-    private static Map<String, ModEntry.Env> refineSidesViaModrinth(List<ModEntry> entries) {
-        Map<String, ModEntry.Env> byModId = new LinkedHashMap<>();
-        try {
-            ModrinthClient modrinth = new ModrinthClient(selfVersion());
-            String[] projectByIndex = new String[entries.size()];
-            int parallel = Math.min(6, Math.max(1, entries.size()));
-            ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
-                Thread t = new Thread(r, "PeerCraft-ModSync-HostResolve");
-                t.setDaemon(true);
-                return t;
-            });
-            try {
-                List<CompletableFuture<Void>> tasks = new ArrayList<>();
-                for (int i = 0; i < entries.size(); i++) {
-                    final int idx = i;
-                    tasks.add(CompletableFuture.runAsync(() ->
-                            modrinth.resolve(entries.get(idx)).ifPresent(r -> projectByIndex[idx] = r.projectId()), pool));
-                }
-                CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
-            } finally {
-                pool.shutdownNow();
-            }
-
-            List<String> projectIds = new ArrayList<>();
-            for (String p : projectByIndex) {
-                if (p != null && !p.isBlank()) {
-                    projectIds.add(p);
-                }
-            }
-            Map<String, ModEntry.Env> sideByProject = modrinth.projectSides(projectIds);
-            for (int i = 0; i < entries.size(); i++) {
-                ModEntry.Env env = projectByIndex[i] == null ? null : sideByProject.get(projectByIndex[i]);
-                if (env != null) {
-                    byModId.put(entries.get(i).id(), env);
-                }
-            }
-        } catch (RuntimeException e) {
-            LOGGER.debug("[ModSync] Не удалось уточнить сторону модов через Modrinth: {}", e.toString());
-        }
-        return byModId;
     }
 
     private static ModEntry withEnv(ModEntry e, ModEntry.Env env) {

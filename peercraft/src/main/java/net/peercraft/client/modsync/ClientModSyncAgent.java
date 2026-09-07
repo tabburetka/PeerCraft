@@ -197,20 +197,13 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             Set<String> declined = ModSyncDeclinedStore.load();
 
             // "Только обязательные моды" (client side): drop every purely client-side mod the
-            // host offered — keep only what's needed to join (ModEntry.Env BOTH/SERVER). These
-            // are mode-driven, not the player's choice, so they are NOT written to
-            // ModSyncDeclinedStore. Uses the host's manifest env guess (same guess the host's
-            // own "required only" filter uses), before the Modrinth refinement in resolveSources.
+            // host offered — keep only what's needed to join. Mode-driven, not the player's
+            // choice, so these are NOT written to ModSyncDeclinedStore. First trust the host's
+            // env tag, then refine the rest through Modrinth (the same source resolveSources
+            // uses), so a mod the host offered as BOTH only because its jar declares "*"
+            // (AppleSkin, …) is still skipped. Modrinth failure leaves the host's tag in force.
             boolean requiredOnly = PeerCraftConfig.modSyncClientMode() == ModSyncMode.REQUIRED;
-            List<ModEntry> visible = missing;
-            if (requiredOnly) {
-                visible = new ArrayList<>();
-                for (ModEntry e : missing) {
-                    if (e.env() != ModEntry.Env.CLIENT) {
-                        visible.add(e);
-                    }
-                }
-            }
+            List<ModEntry> visible = requiredOnly ? keepJoinRequired(missing) : missing;
 
             // What would actually download if we went ahead with the remembered choices: the
             // visible set minus the client-side mods the player turned down on an earlier join.
@@ -338,6 +331,34 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     private static ModEntry withEnv(ModEntry e, ModEntry.Env env) {
         return new ModEntry(e.id(), e.version(), e.sizeBytes(), e.sha512(), e.fileName(), env, e.homepageUrl(), e.sourcesUrl());
+    }
+
+    /**
+     * "Только обязательные моды": keep only the mods a joiner actually needs to enter the world.
+     * Drops any the host already tagged client-only, then refines the rest via Modrinth (hash →
+     * project → {@code client_side}/{@code server_side}) and drops the ones that come back
+     * client-only. Survivors carry the refined env. Modrinth being unreachable just means the
+     * host's tags stand (nothing extra is dropped).
+     */
+    private List<ModEntry> keepJoinRequired(List<ModEntry> missing) {
+        List<ModEntry> candidates = new ArrayList<>();
+        for (ModEntry e : missing) {
+            if (e.env() != ModEntry.Env.CLIENT) {
+                candidates.add(e);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return candidates;
+        }
+        Map<String, ModEntry.Env> refined = new ModrinthClient(selfVersion()).refineEnvByModId(candidates);
+        List<ModEntry> kept = new ArrayList<>(candidates.size());
+        for (ModEntry e : candidates) {
+            ModEntry.Env env = refined.getOrDefault(e.id(), e.env());
+            if (env != ModEntry.Env.CLIENT) {
+                kept.add(env == e.env() ? e : withEnv(e, env));
+            }
+        }
+        return kept;
     }
 
     private void abortTooBig() {

@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Talks to the Modrinth API for two things:
@@ -152,6 +155,55 @@ public final class ModrinthClient {
             }
         }
         return out;
+    }
+
+    /**
+     * {@code modId → } Modrinth's curated {@link ModEntry.Env} for every entry whose jar resolves
+     * by hash and has a definitive client/server verdict. Entries Modrinth doesn't know, or can't
+     * classify, are simply absent so the caller keeps whatever it had. Resolves the hashes in
+     * parallel, then one bulk {@code /projects} call. Any failure yields a smaller (or empty) map
+     * — never throws. Used by both the host's "required only" filter and the joiner's.
+     */
+    public Map<String, ModEntry.Env> refineEnvByModId(List<ModEntry> entries) {
+        Map<String, ModEntry.Env> byModId = new HashMap<>();
+        if (entries == null || entries.isEmpty()) {
+            return byModId;
+        }
+        String[] projectByIndex = new String[entries.size()];
+        int parallel = Math.min(6, Math.max(1, entries.size()));
+        ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
+            Thread t = new Thread(r, "PeerCraft-ModSync-Resolve");
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            List<CompletableFuture<Void>> tasks = new ArrayList<>();
+            for (int i = 0; i < entries.size(); i++) {
+                final int idx = i;
+                tasks.add(CompletableFuture.runAsync(() ->
+                        resolve(entries.get(idx)).ifPresent(r -> projectByIndex[idx] = r.projectId()), pool));
+            }
+            CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
+        } catch (RuntimeException e) {
+            LOGGER.debug("[ModSync] refineEnvByModId не удался: {}", e.toString());
+        } finally {
+            pool.shutdownNow();
+        }
+
+        List<String> projectIds = new ArrayList<>();
+        for (String p : projectByIndex) {
+            if (p != null && !p.isBlank()) {
+                projectIds.add(p);
+            }
+        }
+        Map<String, ModEntry.Env> sideByProject = projectSides(projectIds);
+        for (int i = 0; i < entries.size(); i++) {
+            ModEntry.Env env = projectByIndex[i] == null ? null : sideByProject.get(projectByIndex[i]);
+            if (env != null) {
+                byModId.put(entries.get(i).id(), env);
+            }
+        }
+        return byModId;
     }
 
     private void fetchSideBatch(List<String> ids, Map<String, ModEntry.Env> out) throws Exception {
