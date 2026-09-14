@@ -2,6 +2,11 @@ package net.peercraft.network.p2p;
 
 import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
+import net.peercraft.network.handoff.HandoffClientAgent;
+import net.peercraft.network.handoff.HandoffCoordinator;
+import net.peercraft.network.handoff.HandoffProtocol;
+import net.peercraft.network.handoff.WorldTransfer;
+import net.peercraft.network.handoff.WorldTransferProtocol;
 import net.peercraft.network.modsync.ModSyncAgent;
 import net.peercraft.network.modsync.ModSyncCoordinator;
 import net.peercraft.network.modsync.ModSyncHostProvider;
@@ -128,6 +133,32 @@ public class P2PBridge {
     // HOST: what to tell joiners about this host's mods; null when the host isn't participating
     // in mod-sync (feature off, or startHost's static local path). Set in startHostViaRendezvous.
     private volatile ModSyncHostProvider modSyncHostProvider;
+
+    // HOST: the in-progress graceful-handoff attempt (offer a chosen joiner the world and
+    // leave). null when no handoff is running. One at a time — the host picks one successor.
+    // Cleared in cancelRendezvous() and when the attempt reaches a terminal state.
+    private volatile HandoffCoordinator handoffHostSession;
+
+    // JOINER: receives handoff control traffic (0xE3) from the current host for the whole
+    // time this client is connected to a world — an offer to become the successor, or the
+    // "everyone reconnect" MIGRATE broadcast. Installed when the join completes, cleared in
+    // endClientSession. Kept out of the rendezvousListener slot on purpose: that slot is
+    // recycled during punch/mod-sync, but a MIGRATE can arrive at any point mid-session.
+    private volatile HandoffClientAgent handoffClientAgent;
+
+    // Client-layer hook run once per successful join-via-rendezvous, right before the vanilla
+    // client connects to the local proxy — set from PeerCraftClientCommon. Keeps GUI/handoff
+    // wiring out of this loader-agnostic class.
+    private volatile Runnable onClientConnected;
+
+    // World-save archive transfer (0xE4), one direction only: HOST serves it, the chosen
+    // SUCCESSOR receives it. hostWorldTransfer lives during a handoff's transfer phase;
+    // successorWorldTransfer lives on the successor's client between accepting the offer and
+    // its world being written. Both cleared on teardown.
+    private volatile WorldTransfer hostWorldTransfer;
+    private volatile WorldTransfer successorWorldTransfer;
+    /** HOST: the peer we're currently handing the world to — so a mid-transfer drop can abort cleanly. */
+    private volatile PeerAddress handoffSuccessorPeer;
 
     private volatile ClientSession currentClientSession;
 
@@ -405,6 +436,17 @@ public class P2PBridge {
 
             @Override
             public void onConnected() {
+                // Single chokepoint for a successful join-via-rendezvous — let the client
+                // layer install its per-session hooks (e.g. the handoff listener) before the
+                // vanilla client is handed the proxy address.
+                Runnable hook = onClientConnected;
+                if (hook != null) {
+                    try {
+                        hook.run();
+                    } catch (RuntimeException e) {
+                        LOGGER.warn("[P2PBridge] onClientConnected hook threw: {}", e.toString());
+                    }
+                }
                 listener.onConnected();
             }
 
@@ -480,6 +522,32 @@ public class P2PBridge {
             }
             this.currentClientSession = null;
         }
+        // The handoff GUI (HostMigrationScreen / the successor launcher) captures everything
+        // it needs from the onMigrate/onOffer callback synchronously, so the agent can go
+        // when the session ends — a fresh one is installed on the next join.
+        this.handoffClientAgent = null;
+        WorldTransfer wt = this.successorWorldTransfer;
+        if (wt != null) {
+            // Keep a running receive alive across the disconnect only if it hasn't finished —
+            // the successor's transfer legitimately continues while the vanilla client drops.
+            // A finished/stopped one is dead weight; drop it.
+            this.successorWorldTransfer = null;
+            wt.stop();
+        }
+        rendezvousClientBusy.set(false);
+    }
+
+    // Called by a non-successor joiner (HostMigrationScreen) right before reconnecting to the
+    // new host after a handoff MIGRATE. At that point the vanilla client is still nominally
+    // connected to the OLD host — the caller disconnects it, but that teardown is async (the
+    // LocalProxy socket close that would normally clear rendezvousClientBusy via
+    // endClientSession hasn't necessarily been noticed yet), so the very next
+    // startClientViaRendezvous(...) call for the NEW host would otherwise be rejected as
+    // "already connecting". Clears this bridge's own client-session bookkeeping immediately
+    // instead of waiting on that.
+    public void prepareForHandoffReconnect() {
+        this.currentClientSession = null;
+        this.handoffClientAgent = null;
         rendezvousClientBusy.set(false);
     }
 
@@ -716,8 +784,167 @@ public class P2PBridge {
             }
         }
         this.modSyncHostProvider = null;
+        HandoffCoordinator handoff = this.handoffHostSession;
+        this.handoffHostSession = null;
+        if (handoff != null && !handoff.isTerminal()) {
+            handoff.cancel("peercraft.handoff.abort.world_closed");
+        }
+        WorldTransfer wt = this.hostWorldTransfer;
+        this.hostWorldTransfer = null;
+        this.handoffSuccessorPeer = null;
+        if (wt != null) {
+            wt.stop();
+        }
         authorizedPeers.clear();
         joinerAccountIdByAddress.clear();
+    }
+
+    // ================= host handoff (graceful "baton pass") =================
+
+    /**
+     * One currently-connected joiner, as material for the host's successor picker.
+     * {@code localPort} is the loopback TCP port that joiner's relay connection uses to the
+     * integrated server — the reliable key to correlate this candidate with a {@code ServerPlayer}
+     * (their {@code connection.getRemoteAddress()} port), since a licensed player's profile UUID
+     * is their Mojang UUID, not their PeerCraft {@code accountId}.
+     *
+     * <p>Plain class rather than a record: {@code P2PBridge} is shared into the Java-8 1.16.5
+     * backport build, where records don't compile.
+     */
+    public static final class HandoffCandidate {
+        private final PeerAddress peer;
+        private final java.util.UUID accountId;
+        private final long sessionId;
+        private final int localPort;
+
+        public HandoffCandidate(PeerAddress peer, java.util.UUID accountId, long sessionId, int localPort) {
+            this.peer = peer;
+            this.accountId = accountId;
+            this.sessionId = sessionId;
+            this.localPort = localPort;
+        }
+
+        public PeerAddress peer() {
+            return peer;
+        }
+
+        public java.util.UUID accountId() {
+            return accountId;
+        }
+
+        public long sessionId() {
+            return sessionId;
+        }
+
+        public int localPort() {
+            return localPort;
+        }
+
+        public boolean signedIn() {
+            return accountId != null;
+        }
+    }
+
+    /** HOST: the joiners connected right now (a snapshot), for the "hand off hosting" screen. */
+    public java.util.List<HandoffCandidate> connectedJoiners() {
+        java.util.List<HandoffCandidate> out = new java.util.ArrayList<>();
+        for (Map.Entry<PeerAddress, HostConnection> e : hostConnectionsByAddress.entrySet()) {
+            out.add(new HandoffCandidate(e.getKey(), joinerAccountIdByAddress.get(e.getKey()),
+                    e.getValue().sessionId, e.getValue().localPort));
+        }
+        return out;
+    }
+
+    public boolean handoffInProgress() {
+        HandoffCoordinator s = this.handoffHostSession;
+        return s != null && !s.isTerminal();
+    }
+
+    /** HOST: true while this instance is hosting a world over the rendezvous server (the only case handoff applies to). */
+    public boolean isHostingViaRendezvous() {
+        return this.isHost && this.hostRendezvousClient != null;
+    }
+
+    /**
+     * HOST: begin a graceful handoff to {@code successor}. Sends the offer, and on ACCEPT runs
+     * {@code transfer} (the M2 archive+ship step) then broadcasts MIGRATE to every joiner.
+     * A {@code null} return means a handoff is already running.
+     */
+    public HandoffCoordinator beginHandoff(PeerAddress successor, HandoffProtocol.Offer offer,
+                                           java.util.UUID successorAccountId,
+                                           HandoffCoordinator.Transfer transfer,
+                                           HandoffCoordinator.Callbacks callbacks) {
+        if (!this.isHost || handoffInProgress()) {
+            return null;
+        }
+        HandoffCoordinator.PeerSender peerSender =
+                (ip, port, bytes) -> sender.sendData(bytes, ip.getHostAddress(), port);
+        java.util.function.Supplier<java.util.List<java.net.SocketAddress>> joiners = () -> {
+            java.util.List<java.net.SocketAddress> list = new java.util.ArrayList<>();
+            for (PeerAddress p : hostConnectionsByAddress.keySet()) {
+                list.add(new java.net.InetSocketAddress(p.host(), p.port()));
+            }
+            return list;
+        };
+        this.handoffSuccessorPeer = successor;
+        HandoffCoordinator session = HandoffCoordinator.start(offer, successor.host(), successor.port(),
+                successorAccountId, peerSender, joiners, transfer,
+                wrapClearingCallbacks(callbacks));
+        this.handoffHostSession = session;
+        return session;
+    }
+
+    private HandoffCoordinator.Callbacks wrapClearingCallbacks(HandoffCoordinator.Callbacks inner) {
+        return new HandoffCoordinator.Callbacks() {
+            @Override public void onAccepted() { inner.onAccepted(); }
+            @Override public void onDeclined(String reasonKey) { clear(); inner.onDeclined(reasonKey); }
+            @Override public void onSuccessorReady() { clear(); inner.onSuccessorReady(); }
+            @Override public void onAborted(String reasonKey) { clear(); inner.onAborted(reasonKey); }
+            @Override public void onStatus(String messageKey) { inner.onStatus(messageKey); }
+            private void clear() {
+                handoffHostSession = null;
+                handoffSuccessorPeer = null;
+                WorldTransfer wt = hostWorldTransfer;
+                hostWorldTransfer = null;
+                if (wt != null) {
+                    wt.stop();
+                }
+            }
+        };
+    }
+
+    /** JOINER: install the agent that listens for handoff traffic from the host for this session. */
+    public void installHandoffClientAgent(HandoffClientAgent agent) {
+        this.handoffClientAgent = agent;
+    }
+
+    /** HOST: register the world-archive sender so the 0xE4 demux can feed it ACK/DONE. */
+    public void setHostWorldTransfer(WorldTransfer wt) {
+        this.hostWorldTransfer = wt;
+    }
+
+    /** SUCCESSOR: register the world-archive receiver so the 0xE4 demux can feed it BEGIN/CHUNK. */
+    public void setSuccessorWorldTransfer(WorldTransfer wt) {
+        this.successorWorldTransfer = wt;
+    }
+
+    /** Sets the hook run once per successful join-via-rendezvous (see {@link #onClientConnected}). */
+    public void setOnClientConnected(Runnable hook) {
+        this.onClientConnected = hook;
+    }
+
+    public HandoffClientAgent handoffClientAgent() {
+        return this.handoffClientAgent;
+    }
+
+    /** JOINER: address of the host we're currently relayed to — where handoff replies go. */
+    public PeerAddress currentHostPeer() {
+        return this.clientTargetPeer;
+    }
+
+    /** Sends a raw datagram on the shared socket — used by the handoff client agent to reply to the host. */
+    public void sendRawDatagram(InetAddress ip, int port, byte[] data) {
+        sender.sendData(data, ip.getHostAddress(), port);
     }
 
     // Returns false if the UDP socket could not be bound (port already in use, etc.) — the
@@ -883,6 +1110,49 @@ public class P2PBridge {
                 RawPacketListener listener = this.rendezvousListener;
                 if (listener != null) {
                     listener.onPacket(data, length, senderAddress, senderPort);
+                }
+            }
+            return;
+        }
+
+        // Host-handoff control traffic (0xE3) — its own family alongside rendezvous (0xE1)
+        // and mod-sync (0xE2). On the host it drives the in-progress handoff attempt; on a
+        // joiner it feeds the always-installed HandoffClientAgent (offer / MIGRATE). Only an
+        // already-authorized peer may reach the host session — same admission gate as the
+        // relay and mod-sync paths — EXCEPT for MIGRATE_OK: by the time the successor sends
+        // it, it has already left this host's session (loading its own world disconnects
+        // first) and re-bound a fresh socket to go host itself, so it calls from a new local
+        // port that was never punched against this host. Accept that one case by IP alone,
+        // matched against the specific successor this handoff already vetted via ACCEPT.
+        if (length >= 2 && data[0] == HandoffProtocol.MAGIC) {
+            if (this.isHost) {
+                HandoffCoordinator session = this.handoffHostSession;
+                PeerAddress successor = this.handoffSuccessorPeer;
+                boolean fromKnownSuccessor = successor != null && successor.host().equals(senderAddress);
+                if (session != null && (authorizedPeers.contains(new PeerAddress(senderAddress, senderPort)) || fromKnownSuccessor)) {
+                    session.onPacket(data, length, senderAddress, senderPort);
+                }
+            } else {
+                HandoffClientAgent agent = this.handoffClientAgent;
+                if (agent != null) {
+                    agent.onPacket(data, length, senderAddress, senderPort);
+                }
+            }
+            return;
+        }
+
+        // World-save archive transfer (0xE4) — host serves, successor receives. Same
+        // authorized-peer gate on the host side.
+        if (length >= 2 && data[0] == WorldTransferProtocol.MAGIC) {
+            if (this.isHost) {
+                WorldTransfer wt = this.hostWorldTransfer;
+                if (wt != null && authorizedPeers.contains(new PeerAddress(senderAddress, senderPort))) {
+                    wt.onPacket(data, length, senderAddress, senderPort);
+                }
+            } else {
+                WorldTransfer wt = this.successorWorldTransfer;
+                if (wt != null) {
+                    wt.onPacket(data, length, senderAddress, senderPort);
                 }
             }
             return;
@@ -1135,6 +1405,25 @@ public class P2PBridge {
         PlayerIdentityRegistry.INSTANCE.remove(conn.localPort);
         hostConnectionsBySessionId.remove(conn.sessionId, conn);
         hostConnectionsByAddress.remove(conn.peerAddress, conn);
+
+        // If the player we're mid-handoff to drops BEFORE MIGRATE went out, the transfer can't
+        // finish — abort so the host keeps hosting instead of stalling forever. Once MIGRATE has
+        // gone out, this same disconnect is expected (the successor leaves to load its own
+        // world) and must not be treated as a cancel — see HandoffCoordinator.migrationStarted().
+        PeerAddress successor = this.handoffSuccessorPeer;
+        if (successor != null && successor.equals(conn.peerAddress)) {
+            HandoffCoordinator session = this.handoffHostSession;
+            WorldTransfer wt = this.hostWorldTransfer;
+            if (wt != null) {
+                wt.stop();
+            }
+            if (session != null && !session.isTerminal() && !session.migrationStarted()) {
+                LOGGER.info("[P2PBridge] Преемник отключился во время передачи — отменяем хендофф");
+                session.cancel("peercraft.handoff.abort.successor");
+            } else if (session != null) {
+                LOGGER.debug("[P2PBridge] Преемник отключился от старого хоста после MIGRATE — ожидаемо, хендофф продолжается");
+            }
+        }
     }
 
     private static void closeQuietly(Socket socket) {

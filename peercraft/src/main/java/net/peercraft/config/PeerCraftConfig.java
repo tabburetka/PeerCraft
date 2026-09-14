@@ -151,6 +151,13 @@ public final class PeerCraftConfig {
         return boolValue("modSync.reofferDeclined", false);
     }
 
+    // Host handoff ("hand off hosting to another player" on the pause screen, then leave —
+    // the world migrates to the chosen player, everyone reconnects). Master switch: false
+    // hides the button and auto-declines any incoming handoff offer.
+    public static boolean handoff() {
+        return boolValue("handoff", true);
+    }
+
     // Host side: what this player shares with joiners when hosting their own world.
     //   off      — no mod sync for incoming players (like the legacy modSync=false)
     //   required — only mods needed to join (ModEntry.Env BOTH/SERVER); client-only mods withheld

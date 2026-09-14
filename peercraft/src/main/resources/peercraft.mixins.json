@@ -3,7 +3,8 @@
 	"package": "net.peercraft.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-      "ExampleMixin"
+      "ExampleMixin",
+		"MinecraftServerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

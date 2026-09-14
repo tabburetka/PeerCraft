@@ -31,6 +31,12 @@ public final class RendezvousProtocol {
     // Public game browser (Phase 7): anonymous, no session — see RoomRegistry.listPublicRooms().
     public static final byte TYPE_ROOM_LIST = 0x07;
     public static final byte TYPE_ROOM_LIST_REPLY = 0x08;
+    // Host handoff (graceful baton pass): after a handoff the successor's room has a NEW code,
+    // so a joiner finds its new host by the successor's (verified, from that client's own
+    // account-bearing REGISTER) accountId instead of a code. Anonymous, no session — the same
+    // low-stakes read as TYPE_ROOM_LIST, served straight from PresenceRegistry.
+    public static final byte TYPE_LOOKUP_HOST = 0x09;
+    public static final byte TYPE_LOOKUP_HOST_REPLY = 0x0A;
     public static final byte TYPE_PUNCH = 0x10;
     public static final byte TYPE_PUNCH_ACK = 0x11;
 
@@ -447,4 +453,47 @@ public final class RendezvousProtocol {
     public static long decodeToken(byte[] data, int length) {
         return ByteBuffer.wrap(data, 2, length - 2).getLong();
     }
+
+    // ---- LOOKUP_HOST: client -> server (anonymous). payload: [accountId:16] ----
+
+    public static byte[] encodeLookupHost(UUID accountId) {
+        ByteBuffer buf = ByteBuffer.allocate(2 + 16);
+        buf.put(MAGIC);
+        buf.put(TYPE_LOOKUP_HOST);
+        buf.putLong(accountId.getMostSignificantBits());
+        buf.putLong(accountId.getLeastSignificantBits());
+        return buf.array();
+    }
+
+    public static UUID decodeLookupHost(byte[] data, int length) {
+        ByteBuffer buf = ByteBuffer.wrap(data, 2, length - 2);
+        return new UUID(buf.getLong(), buf.getLong());
+    }
+
+    // ---- LOOKUP_HOST_REPLY: server -> client. payload: [codeLen:1][code] ("" = not hosting) ----
+
+    public static byte[] encodeLookupHostReply(String roomCode) {
+        byte[] c = roomCode == null ? new byte[0] : roomCode.getBytes(StandardCharsets.US_ASCII);
+        ByteBuffer buf = ByteBuffer.allocate(2 + 1 + c.length);
+        buf.put(MAGIC);
+        buf.put(TYPE_LOOKUP_HOST_REPLY);
+        buf.put((byte) c.length);
+        buf.put(c);
+        return buf.array();
+    }
+
+    public static String decodeLookupHostReply(byte[] data, int length) {
+        ByteBuffer buf = ByteBuffer.wrap(data, 2, length - 2);
+        if (buf.remaining() < 1) {
+            return "";
+        }
+        int len = buf.get() & 0xFF;
+        if (buf.remaining() < len) {
+            return "";
+        }
+        byte[] c = new byte[len];
+        buf.get(c);
+        return new String(c, StandardCharsets.US_ASCII);
+    }
 }
+

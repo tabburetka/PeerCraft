@@ -19,7 +19,7 @@ import net.minecraft.util.FormattedCharSequence;
  * distinguishes loading/error/success (previously every message — including errors — was the
  * same yellow), plus a couple of small widget helpers reused across the account/friends screens.
  */
-final class PeerCraftUi {
+public final class PeerCraftUi {
 
     // Fully opaque (0xFF alpha) — GuiGraphics.drawString() since 1.21.6 silently skips rendering
     // entirely when a color's alpha byte is 0, which every one of these was before.
@@ -32,11 +32,38 @@ final class PeerCraftUi {
     private PeerCraftUi() {
     }
 
+    /** Greedy word-wrap of {@code text} to lines no wider than {@code maxWidth} px. Version-stable (String metrics only). */
+    static java.util.List<String> wrap(Font font, String text, int maxWidth) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (String paragraph : text.split("\n", -1)) {
+            StringBuilder line = new StringBuilder();
+            for (String word : paragraph.split(" ")) {
+                String candidate = line.length() == 0 ? word : line + " " + word;
+                if (font.width(candidate) > maxWidth && line.length() > 0) {
+                    lines.add(line.toString());
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(candidate);
+                }
+            }
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    /** "12.3 MB" / "512 KB" / "900 B" — matches ModSyncProgressScreen's humanSize. */
+    static String humanSize(long b) {
+        if (b < 1024) return b + " B";
+        double kb = b / 1024.0;
+        if (kb < 1024) return String.format("%.0f KB", kb);
+        return String.format("%.1f MB", kb / 1024.0);
+    }
+
     /**
      * Navigate to {@code screen}. 26.2 moved {@code setScreen}/{@code screen} off {@code Minecraft}
      * onto {@code Minecraft.gui} — routed through here so the ~30 call sites stay version-agnostic.
      */
-    static void setScreen(Minecraft mc, Screen screen) {
+    public static void setScreen(Minecraft mc, Screen screen) {
         //? if <26.2
         mc.setScreen(screen);
         //? if >=26.2
@@ -44,7 +71,7 @@ final class PeerCraftUi {
     }
 
     /** Whether {@code screen} is the one currently shown (used by async callbacks to bail if the player navigated away). */
-    static boolean isCurrentScreen(Screen screen) {
+    public static boolean isCurrentScreen(Screen screen) {
         //? if <26.2
         return Minecraft.getInstance().screen == screen;
         //? if >=26.2

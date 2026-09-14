@@ -139,6 +139,7 @@ public final class RendezvousServer {
             case RendezvousProtocol.TYPE_REGISTER -> handleRegister(socket, data, from);
             case RendezvousProtocol.TYPE_JOIN -> handleJoin(socket, data, from);
             case RendezvousProtocol.TYPE_ROOM_LIST -> handleRoomList(socket, from);
+            case RendezvousProtocol.TYPE_LOOKUP_HOST -> handleLookupHost(socket, data, from);
             case AccountProtocol.TYPE_AUTH_LICENSED_BEGIN -> handleAuthLicensedBegin(socket, data, from);
             case AccountProtocol.TYPE_AUTH_LICENSED_CONFIRM -> handleAuthLicensedConfirm(socket, data, from);
             case AccountProtocol.TYPE_ACCOUNT_REGISTER -> handleAccountRegister(socket, data, from);
@@ -232,6 +233,20 @@ public final class RendezvousServer {
             wire.add(new RendezvousProtocol.PublicRoom(room.code(), room.maxPlayers(), room.currentPlayerCount(), hostDisplayName, room.worldName(), room.mcVersion()));
         }
         send(socket, RendezvousProtocol.encodeRoomListReply(wire), from);
+    }
+
+    /**
+     * Host handoff: "what room is account X hosting?" — used by a joiner to find its new host
+     * after a handoff changed the room code. Anonymous, no session (the answer, a public room
+     * code, is no more sensitive than the public browser); shares the room-list IP rate limit.
+     */
+    private void handleLookupHost(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
+        if (!roomListRateLimiter.allow(from.host())) {
+            return;
+        }
+        java.util.UUID accountId = RendezvousProtocol.decodeLookupHost(data, data.length);
+        String roomCode = accountService.hostingRoomCodeOf(accountId).orElse("");
+        send(socket, RendezvousProtocol.encodeLookupHostReply(roomCode), from);
     }
 
     private void handleAuthLicensedBegin(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {

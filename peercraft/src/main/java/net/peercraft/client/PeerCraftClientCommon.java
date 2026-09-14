@@ -3,6 +3,8 @@ package net.peercraft.client;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
+//? if >=1.17
+import net.peercraft.client.gui.HandoffClientController;
 import net.peercraft.client.modsync.ModSyncFilesystem;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.config.PeerCraftSettingsStore;
@@ -56,6 +58,12 @@ public final class PeerCraftClientCommon {
             LOGGER.info("[PeerCraft] Клиентский прокси не запускается в режиме {}", mode);
             return;
         }
+
+        // Joiner-side host-handoff wiring: installs a HandoffClientAgent on every successful
+        // join and turns offer / MIGRATE into screens (see HandoffClientController). Modern
+        // targets only — the 1.16.5 backport has no handoff GUI twins.
+        //? if >=1.17
+        HandoffClientController.INSTANCE.register();
 
         P2PBridge.INSTANCE.startProxy(PeerCraftConfig.proxyPort());
         if (PeerCraftConfig.internetPlay()) {

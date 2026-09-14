@@ -371,6 +371,20 @@ public final class AccountService {
         presence.setHosting(accountId, roomCode);
     }
 
+    /**
+     * The room code {@code accountId} is currently hosting, or empty if they aren't hosting
+     * (or the presence entry has gone stale). Used by {@code handleLookupHost} so a handoff
+     * successor's new room can be found by account id after the code has changed — no session
+     * required, same low-stakes read as the public room browser.
+     */
+    public Optional<String> hostingRoomCodeOf(UUID accountId) {
+        PresenceRegistry.Status status = presence.statusOf(accountId);
+        if (status.statusCode() == net.peercraft.rendezvous.AccountProtocol.STATUS_HOSTING && !status.roomCode().isEmpty()) {
+            return Optional.of(status.roomCode());
+        }
+        return Optional.empty();
+    }
+
     public void heartbeat(byte[] sessionToken) {
         sessions.validate(sessionToken).ifPresent(presence::heartbeat);
     }

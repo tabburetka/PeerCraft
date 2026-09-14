@@ -5,9 +5,11 @@
 	"client": [
       "ExampleClientMixin",
 		"OpenToLanMixin",
+		"PauseScreenMixin",
 		"ServerLoginPacketListenerImplMixin",
 		"ShareToLanScreenMixin",
-		"TitleScreenMixin"
+		"TitleScreenMixin",
+		"WorldOpenFlowsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

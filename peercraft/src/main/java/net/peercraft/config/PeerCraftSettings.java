@@ -43,6 +43,8 @@ public final class PeerCraftSettings {
     public String mode;
     @SerializedName("modSync.autoAccept")
     public String modSyncAutoAccept;
+    @SerializedName("handoff")
+    public String handoff;
     @SerializedName("rendezvousHost")
     public String rendezvousHost;
     @SerializedName("rendezvousPort")
@@ -74,7 +76,7 @@ public final class PeerCraftSettings {
     public static final String[] FLAG_KEYS = {
             "modSync.client", "modSync.host", "modSync.reofferDeclined",
             "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
-            "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
+            "mode", "modSync.autoAccept", "handoff", "rendezvousHost", "rendezvousPort",
             "proxyPort", "clientUdpPort", "hostUdpPort", "peerHost", "peerPort",
     };
 
@@ -89,6 +91,7 @@ public final class PeerCraftSettings {
             case "maxPlayers": return maxPlayers;
             case "mode": return mode;
             case "modSync.autoAccept": return modSyncAutoAccept;
+            case "handoff": return handoff;
             case "rendezvousHost": return rendezvousHost;
             case "rendezvousPort": return rendezvousPort;
             case "proxyPort": return proxyPort;
@@ -112,6 +115,7 @@ public final class PeerCraftSettings {
             case "maxPlayers": maxPlayers = v; break;
             case "mode": mode = v; break;
             case "modSync.autoAccept": modSyncAutoAccept = v; break;
+            case "handoff": handoff = v; break;
             case "rendezvousHost": rendezvousHost = v; break;
             case "rendezvousPort": rendezvousPort = v; break;
             case "proxyPort": proxyPort = v; break;

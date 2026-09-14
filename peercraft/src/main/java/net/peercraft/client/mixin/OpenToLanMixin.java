@@ -84,6 +84,14 @@ public abstract class OpenToLanMixin {
             // checkbox on this same screen (ShareToLanScreenMixin), not a launch flag.
             if (PeerCraftHostOptions.internetPlayRequested) {
                 LOGGER.info("[PeerCraft P2P] Через интернет — используем сервер знакомств (макс. игроков: {}), peerHost/peerPort игнорируются.", PeerCraftHostOptions.maxPlayers);
+                // Give this world a stable PeerCraft id (for handoff round-trips) and mark that
+                // this machine is hosting it now — clears any leftover "handed off" warning flag.
+                try {
+                    net.peercraft.client.handoff.PeercraftWorldMeta.ensureHosting(
+                            net.peercraft.client.handoff.WorldArchiver.worldDir(server));
+                } catch (RuntimeException e) {
+                    LOGGER.warn("[PeerCraft P2P] Не удалось записать метаданные мира: {}", e.toString());
+                }
                 ModSyncHostProvider modSyncProvider = null;
                 ModSyncMode hostMode = PeerCraftConfig.modSyncHostMode();
                 if (hostMode != ModSyncMode.OFF) {

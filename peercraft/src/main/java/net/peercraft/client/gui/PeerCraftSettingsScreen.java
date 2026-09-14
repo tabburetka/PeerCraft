@@ -109,6 +109,7 @@ public class PeerCraftSettingsScreen extends Screen {
             case "modSync.host": return "all";
             case "modSync.client": return "all";
             case "modSync.autoAccept": return "false";
+            case "handoff": return "true";
             case "modSync.reofferDeclined": return "false";
             case "modSync.maxTotalMb": return "512";
             case "modSync.maxModMb": return "256";
@@ -155,6 +156,7 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
         addRow("internetPlay", KIND_BOOL, false, false, 0, 0, "internet_play");
         addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");
+        addRow("handoff", KIND_BOOL, false, false, 0, 0, "handoff");
 
         // developer section
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
