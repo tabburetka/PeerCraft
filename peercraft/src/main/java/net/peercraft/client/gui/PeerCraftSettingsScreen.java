@@ -110,6 +110,9 @@ public class PeerCraftSettingsScreen extends Screen {
             case "modSync.client": return "all";
             case "modSync.autoAccept": return "false";
             case "handoff": return "true";
+            case "handoff.declineSuccessor": return "false";
+            case "handoff.confirmBeforeOffer": return "true";
+            case "handoff.chatNotify": return "true";
             case "modSync.reofferDeclined": return "false";
             case "modSync.maxTotalMb": return "512";
             case "modSync.maxModMb": return "256";
@@ -157,6 +160,9 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("internetPlay", KIND_BOOL, false, false, 0, 0, "internet_play");
         addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");
         addRow("handoff", KIND_BOOL, false, false, 0, 0, "handoff");
+        addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
+        addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
+        addRow("handoff.chatNotify", KIND_BOOL, false, false, 0, 0, "handoff_chat_notify");
 
         // developer section
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
@@ -385,6 +391,8 @@ public class PeerCraftSettingsScreen extends Screen {
 
         PeerCraftSettingsStore.save(this.settings);
         PeerCraftConfig.applyOverrides(this.settings.toOverrideMap());
+        // Picked up immediately if already connected as a joiner — no-op otherwise.
+        HandoffClientController.INSTANCE.resendPreference();
         PeerCraftUi.setScreen(this.minecraft, this.lastScreen);
     }
 

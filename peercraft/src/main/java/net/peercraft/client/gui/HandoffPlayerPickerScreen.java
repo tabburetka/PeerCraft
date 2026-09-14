@@ -51,11 +51,13 @@ public class HandoffPlayerPickerScreen extends Screen {
         for (int i = 0; i < candidates.size(); i++) {
             P2PBridge.HandoffCandidate c = candidates.get(i);
             String name = displayName(server, c, i);
-            boolean eligible = c.signedIn();
-            Component label = eligible
-                    ? Component.translatable("peercraft.handoff.picker.hand_off", name)
-                    : Component.translatable("peercraft.handoff.picker.row_not_signed_in", name);
-            Button b = Button.builder(label, btn -> choose(c, name))
+            boolean eligible = c.signedIn() && !c.declinedSuccessor();
+            Component label = !c.signedIn()
+                    ? Component.translatable("peercraft.handoff.picker.row_not_signed_in", name)
+                    : c.declinedSuccessor()
+                            ? Component.translatable("peercraft.handoff.picker.row_declined_successor", name)
+                            : Component.translatable("peercraft.handoff.picker.hand_off", name);
+            Button b = Button.builder(label, btn -> confirmAndChoose(c, name))
                     .bounds(cx - 155, y, 310, 20).build();
             b.active = eligible;
             this.addRenderableWidget(b);
@@ -65,6 +67,45 @@ public class HandoffPlayerPickerScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.picker.cancel"),
                         btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen))
                 .bounds(cx - 100, this.height - 40, 200, 20).build());
+    }
+
+    /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
+    private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
+        if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) {
+            choose(c, name);
+            return;
+        }
+        Screen self = this;
+        PeerCraftUi.setScreen(this.minecraft, new net.minecraft.client.gui.screens.ConfirmScreen(
+                confirmed -> {
+                    if (confirmed) {
+                        choose(c, name);
+                    } else {
+                        PeerCraftUi.setScreen(HandoffPlayerPickerScreen.this.minecraft, self);
+                    }
+                },
+                Component.translatable("peercraft.handoff.picker.confirm.title"),
+                Component.translatable("peercraft.handoff.picker.confirm.body", name),
+                Component.translatable("peercraft.handoff.picker.confirm.yes"),
+                Component.translatable("peercraft.handoff.picker.confirm.no")));
+    }
+
+    /** Posts a chat line for a handoff event, gated on the chatNotify setting. */
+    private static void notifyChat(String key, Object... args) {
+        if (!net.peercraft.config.PeerCraftConfig.handoffChatNotify()) {
+            return;
+        }
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        mc.execute(() -> {
+            net.minecraft.client.player.LocalPlayer player = mc.player;
+            if (player != null) {
+                Component message = Component.translatable(key, args);
+                //? if <26.1
+                player.displayClientMessage(message, false);
+                //? if >=26.1
+                /*player.sendSystemMessage(message);*/
+            }
+        });
     }
 
     private void choose(P2PBridge.HandoffCandidate c, String name) {
@@ -114,8 +155,14 @@ public class HandoffPlayerPickerScreen extends Screen {
 
         final net.minecraft.server.MinecraftServer srv = server;
         HandoffCoordinator.Callbacks callbacks = new HandoffCoordinator.Callbacks() {
-            @Override public void onAccepted() { status.onStatus("peercraft.handoff.status.transferring"); }
-            @Override public void onDeclined(String reasonKey) { status.onAborted(reasonKey); }
+            @Override public void onAccepted() {
+                notifyChat("peercraft.handoff.chat.accepted", name);
+                status.onStatus("peercraft.handoff.status.transferring");
+            }
+            @Override public void onDeclined(String reasonKey) {
+                notifyChat("peercraft.handoff.chat.declined", name);
+                status.onAborted(reasonKey);
+            }
             @Override public void onSuccessorReady() {
                 // The world now lives on the successor. Stamp our local copy so opening it in
                 // singleplayer later warns that it's a stale post-handoff leftover.
@@ -127,9 +174,13 @@ public class HandoffPlayerPickerScreen extends Screen {
                         LOGGER.warn("[Handoff] Не удалось отметить мир как переданный: {}", e.toString());
                     }
                 }
+                notifyChat("peercraft.handoff.chat.done", name);
                 status.onDone("peercraft.handoff.status.done");
             }
-            @Override public void onAborted(String reasonKey) { status.onAborted(reasonKey); }
+            @Override public void onAborted(String reasonKey) {
+                notifyChat("peercraft.handoff.chat.aborted", name);
+                status.onAborted(reasonKey);
+            }
             @Override public void onStatus(String messageKey) { status.onStatus(messageKey); }
         };
 

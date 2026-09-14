@@ -60,6 +60,13 @@ def syncSharedMain = tasks.register("syncSharedMain", Sync) {
 	exclude "net/peercraft/mixin/**"
 	exclude "net/peercraft/network/modsync/**"
 	exclude "net/peercraft/client/modsync/**"
+	// Host handoff: network/handoff/** is loader-agnostic and Java-8-safe (reused as-is, same
+	// as on the 1.16.5 backport). client/handoff/PeercraftWorldMeta.java and
+	// HostHandoffTransfer.java are also loader-agnostic (only pass MinecraftServer through
+	// opaquely) and compile as-is; WorldArchiver.java and SuccessorLauncher.java need a 1.7.10
+	// twin (modern net.minecraft.* API, modern GUI screens) — see src/client-1710/.../handoff.
+	exclude "net/peercraft/client/handoff/WorldArchiver.java"
+	exclude "net/peercraft/client/handoff/SuccessorLauncher.java"
 	(java8Twins + sharedForgeTwins).each { exclude it }
 }
 

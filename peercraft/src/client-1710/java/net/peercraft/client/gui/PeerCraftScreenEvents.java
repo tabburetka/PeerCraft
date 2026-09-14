@@ -2,6 +2,7 @@ package net.peercraft.client.gui;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiIngameMenu;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiShareToLan;
@@ -11,6 +12,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import net.peercraft.client.PeerCraftHostOptions;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
+import net.peercraft.network.p2p.P2PBridge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,11 +64,21 @@ public class PeerCraftScreenEvents {
                 ((IdButton) button).onPress.run();
                 event.setCanceled(true);
             }
+            return;
+        }
+
+        if (event.gui instanceof GuiIngameMenu && button instanceof IdButton) {
+            ((IdButton) button).onPress.run();
+            event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
     public void onInitPost(GuiScreenEvent.InitGuiEvent.Post event) {
+        if (event.gui instanceof GuiIngameMenu) {
+            onPauseMenuInit(event);
+            return;
+        }
         if (!(event.gui instanceof GuiShareToLan)) {
             return;
         }
@@ -154,6 +166,39 @@ public class PeerCraftScreenEvents {
         this.internetGated.add(friendsOnly);
 
         setGatedVisible(PeerCraftHostOptions.internetPlayRequested);
+    }
+
+    /**
+     * While hosting a world over the rendezvous server, add a "Hand off hosting…" button below
+     * whatever vanilla's own {@code GuiIngameMenu.initGui()} just built — same rationale as the
+     * modern {@code PauseScreenMixin} / the 1.12.2 twin's event handler.
+     */
+    @SuppressWarnings("unchecked")
+    private void onPauseMenuInit(GuiScreenEvent.InitGuiEvent.Post event) {
+        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || !PeerCraftConfig.handoff()) {
+            return;
+        }
+        if (!P2PBridge.INSTANCE.isHostingViaRendezvous()) {
+            return;
+        }
+
+        GuiScreen gui = event.gui;
+        List<GuiButton> buttons = event.buttonList;
+
+        int maxBottom = 0;
+        for (GuiButton b : buttons) {
+            maxBottom = Math.max(maxBottom, b.yPosition + b.height);
+        }
+
+        int width = 204;
+        int x = gui.width / 2 - width / 2;
+        int y = maxBottom + 4;
+
+        IdButton handoffButton = IdButton.builder(PeerCraftLang.tr("peercraft.handoff.menu.button"),
+                        () -> Minecraft.getMinecraft().displayGuiScreen(new HandoffPlayerPickerScreen(gui)))
+                .bounds(x, y, width, 20).build();
+        handoffButton.enabled = !P2PBridge.INSTANCE.handoffInProgress();
+        buttons.add(handoffButton);
     }
 
     private void setGatedVisible(boolean visible) {

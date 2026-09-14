@@ -148,6 +148,35 @@ public final class PeerCraftConfig {
         return boolValue("modSync.reofferDeclined", false);
     }
 
+    // Host handoff ("hand off hosting to another player" on the pause screen, then leave —
+    // the world migrates to the chosen player, everyone reconnects). Master switch: false
+    // hides the button and auto-declines any incoming handoff offer.
+    public static boolean handoff() {
+        return boolValue("handoff", true);
+    }
+
+    // Joiner-only: "don't consider me as a successor candidate" — when true, this player is
+    // shown as ineligible (like "not signed in") on every host's hand-off picker screen, and
+    // never receives an offer. Purely a courtesy signal sent to the host over the P2P link
+    // (HandoffProtocol T_SUCCESSOR_PREFERENCE) — it doesn't touch the rendezvous server.
+    public static boolean declineHandoffSuccessor() {
+        return boolValue("handoff.declineSuccessor", false);
+    }
+
+    // Host-only: ask "Hand off hosting to <name>?" before actually sending the offer — a guard
+    // against a stray click on the picker screen, since a handoff can't be cleanly undone once
+    // the successor accepts and the transfer starts. Default true (safety over convenience).
+    public static boolean handoffConfirmBeforeOffer() {
+        return boolValue("handoff.confirmBeforeOffer", true);
+    }
+
+    // Whether the handoff flow also posts a chat line (offer received / accepted / declined),
+    // in addition to the dedicated screens — useful for a host or joiner not currently staring
+    // at the handoff screen. Default true, matching the existing "room code in chat" behavior.
+    public static boolean handoffChatNotify() {
+        return boolValue("handoff.chatNotify", true);
+    }
+
     // Host side: what this player shares with joiners when hosting their own world.
     //   off / required / all — see ModSyncMode. Defaults to ALL, or OFF when legacy modSync=false.
     public static ModSyncMode modSyncHostMode() {

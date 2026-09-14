@@ -37,14 +37,20 @@ public final class PeerCraftSettings {
     public String internetPlay;
     @SerializedName("maxPlayers")
     public String maxPlayers;
+    @SerializedName("handoff")
+    public String handoff;
+    @SerializedName("handoff.declineSuccessor")
+    public String handoffDeclineSuccessor;
+    @SerializedName("handoff.confirmBeforeOffer")
+    public String handoffConfirmBeforeOffer;
+    @SerializedName("handoff.chatNotify")
+    public String handoffChatNotify;
 
     // ---- developer section --------------------------------------------------------------
     @SerializedName("mode")
     public String mode;
     @SerializedName("modSync.autoAccept")
     public String modSyncAutoAccept;
-    @SerializedName("handoff")
-    public String handoff;
     @SerializedName("rendezvousHost")
     public String rendezvousHost;
     @SerializedName("rendezvousPort")
@@ -76,7 +82,8 @@ public final class PeerCraftSettings {
     public static final String[] FLAG_KEYS = {
             "modSync.client", "modSync.host", "modSync.reofferDeclined",
             "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
-            "mode", "modSync.autoAccept", "handoff", "rendezvousHost", "rendezvousPort",
+            "handoff", "handoff.declineSuccessor", "handoff.confirmBeforeOffer", "handoff.chatNotify",
+            "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
             "proxyPort", "clientUdpPort", "hostUdpPort", "peerHost", "peerPort",
     };
 
@@ -89,9 +96,12 @@ public final class PeerCraftSettings {
             case "modSync.maxModMb": return modSyncMaxModMb;
             case "internetPlay": return internetPlay;
             case "maxPlayers": return maxPlayers;
+            case "handoff": return handoff;
+            case "handoff.declineSuccessor": return handoffDeclineSuccessor;
+            case "handoff.confirmBeforeOffer": return handoffConfirmBeforeOffer;
+            case "handoff.chatNotify": return handoffChatNotify;
             case "mode": return mode;
             case "modSync.autoAccept": return modSyncAutoAccept;
-            case "handoff": return handoff;
             case "rendezvousHost": return rendezvousHost;
             case "rendezvousPort": return rendezvousPort;
             case "proxyPort": return proxyPort;
@@ -113,9 +123,12 @@ public final class PeerCraftSettings {
             case "modSync.maxModMb": modSyncMaxModMb = v; break;
             case "internetPlay": internetPlay = v; break;
             case "maxPlayers": maxPlayers = v; break;
+            case "handoff": handoff = v; break;
+            case "handoff.declineSuccessor": handoffDeclineSuccessor = v; break;
+            case "handoff.confirmBeforeOffer": handoffConfirmBeforeOffer = v; break;
+            case "handoff.chatNotify": handoffChatNotify = v; break;
             case "mode": mode = v; break;
             case "modSync.autoAccept": modSyncAutoAccept = v; break;
-            case "handoff": handoff = v; break;
             case "rendezvousHost": rendezvousHost = v; break;
             case "rendezvousPort": rendezvousPort = v; break;
             case "proxyPort": proxyPort = v; break;

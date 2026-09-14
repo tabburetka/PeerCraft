@@ -160,6 +160,12 @@ public class P2PBridge {
     /** HOST: the peer we're currently handing the world to — so a mid-transfer drop can abort cleanly. */
     private volatile PeerAddress handoffSuccessorPeer;
 
+    // HOST: latest "don't consider me as a successor" preference per joiner (0xE3
+    // T_SUCCESSOR_PREFERENCE), independent of any in-progress handoff attempt — a joiner sends
+    // this once right after connecting and again whenever they flip the setting. Absent =
+    // willing (default). Cleared in cancelRendezvous(), same lifetime as authorizedPeers.
+    private final Map<PeerAddress, Boolean> successorOptOutByAddress = new ConcurrentHashMap<>();
+
     private volatile ClientSession currentClientSession;
 
     // Joiner role only: active during the one-shot rendezvous/hole-punch flow
@@ -797,6 +803,7 @@ public class P2PBridge {
         }
         authorizedPeers.clear();
         joinerAccountIdByAddress.clear();
+        successorOptOutByAddress.clear();
     }
 
     // ================= host handoff (graceful "baton pass") =================
@@ -816,12 +823,14 @@ public class P2PBridge {
         private final java.util.UUID accountId;
         private final long sessionId;
         private final int localPort;
+        private final boolean declinedSuccessor;
 
-        public HandoffCandidate(PeerAddress peer, java.util.UUID accountId, long sessionId, int localPort) {
+        public HandoffCandidate(PeerAddress peer, java.util.UUID accountId, long sessionId, int localPort, boolean declinedSuccessor) {
             this.peer = peer;
             this.accountId = accountId;
             this.sessionId = sessionId;
             this.localPort = localPort;
+            this.declinedSuccessor = declinedSuccessor;
         }
 
         public PeerAddress peer() {
@@ -843,6 +852,11 @@ public class P2PBridge {
         public boolean signedIn() {
             return accountId != null;
         }
+
+        /** True if this joiner has opted out of being chosen as a handoff successor (their own setting). */
+        public boolean declinedSuccessor() {
+            return declinedSuccessor;
+        }
     }
 
     /** HOST: the joiners connected right now (a snapshot), for the "hand off hosting" screen. */
@@ -850,7 +864,8 @@ public class P2PBridge {
         java.util.List<HandoffCandidate> out = new java.util.ArrayList<>();
         for (Map.Entry<PeerAddress, HostConnection> e : hostConnectionsByAddress.entrySet()) {
             out.add(new HandoffCandidate(e.getKey(), joinerAccountIdByAddress.get(e.getKey()),
-                    e.getValue().sessionId, e.getValue().localPort));
+                    e.getValue().sessionId, e.getValue().localPort,
+                    Boolean.TRUE.equals(successorOptOutByAddress.get(e.getKey()))));
         }
         return out;
     }
@@ -1126,6 +1141,15 @@ public class P2PBridge {
         // matched against the specific successor this handoff already vetted via ACCEPT.
         if (length >= 2 && data[0] == HandoffProtocol.MAGIC) {
             if (this.isHost) {
+                // Out-of-band preference, not part of any one offer's handshake — handled here
+                // directly so it's tracked whether or not a handoff attempt is currently running.
+                if ((data[1] & 0xFF) == (HandoffProtocol.T_SUCCESSOR_PREFERENCE & 0xFF)) {
+                    PeerAddress from = new PeerAddress(senderAddress, senderPort);
+                    if (authorizedPeers.contains(from)) {
+                        successorOptOutByAddress.put(from, HandoffProtocol.decodeSuccessorPreference(data, length));
+                    }
+                    return;
+                }
                 HandoffCoordinator session = this.handoffHostSession;
                 PeerAddress successor = this.handoffSuccessorPeer;
                 boolean fromKnownSuccessor = successor != null && successor.host().equals(senderAddress);

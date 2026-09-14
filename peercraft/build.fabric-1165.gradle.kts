@@ -48,7 +48,13 @@ val backportReplaced = listOf(
 	"**/net/peercraft/PeerCraftCommon.java",
 	"**/net/peercraft/client/gui/**",
 	"**/net/peercraft/client/mixin/**",
-	"**/net/peercraft/client/handoff/**",
+	// client/handoff: WorldArchiver (MinecraftServerAccessor + LevelResource) and
+	// SuccessorLauncher (IntegratedServer/CompoundTag/GameType, modern GUI screens) need a
+	// 1.16.5-API twin (see src/client-1165/.../client/handoff). PeercraftWorldMeta and
+	// HostHandoffTransfer are loader-agnostic (only pass MinecraftServer through opaquely) and
+	// compile as-is — no twin, not excluded.
+	"**/net/peercraft/client/handoff/WorldArchiver.java",
+	"**/net/peercraft/client/handoff/SuccessorLauncher.java",
 	"**/net/peercraft/mixin/**",
 	// Mod sync: the loader-agnostic core is records / switch-expressions (compiled from
 	// src/modsync-java8 instead), and the client layer twins drop the Java-11 HTTP fast-path

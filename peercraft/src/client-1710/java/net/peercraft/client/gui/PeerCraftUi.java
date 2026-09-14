@@ -19,7 +19,7 @@ import net.minecraft.client.gui.GuiScreen;
  *       {@code tooltipText} is unused (same as the 1.12.2 / 1.16.5 twins).</li>
  * </ul>
  */
-final class PeerCraftUi {
+public final class PeerCraftUi {
 
     static final int TEXT_TITLE = 0xFFFFFFFF;
     static final int TEXT_MUTED = 0xFFAAAAAA;
@@ -30,11 +30,38 @@ final class PeerCraftUi {
     private PeerCraftUi() {
     }
 
-    static void setScreen(Minecraft mc, GuiScreen screen) {
+    /** Greedy word-wrap of {@code text} to lines no wider than {@code maxWidth} px. Matches src/main's {@code PeerCraftUi.wrap}. */
+    public static java.util.List<String> wrap(FontRenderer font, String text, int maxWidth) {
+        java.util.List<String> lines = new java.util.ArrayList<String>();
+        for (String paragraph : text.split("\n", -1)) {
+            StringBuilder line = new StringBuilder();
+            for (String word : paragraph.split(" ")) {
+                String candidate = line.length() == 0 ? word : line + " " + word;
+                if (font.getStringWidth(candidate) > maxWidth && line.length() > 0) {
+                    lines.add(line.toString());
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(candidate);
+                }
+            }
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    /** "12.3 MB" / "512 KB" / "900 B" — matches src/main's {@code PeerCraftUi.humanSize}. */
+    public static String humanSize(long b) {
+        if (b < 1024) return b + " B";
+        double kb = b / 1024.0;
+        if (kb < 1024) return String.format("%.0f KB", kb);
+        return String.format("%.1f MB", kb / 1024.0);
+    }
+
+    public static void setScreen(Minecraft mc, GuiScreen screen) {
         mc.displayGuiScreen(screen);
     }
 
-    static boolean isCurrentScreen(GuiScreen screen) {
+    public static boolean isCurrentScreen(GuiScreen screen) {
         return Minecraft.getMinecraft().currentScreen == screen;
     }
 

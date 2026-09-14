@@ -51,6 +51,14 @@ public final class HandoffProtocol {
     public static final byte T_ABORT = 0x06;
     /** keepalive, sent both ways while an offer/transfer is in flight so the punched NAT mapping doesn't age out. No payload; ignored on receipt. */
     public static final byte T_PING = 0x07;
+    /**
+     * joiner -&gt; host: "don't consider me as a successor candidate" preference, out of band from
+     * any specific offer. Sent once right after the handoff client agent is installed for a
+     * session, and again whenever the player flips the setting while already connected. The
+     * host tracks the latest value per peer regardless of whether a handoff is in progress —
+     * unlike every other message here, this one isn't part of one offer's handshake.
+     */
+    public static final byte T_SUCCESSOR_PREFERENCE = 0x08;
 
     /** OFFER flag bits. */
     public static final int OFFER_FLAG_ALLOW_UNLICENSED = 0x1;
@@ -323,6 +331,17 @@ public final class HandoffProtocol {
 
     public static byte[] encodePing() {
         return new byte[]{MAGIC, T_PING};
+    }
+
+    // ---- SUCCESSOR_PREFERENCE: joiner -> host ----
+
+    public static byte[] encodeSuccessorPreference(boolean declineSuccessor) {
+        return new byte[]{MAGIC, T_SUCCESSOR_PREFERENCE, (byte) (declineSuccessor ? 1 : 0)};
+    }
+
+    /** Tolerant of a short/absent payload (older sender) — decodes to "willing" (false). */
+    public static boolean decodeSuccessorPreference(byte[] data, int length) {
+        return length >= 3 && data[2] != 0;
     }
 
     // ---- helpers ----

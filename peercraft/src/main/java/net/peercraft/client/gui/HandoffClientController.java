@@ -97,6 +97,22 @@ public final class HandoffClientController {
 
         P2PBridge.INSTANCE.installHandoffClientAgent(agent);
         LOGGER.debug("[Handoff] Клиентский агент установлен на сессию (аккаунт: {})", localAccountId);
+        sendPreference();
+    }
+
+    /** Sends the current "decline as successor" preference to the current host, if connected. Safe to call anytime — a no-op when not joined. */
+    private void sendPreference() {
+        PeerAddress host = P2PBridge.INSTANCE.currentHostPeer();
+        if (host == null) {
+            return;
+        }
+        P2PBridge.INSTANCE.sendRawDatagram(host.host(), host.port(),
+                HandoffProtocol.encodeSuccessorPreference(net.peercraft.config.PeerCraftConfig.declineHandoffSuccessor()));
+    }
+
+    /** Called from the Settings screen's Save — resends the preference immediately if the player is currently connected, so an already-hosted room picks up the change without a reconnect. */
+    public void resendPreference() {
+        sendPreference();
     }
 
     private void handleOffer(HandoffProtocol.Offer offer, UUID localAccountId) {
@@ -120,12 +136,30 @@ public final class HandoffClientController {
         }
         Minecraft mc = Minecraft.getInstance();
         mc.execute(() -> {
+            notifyChat("peercraft.handoff.chat.offer_received");
             HandoffOfferScreen screen = new HandoffOfferScreen(offer, agent,
                     () -> currentOfferScreen = null,
                     () -> setupWorldReceiver(offer));
             currentOfferScreen = screen;
             PeerCraftUi.setScreen(mc, screen);
         });
+    }
+
+    /** Posts a chat line for a handoff event, gated on the chatNotify setting. Must run on the client thread. */
+    private static void notifyChat(String key, Object... args) {
+        if (!net.peercraft.config.PeerCraftConfig.handoffChatNotify()) {
+            return;
+        }
+        net.minecraft.client.player.LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null) {
+            net.minecraft.network.chat.Component message = net.minecraft.network.chat.Component.translatable(key, args);
+            // Player.displayClientMessage(Component, boolean) was replaced by
+            // sendSystemMessage(Component) in 26.1 (the actionbar variant is sendOverlayMessage).
+            //? if <26.1
+            player.displayClientMessage(message, false);
+            //? if >=26.1
+            /*player.sendSystemMessage(message);*/
+        }
     }
 
     /** Called when the successor accepts — stands up the 0xE4 receiver so the host's BEGIN is handled. */

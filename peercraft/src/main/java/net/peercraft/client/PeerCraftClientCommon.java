@@ -3,7 +3,6 @@ package net.peercraft.client;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
-//? if >=1.17
 import net.peercraft.client.gui.HandoffClientController;
 import net.peercraft.client.modsync.ModSyncFilesystem;
 import net.peercraft.config.PeerCraftConfig;
@@ -60,9 +59,9 @@ public final class PeerCraftClientCommon {
         }
 
         // Joiner-side host-handoff wiring: installs a HandoffClientAgent on every successful
-        // join and turns offer / MIGRATE into screens (see HandoffClientController). Modern
-        // targets only — the 1.16.5 backport has no handoff GUI twins.
-        //? if >=1.17
+        // join and turns offer / MIGRATE into screens (see HandoffClientController). The
+        // client/gui/** package is swapped wholesale for a 1.16.5-API twin on that backport
+        // (see build.fabric-1165.gradle.kts), so this call resolves there too.
         HandoffClientController.INSTANCE.register();
 
         P2PBridge.INSTANCE.startProxy(PeerCraftConfig.proxyPort());

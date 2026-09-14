@@ -54,6 +54,10 @@ public class PeerCraftSettingsScreen extends GuiScreen {
         if ("modSync.reofferDeclined".equals(key)) return "false";
         if ("modSync.maxTotalMb".equals(key)) return "512";
         if ("modSync.maxModMb".equals(key)) return "256";
+        if ("handoff".equals(key)) return "true";
+        if ("handoff.declineSuccessor".equals(key)) return "false";
+        if ("handoff.confirmBeforeOffer".equals(key)) return "true";
+        if ("handoff.chatNotify".equals(key)) return "true";
         return "";
     }
 
@@ -115,6 +119,10 @@ public class PeerCraftSettingsScreen extends GuiScreen {
         y = cycleRow(y, "modSync.maxModMb", "max_mod_mb", MOD_MB, null, false);
         y = toggleRow(y, "internetPlay", "internet_play", false);
         y = cycleRow(y, "maxPlayers", "max_players", PLAYERS, null, false);
+        y = toggleRow(y, "handoff", "handoff", false);
+        y = toggleRow(y, "handoff.declineSuccessor", "handoff_decline_successor", false);
+        y = toggleRow(y, "handoff.confirmBeforeOffer", "handoff_confirm_before_offer", false);
+        y = toggleRow(y, "handoff.chatNotify", "handoff_chat_notify", false);
 
         // developer section toggle
         this.buttonList.add(new ToggleButton(this.width / 2 - CONTROL_W, y,
@@ -226,6 +234,7 @@ public class PeerCraftSettingsScreen extends GuiScreen {
         }
         PeerCraftSettingsStore.save(this.settings);
         PeerCraftConfig.applyOverrides(this.settings.toOverrideMap());
+        HandoffClientController.INSTANCE.resendPreference();
         PeerCraftUi.setScreen(this.mc, this.lastScreen);
     }
 

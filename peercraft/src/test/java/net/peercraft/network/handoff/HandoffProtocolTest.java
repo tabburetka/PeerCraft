@@ -23,6 +23,11 @@ class HandoffProtocolTest {
     void fixedEncodings() {
         assertArrayEquals(new byte[]{M, HandoffProtocol.T_PING}, HandoffProtocol.encodePing());
 
+        assertArrayEquals(new byte[]{M, HandoffProtocol.T_SUCCESSOR_PREFERENCE, 1},
+                HandoffProtocol.encodeSuccessorPreference(true));
+        assertArrayEquals(new byte[]{M, HandoffProtocol.T_SUCCESSOR_PREFERENCE, 0},
+                HandoffProtocol.encodeSuccessorPreference(false));
+
         // ACCEPT / MIGRATE_OK: magic, type, 8-byte offerId (big-endian)
         assertArrayEquals(
                 new byte[]{M, HandoffProtocol.T_ACCEPT, 0, 0, 0, 0, 0, 0, 0, 7},
@@ -104,5 +109,18 @@ class HandoffProtocolTest {
         assertEquals(0xCAFEBABEL, HandoffProtocol.decodeOfferId(acc, acc.length));
         byte[] ok = HandoffProtocol.encodeMigrateOk(0xCAFEBABEL);
         assertEquals(0xCAFEBABEL, HandoffProtocol.decodeOfferId(ok, ok.length));
+    }
+
+    @Test
+    void successorPreferenceRoundTrips() {
+        byte[] decline = HandoffProtocol.encodeSuccessorPreference(true);
+        assertEquals(HandoffProtocol.T_SUCCESSOR_PREFERENCE, HandoffProtocol.messageType(decline, decline.length));
+        assertTrue(HandoffProtocol.decodeSuccessorPreference(decline, decline.length));
+
+        byte[] willing = HandoffProtocol.encodeSuccessorPreference(false);
+        assertFalse(HandoffProtocol.decodeSuccessorPreference(willing, willing.length));
+
+        // Older/short senders decode to "willing" rather than throwing.
+        assertFalse(HandoffProtocol.decodeSuccessorPreference(new byte[]{M, HandoffProtocol.T_SUCCESSOR_PREFERENCE}, 2));
     }
 }

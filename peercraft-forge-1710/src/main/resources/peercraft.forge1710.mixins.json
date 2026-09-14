@@ -6,7 +6,9 @@
   "refmap": "peercraft.mixins.refmap.json",
   "mixins": [
     "OpenToLanMixin",
-    "ServerLoginPacketListenerImplMixin"
+    "ServerLoginPacketListenerImplMixin",
+    "WorldOpenFlowsMixin",
+    "MinecraftServerInvoker"
   ],
   "injectors": {
     "defaultRequire": 1

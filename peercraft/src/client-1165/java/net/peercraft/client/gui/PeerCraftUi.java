@@ -19,7 +19,7 @@ import net.minecraft.util.FormattedCharSequence;
  * {@code String.repeat} → {@link #repeat}, and {@code squareGlyphButton} drops its tooltip
  * (1.16.5 has no {@code Tooltip} object and the button row it sits in never carried one).
  */
-final class PeerCraftUi {
+public final class PeerCraftUi {
 
     static final int TEXT_TITLE = 0xFFFFFFFF;
     static final int TEXT_MUTED = 0xFFAAAAAA;
@@ -30,12 +30,39 @@ final class PeerCraftUi {
     private PeerCraftUi() {
     }
 
+    /** Greedy word-wrap of {@code text} to lines no wider than {@code maxWidth} px. Matches src/main's {@code PeerCraftUi.wrap}. */
+    public static java.util.List<String> wrap(Font font, String text, int maxWidth) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (String paragraph : text.split("\n", -1)) {
+            StringBuilder line = new StringBuilder();
+            for (String word : paragraph.split(" ")) {
+                String candidate = line.length() == 0 ? word : line + " " + word;
+                if (font.width(candidate) > maxWidth && line.length() > 0) {
+                    lines.add(line.toString());
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(candidate);
+                }
+            }
+            lines.add(line.toString());
+        }
+        return lines;
+    }
+
+    /** "12.3 MB" / "512 KB" / "900 B" — matches src/main's {@code PeerCraftUi.humanSize}. */
+    public static String humanSize(long b) {
+        if (b < 1024) return b + " B";
+        double kb = b / 1024.0;
+        if (kb < 1024) return String.format("%.0f KB", kb);
+        return String.format("%.1f MB", kb / 1024.0);
+    }
+
     /** 1.16.5 keeps {@code Minecraft.setScreen} — no {@code Minecraft.gui} indirection yet. */
-    static void setScreen(Minecraft mc, Screen screen) {
+    public static void setScreen(Minecraft mc, Screen screen) {
         mc.setScreen(screen);
     }
 
-    static boolean isCurrentScreen(Screen screen) {
+    public static boolean isCurrentScreen(Screen screen) {
         return Minecraft.getInstance().screen == screen;
     }
 
