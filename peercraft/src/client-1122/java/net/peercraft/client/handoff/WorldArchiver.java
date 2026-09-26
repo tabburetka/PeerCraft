@@ -5,16 +5,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
@@ -67,7 +62,7 @@ public final class WorldArchiver {
         try {
             server.addScheduledTask(() -> server.saveAllWorlds(false)).get();
         } catch (Exception e) {
-            LOGGER.warn("[Handoff] saveAllWorlds перед архивацией не удался: {}", e.toString());
+            throw new IOException("Could not flush world before handoff", e);
         }
 
         Path worldDir = worldDir(server);
@@ -80,24 +75,14 @@ public final class WorldArchiver {
              DigestOutputStream digestOut = new DigestOutputStream(fileOut, md, total);
              ZipOutputStream zos = new ZipOutputStream(digestOut)) {
             zos.setLevel(1);
-            List<Path> files = new ArrayList<Path>();
-            try (Stream<Path> walk = Files.walk(worldDir)) {
-                walk.filter(Files::isRegularFile).filter(p -> keep(worldDir, p)).forEach(files::add);
+            WorldArchiveFiles.write(worldDir, zos);
+        } catch (IOException | RuntimeException e) {
+            try {
+                Files.deleteIfExists(zip);
+            } catch (IOException cleanup) {
+                e.addSuppressed(cleanup);
             }
-            byte[] buf = new byte[1 << 16];
-            for (Path p : files) {
-                String rel = worldDir.relativize(p).toString().replace('\\', '/');
-                zos.putNextEntry(new ZipEntry(rel));
-                try (InputStream in = Files.newInputStream(p)) {
-                    int n;
-                    while ((n = in.read(buf)) > 0) {
-                        zos.write(buf, 0, n);
-                    }
-                } catch (IOException perFile) {
-                    LOGGER.debug("[Handoff] Пропущен файл {} при архивации: {}", rel, perFile.toString());
-                }
-                zos.closeEntry();
-            }
+            throw e;
         }
 
         long size = Files.size(zip);
@@ -106,32 +91,18 @@ public final class WorldArchiver {
         return new Result(zip, size, sha);
     }
 
-    private static boolean keep(Path worldDir, Path file) {
-        String name = file.getFileName().toString();
-        if (name.equals("session.lock")) {
-            return false;
-        }
-        String rel = worldDir.relativize(file).toString().replace('\\', '/');
-        return !rel.contains("/.peercraft") && !rel.startsWith(".peercraft");
-    }
 
     public static Path worldDir(MinecraftServer server) {
         return server.getActiveAnvilConverter().getFile(server.getFolderName(), "").toPath();
     }
 
     public static long estimateSize(Path worldDir) {
-        long[] total = {0L};
-        try (Stream<Path> walk = Files.walk(worldDir)) {
-            walk.filter(Files::isRegularFile).filter(p -> keep(worldDir, p)).forEach(p -> {
-                try {
-                    total[0] += Files.size(p);
-                } catch (IOException ignored) {
-                }
-            });
+        try {
+            return WorldArchiveFiles.estimateSize(worldDir);
         } catch (IOException e) {
             LOGGER.debug("[Handoff] Не удалось оценить размер мира: {}", e.toString());
+            return 0L;
         }
-        return total[0];
     }
 
     private static MessageDigest sha512() {

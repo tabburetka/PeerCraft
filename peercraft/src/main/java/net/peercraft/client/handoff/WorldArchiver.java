@@ -12,10 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
@@ -23,7 +19,7 @@ import java.util.zip.ZipOutputStream;
  * successor. Runs on the host; the successor unzips it and loads it (see {@code SuccessorLauncher}).
  *
  * <p>Excludes {@code session.lock} (the successor's own load takes its own lock) and any
- * PeerCraft scratch files. Uses light zip compression — region files and NBT are already
+ * PeerCraft migration/transfer scratch files. All other world-local extension data is included. Uses light zip compression — region files and NBT are already
  * compressed, so store-ish is faster and barely larger.
  */
 public final class WorldArchiver {
@@ -67,7 +63,7 @@ public final class WorldArchiver {
         try {
             server.executeBlocking(() -> server.saveEverything(true, true, true));
         } catch (RuntimeException e) {
-            LOGGER.warn("[Handoff] saveEverything перед архивацией не удался: {}", e.toString());
+            throw new IOException("Could not flush world before handoff", e);
         }
 
         Path worldDir = worldDir(server);
@@ -80,26 +76,14 @@ public final class WorldArchiver {
              DigestOutputStream digestOut = new DigestOutputStream(fileOut, md, total);
              ZipOutputStream zos = new ZipOutputStream(digestOut)) {
             zos.setLevel(1);
-            List<Path> files = new ArrayList<Path>();
-            try (Stream<Path> walk = Files.walk(worldDir)) {
-                walk.filter(Files::isRegularFile).filter(p -> keep(worldDir, p)).forEach(files::add);
+            WorldArchiveFiles.write(worldDir, zos);
+        } catch (IOException | RuntimeException e) {
+            try {
+                Files.deleteIfExists(zip);
+            } catch (IOException cleanup) {
+                e.addSuppressed(cleanup);
             }
-            byte[] buf = new byte[1 << 16];
-            for (Path p : files) {
-                String rel = worldDir.relativize(p).toString().replace('\\', '/');
-                zos.putNextEntry(new ZipEntry(rel));
-                try (var in = Files.newInputStream(p)) {
-                    int n;
-                    while ((n = in.read(buf)) > 0) {
-                        zos.write(buf, 0, n);
-                    }
-                } catch (IOException perFile) {
-                    // A file that vanished or is briefly locked mid-walk — skip it rather than
-                    // failing the whole archive; the world stays playable, this is a snapshot.
-                    LOGGER.debug("[Handoff] Пропущен файл {} при архивации: {}", rel, perFile.toString());
-                }
-                zos.closeEntry();
-            }
+            throw e;
         }
 
         long size = Files.size(zip);
@@ -108,15 +92,6 @@ public final class WorldArchiver {
         return new Result(zip, size, sha);
     }
 
-    private static boolean keep(Path worldDir, Path file) {
-        String name = file.getFileName().toString();
-        if (name.equals("session.lock")) {
-            return false;
-        }
-        String rel = worldDir.relativize(file).toString().replace('\\', '/');
-        // Skip PeerCraft's own scratch trees if they ever live under the world dir.
-        return !rel.contains("/.peercraft") && !rel.startsWith(".peercraft");
-    }
 
     /** The on-disk directory of the world {@code server} is running. */
     public static Path worldDir(MinecraftServer server) {
@@ -130,18 +105,12 @@ public final class WorldArchiver {
      * successor has accepted, so nothing has been flushed or zipped yet.
      */
     public static long estimateSize(Path worldDir) {
-        long[] total = {0L};
-        try (Stream<Path> walk = Files.walk(worldDir)) {
-            walk.filter(Files::isRegularFile).filter(p -> keep(worldDir, p)).forEach(p -> {
-                try {
-                    total[0] += Files.size(p);
-                } catch (IOException ignored) {
-                }
-            });
+        try {
+            return WorldArchiveFiles.estimateSize(worldDir);
         } catch (IOException e) {
             LOGGER.debug("[Handoff] Не удалось оценить размер мира: {}", e.toString());
+            return 0L;
         }
-        return total[0];
     }
 
     private static MessageDigest sha512() {
