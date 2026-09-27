@@ -76,8 +76,11 @@ final class SteampunkSettingsTheme {
         double travel = height + 24.0;
         for (int i = 0; i < count; i++) {
             int id = i + seed;
-            double phase = fraction(id * 0.61803398875 + 0.13);
-            double progress = fraction(phase + seconds * (8.0 + fraction(id * 0.381966) * 8.0) / travel);
+            // Each spark follows an independent, irrational cadence. A shared speed made the
+            // previous animation periodically collapse into a visible horizontal row.
+            double phase = fraction(id * 0.754877666 + 0.13
+                    + seconds * (0.021 + fraction(id * 0.414213562) * 0.019));
+            double progress = phase;
             int y = (int) Math.round(height + 12 - progress * travel);
             double drift = Math.sin(seconds * 0.42 + id * 2.3) * 3.0;
             int x = (int) Math.round(left + 3 + fraction(id * 0.754877666 + 0.27)

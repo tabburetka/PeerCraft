@@ -29,6 +29,7 @@ public class PeerCraftAccountScreen extends Screen {
     private Component statusMessage;
     private int statusColor = PeerCraftUi.TEXT_MUTED;
     private Button loginLicensedButton;
+    private boolean returningToLastScreen;
     //? if =1.21.1 {
     private final long animationStart = System.nanoTime();
     private SteampunkDialog dialog;
@@ -90,7 +91,7 @@ public class PeerCraftAccountScreen extends Screen {
         }
 
         y += 4;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
+        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> returnToLastScreen())
                 .bounds(centerX - 100, y, 200, 20).build());
         //? if =1.21.1
         layoutThemedAccount(session);
@@ -98,6 +99,15 @@ public class PeerCraftAccountScreen extends Screen {
 
     @Override
     public void onClose() {
+        returnToLastScreen();
+    }
+
+    /** A stale async callback must never create another account screen after the user leaves. */
+    private void returnToLastScreen() {
+        if (this.returningToLastScreen) {
+            return;
+        }
+        this.returningToLastScreen = true;
         PeerCraftUi.setScreen(this.minecraft, this.lastScreen);
     }
 
@@ -238,10 +248,8 @@ public class PeerCraftAccountScreen extends Screen {
         int insetY = this.dialog.compact ? 5 : 8;
         SteampunkSettingsTheme.frame(graphics, x + 7, this.identityY + insetY, iconSize, iconSize,
                 0xFF2C241B, SteampunkSettingsTheme.BORDER);
+        drawSkinFace(graphics, x + 7, this.identityY + insetY, iconSize);
         String name = session.displayName();
-        String initial = name.isEmpty() ? "?" : name.substring(0, name.offsetByCodePoints(0, 1));
-        graphics.drawCenteredString(this.font, initial, x + 7 + iconSize / 2,
-                this.identityY + insetY + (iconSize - this.font.lineHeight) / 2, SteampunkSettingsTheme.ACCENT);
         int textX = x + iconSize + 14;
         Component caption = Component.translatable("peercraft.gui.account.logged_in_as", name);
         String display = this.font.plainSubstrByWidth(caption.getString(), this.dialog.contentWidth() - iconSize - 22);
@@ -251,6 +259,14 @@ public class PeerCraftAccountScreen extends Screen {
                 textX, this.identityY + (this.dialog.compact ? 15 : 23), SteampunkSettingsTheme.MUTED, false);
         graphics.drawString(this.font, Component.translatable("peercraft.gui.account.friend_code", session.friendCode()),
                 x + 8, this.identityY + (this.dialog.compact ? 26 : 38), SteampunkSettingsTheme.ACCENT, false);
+    }
+
+    /** Draw the local Minecraft skin's face and hat layer; SkinManager provides a default while it loads. */
+    private void drawSkinFace(GuiGraphics graphics, int x, int y, int size) {
+        Minecraft mc = Minecraft.getInstance();
+        net.minecraft.resources.ResourceLocation texture = mc.getSkinManager().getInsecureSkin(mc.getGameProfile()).texture();
+        graphics.blit(texture, x, y, 0, 8, 8, size, size, 64, 64);
+        graphics.blit(texture, x, y, 0, 40, 8, size, size, 64, 64);
     }
     //?}
 
