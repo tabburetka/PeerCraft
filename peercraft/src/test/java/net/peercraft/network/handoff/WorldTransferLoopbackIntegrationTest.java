@@ -41,7 +41,16 @@ class WorldTransferLoopbackIntegrationTest {
         run(dir, 400_000, 0.10);
     }
 
+    @Test
+    @Timeout(60)
+    void requestsVerifiedResultAgainWhenAllInitialDonePacketsAreLost(@TempDir Path dir) throws Exception {
+        run(dir, 250_000, 0.0, true);
+    }
+
     private void run(Path dir, int archiveBytes, double dropRate) throws Exception {
+        run(dir, archiveBytes, dropRate, false);
+    }
+    private void run(Path dir, int archiveBytes, double dropRate, boolean loseDone) throws Exception {
         byte[] archive = new byte[archiveBytes];
         new Random(42).nextBytes(archive);
         Path src = dir.resolve("world.zip");
@@ -66,11 +75,14 @@ class WorldTransferLoopbackIntegrationTest {
 
         WorldTransfer.Sender toRecv = (ip, port, data) -> {
             if (dropRate > 0 && drop.nextDouble() < dropRate) return;
-            wire.execute(() -> recv[0].onPacket(data, data.length, lo, 50000));
+            wire.execute(() -> recv[0].onPacket(data, data.length, lo, 40000));
         };
+        java.util.concurrent.atomic.AtomicInteger donePackets = new java.util.concurrent.atomic.AtomicInteger();
         WorldTransfer.Sender toHost = (ip, port, data) -> {
+            if (loseDone && WorldTransferProtocol.messageType(data, data.length) == WorldTransferProtocol.T_DONE
+                    && donePackets.incrementAndGet() <= 5) return;
             if (dropRate > 0 && drop.nextDouble() < dropRate) return;
-            wire.execute(() -> host[0].onPacket(data, data.length, lo, 40000));
+            wire.execute(() -> host[0].onPacket(data, data.length, lo, 50000));
         };
 
         recv[0] = WorldTransfer.receiver(transferId, dir.resolve("in.part"), 8L * 1024 * 1024,
@@ -98,4 +110,25 @@ class WorldTransferLoopbackIntegrationTest {
     private static byte[] sha512(byte[] b) throws Exception {
         return MessageDigest.getInstance("SHA-512").digest(b);
     }
+    @Test void retainedDoneIsBoundToTheVerifiedSnapshot(@TempDir Path dir) throws Exception {
+        byte[] data = new byte[]{4}, hash = sha512(data); InetAddress lo = InetAddress.getLoopbackAddress();
+        java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
+        WorldTransfer receiver = WorldTransfer.receiver(1, dir.resolve("in.part"), 1024,
+                (ip, port, packet) -> { if (WorldTransferProtocol.messageType(packet, packet.length) == WorldTransferProtocol.T_DONE) done.incrementAndGet(); },
+                lo, 1000, new WorldTransfer.ReceiverCallbacks() {
+                    public void onProgress(long a, long b) { }
+                    public void onComplete(Path p) { }
+                    public void onFailed(String reason) { fail(reason); }
+                });
+        byte[] begin = WorldTransferProtocol.encodeBegin(1, 1, 1, hash, WorldTransferProtocol.CHUNK_PAYLOAD);
+        receiver.onPacket(begin, begin.length, lo, 1000);
+        byte[] chunk = WorldTransferProtocol.encodeChunk(1, 0, data, 0, 1);
+        receiver.onPacket(chunk, chunk.length, lo, 1000);
+        assertEquals(5, done.get());
+        byte[] wrongHash = hash.clone(); wrongHash[0] ^= 1;
+        byte[] wrong = WorldTransferProtocol.encodeBegin(1, 1, 1, wrongHash, WorldTransferProtocol.CHUNK_PAYLOAD);
+        receiver.onPacket(wrong, wrong.length, lo, 1000); assertEquals(5, done.get());
+        receiver.onPacket(begin, begin.length, lo, 1000); assertEquals(6, done.get());
+    }
+
 }

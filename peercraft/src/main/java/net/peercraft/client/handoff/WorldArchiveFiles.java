@@ -17,7 +17,7 @@ public final class WorldArchiveFiles {
     private static boolean scratch(Path root, Path path) {
         String rel = root.relativize(path).toString().replace('\\', '/');
         String first = rel.split("/", 2)[0];
-        return rel.equals("session.lock") || first.equals(".peercraft-player-migration")
+        return rel.equals("session.lock") || first.equals(".peercraft-handoff-install") || first.equals(".peercraft-player-migration")
                 || first.equals(".peercraft-handoff-tmp") || first.startsWith(".peercraft-handoff-staging-");
     }
 

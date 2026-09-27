@@ -436,4 +436,23 @@ class RoomRegistryTest {
         assertEquals(1, publicRooms.size());
         assertTrue(publicRooms.get(0).hostAccountId().isEmpty());
     }
+    @Test
+    void anonymousHandoffNeedsRoomChallengeNotJustAddress() throws Exception {
+        RoomRegistry r = new RoomRegistry(); RendezvousProtocol.Address host = addr("127.0.0.1", 12000);
+        RoomRegistry.Registered room = (RoomRegistry.Registered) r.register(host, 4, 0, java.util.Optional.empty(), false);
+        assertFalse(r.authorizesHandoff(room.code(), host, new byte[32]));
+        byte[] proof = r.handoffChallenge(room.code(), host);
+        assertTrue(r.authorizesHandoff(room.code(), host, proof));
+        assertFalse(r.authorizesHandoff(room.code(), addr("127.0.0.1", 12001), proof));
+    }
+
+    @Test void lateAbortCannotUnlockRoomDuringANewAttempt() throws Exception {
+        RoomRegistry r = new RoomRegistry();
+        RoomRegistry.Registered room = (RoomRegistry.Registered) r.register(addr("127.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false);
+        r.suspendForHandoff(room.code(), "old"); r.resumeAfterHandoff(room.code(), "old");
+        r.suspendForHandoff(room.code(), "new"); r.resumeAfterHandoff(room.code(), "old");
+        assertInstanceOf(RoomRegistry.JoinRejected.class,
+                r.join(room.code(), addr("127.0.0.1", 2000), java.util.Optional.empty(), (a,b) -> false));
+    }
+
 }

@@ -4,6 +4,8 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.server.network.NetHandlerLoginServer;
 import net.peercraft.network.p2p.PlayerIdentityRegistry;
+import net.peercraft.network.p2p.LocalPlayerIdentity;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -11,8 +13,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.UUID;
 
 /**
@@ -40,11 +40,18 @@ public abstract class ServerLoginPacketListenerImplMixin {
         }
     }
 
-    private UUID resolveAccountIdForThisConnection() {
-        SocketAddress address = this.networkManager.getRemoteAddress();
-        if (!(address instanceof InetSocketAddress)) {
-            return null;
+
+    @Shadow private GameProfile loginGameProfile;
+
+    @Inject(method = "processLoginStart", at = @At("RETURN"))
+    private void peercraft$localIdentity(net.minecraft.network.login.client.CPacketLoginStart packet, CallbackInfo ci) {
+        UUID id = LocalPlayerIdentity.current();
+        if (this.networkManager.isLocalChannel() && id != null) {
+            this.loginGameProfile = new GameProfile(id, this.loginGameProfile.getName());
         }
-        return PlayerIdentityRegistry.INSTANCE.get(((InetSocketAddress) address).getPort());
+    }
+
+    private UUID resolveAccountIdForThisConnection() {
+        return PlayerIdentityRegistry.INSTANCE.get(this.networkManager.getRemoteAddress());
     }
 }

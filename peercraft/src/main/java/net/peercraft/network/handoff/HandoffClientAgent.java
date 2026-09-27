@@ -57,6 +57,7 @@ public final class HandoffClientAgent {
 
     private final AtomicReference<InetAddress> hostIp = new AtomicReference<>();
     private volatile int hostPort;
+    private volatile Long terminalOfferId;
     private final AtomicReference<Long> activeOfferId = new AtomicReference<>();
     private final AtomicBoolean accepted = new AtomicBoolean(false);
     private final AtomicBoolean migrateSeen = new AtomicBoolean(false);
@@ -72,7 +73,9 @@ public final class HandoffClientAgent {
         if (type < 0) {
             return;
         }
-        hostIp.set(senderAddress);
+        InetAddress pinned = hostIp.get();
+        if (pinned != null && (!pinned.equals(senderAddress) || hostPort != senderPort)) return;
+        hostIp.compareAndSet(null, senderAddress);
         hostPort = senderPort;
 
         switch (type) {
@@ -80,7 +83,10 @@ public final class HandoffClientAgent {
                 break;
             case HandoffProtocol.T_OFFER: {
                 HandoffProtocol.Offer offer = HandoffProtocol.decodeOffer(data, length);
+                if (offer.protoVersion() != HandoffProtocol.PROTO_VERSION
+                        || (terminalOfferId != null && terminalOfferId == offer.offerId())) return;
                 if (activeOfferId.compareAndSet(null, offer.offerId())) {
+                    accepted.set(false); migrateSeen.set(false);
                     LOGGER.info("[Handoff] Получено предложение стать новым хостом (offerId={}, мир='{}', ~{} байт)",
                             offer.offerId(), offer.worldLabel(), offer.estArchiveBytes());
                     callbacks.onOffer(offer);
@@ -89,6 +95,9 @@ public final class HandoffClientAgent {
             }
             case HandoffProtocol.T_MIGRATE: {
                 HandoffProtocol.Migrate m = HandoffProtocol.decodeMigrate(data, length);
+                if (terminalOfferId != null && terminalOfferId == m.offerId()) return;
+                Long active = activeOfferId.get();
+                if (active != null && active != m.offerId()) return;
                 if (migrateSeen.compareAndSet(false, true)) {
                     boolean amSuccessor = accepted.get()
                             && localAccountId != null
@@ -102,7 +111,9 @@ public final class HandoffClientAgent {
             case HandoffProtocol.T_ABORT: {
                 HandoffProtocol.Abort a = HandoffProtocol.decodeAbort(data, length);
                 Long active = activeOfferId.get();
-                if (active == null || a.offerId() == active) {
+                if (active != null && a.offerId() == active) {
+                    terminalOfferId = active;
+                    activeOfferId.set(null); accepted.set(false); migrateSeen.set(false);
                     LOGGER.info("[Handoff] Хост отменил передачу: {}", a.reasonKey());
                     callbacks.onAborted(a.reasonKey().isEmpty() ? "peercraft.handoff.abort.unknown" : a.reasonKey());
                 }
@@ -129,15 +140,14 @@ public final class HandoffClientAgent {
             return;
         }
         repeat(HandoffProtocol.encodeDecline(id, reasonKey));
-        activeOfferId.set(null);
+        terminalOfferId = id;
+        activeOfferId.set(null); accepted.set(false); migrateSeen.set(false);
     }
 
     /** Successor's integrated server is up and registered — tell the (possibly already gone) host it's safe to stop. */
     public void signalReady() {
         Long id = activeOfferId.get();
-        if (id == null) {
-            return;
-        }
+        if (id == null || !accepted.get() || !migrateSeen.get()) return;
         repeat(HandoffProtocol.encodeMigrateOk(id));
     }
 

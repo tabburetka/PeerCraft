@@ -69,7 +69,7 @@ class HandoffLoopbackIntegrationTest {
         AtomicReference<Boolean> joinerAmSuccessor = new AtomicReference<>(false);
 
         link.joiner = new HandoffClientAgent(successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 40000)),
+                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 50000)),
                 new HandoffClientAgent.Callbacks() {
                     @Override public void onOffer(HandoffProtocol.Offer offer) {
                         joinerOffer.complete(offer);
@@ -98,7 +98,7 @@ class HandoffLoopbackIntegrationTest {
 
         HandoffProtocol.Offer offer = sampleOffer(0xABCDEF01L);
         link.host = HandoffCoordinator.start(offer, link.lo, 50000, successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 50000)),
+                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 40000)),
                 java.util.Collections::emptyList,
                 stubTransfer, hostCallbacks);
 
@@ -121,7 +121,7 @@ class HandoffLoopbackIntegrationTest {
         CompletableFuture<String> hostAborted = new CompletableFuture<>();
 
         link.joiner = new HandoffClientAgent(successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 40000)),
+                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 50000)),
                 new HandoffClientAgent.Callbacks() {
                     @Override public void onOffer(HandoffProtocol.Offer offer) {
                         link.joiner.decline("peercraft.handoff.decline.missing_mods");
@@ -131,7 +131,7 @@ class HandoffLoopbackIntegrationTest {
                 });
 
         link.host = HandoffCoordinator.start(sampleOffer(7), link.lo, 50000, successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 50000)),
+                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 40000)),
                 java.util.Collections::emptyList,
                 (onDone, onFail) -> fail("transfer must not run after a decline"),
                 new HandoffCoordinator.Callbacks() {
@@ -156,7 +156,7 @@ class HandoffLoopbackIntegrationTest {
         CompletableFuture<String> hostAborted = new CompletableFuture<>();
 
         link.joiner = new HandoffClientAgent(successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 40000)),
+                (ip, port, data) -> link.wire.execute(() -> link.host.onPacket(data, data.length, link.lo, 50000)),
                 new HandoffClientAgent.Callbacks() {
                     @Override public void onOffer(HandoffProtocol.Offer offer) { /* sit on it */ }
                     @Override public void onMigrate(UUID a, boolean b) { }
@@ -164,7 +164,7 @@ class HandoffLoopbackIntegrationTest {
                 });
 
         link.host = HandoffCoordinator.start(sampleOffer(9), link.lo, 50000, successorId,
-                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 50000)),
+                (ip, port, data) -> link.wire.execute(() -> link.joiner.onPacket(data, data.length, link.lo, 40000)),
                 java.util.Collections::emptyList,
                 (onDone, onFail) -> fail("no transfer"),
                 new HandoffCoordinator.Callbacks() {

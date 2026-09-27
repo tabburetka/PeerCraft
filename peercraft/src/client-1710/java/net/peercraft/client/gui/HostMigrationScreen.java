@@ -90,7 +90,10 @@ public class HostMigrationScreen extends GuiScreen {
 
                     @Override
                     public void failed(String reasonKey) {
-                        fail(reasonKey);
+                        Minecraft.getMinecraft().func_152344_a(() -> {
+                            fail(reasonKey);
+                            PeerCraftUi.setScreen(Minecraft.getMinecraft(), HostMigrationScreen.this);
+                        });
                     }
                 });
     }
@@ -143,6 +146,7 @@ public class HostMigrationScreen extends GuiScreen {
     }
 
     private void fail(String key) {
+        if (amSuccessor) leaveCurrentWorld();
         this.statusKey = key;
         this.failed = true;
         this.initGui();

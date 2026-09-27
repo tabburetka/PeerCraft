@@ -92,6 +92,7 @@ public final class WorldTransfer {
     private volatile FileReassembler reassembler;
     private volatile byte[] expectedSha;
     private volatile boolean finished;
+    private volatile byte[] verifiedResult;
 
     private WorldTransfer(boolean isHost, long transferId, Sender sender, InetAddress peerIp, int peerPort) {
         this.isHost = isHost;
@@ -183,26 +184,15 @@ public final class WorldTransfer {
             }
             return;
         }
-        // The send loop ended because the successor ACKed having every chunk. DONE (verified
-        // hash) is the authoritative signal; wait a short grace period for it, and if it's
-        // lost, take "successor has everything" as success rather than hanging the handoff.
-        if (!stopped.get() && sendLoopDone.get()) {
-            long graceEnd = System.currentTimeMillis() + 15_000L;
-            while (!stopped.get() && System.currentTimeMillis() < graceEnd) {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-            if (!stopped.compareAndSet(false, true)) {
-                return; // a DONE arrived during the grace period and already finished us
-            }
-            LOGGER.info("[WorldTransfer] DONE не получен за отведённое время — считаем передачу успешной по ACK");
-            if (hostCb != null) {
-                hostCb.onComplete();
-            }
+        // ACK confirms delivery only. Re-request the verified result until the transfer
+        // deadline; a receiver retains DONE for duplicate BEGIN even after closing its file.
+        while (!stopped.get() && System.currentTimeMillis() < deadline) {
+            send(begin);
+            try { Thread.sleep(ACK_INTERVAL_MILLIS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+        }
+        if (stopped.compareAndSet(false, true) && hostCb != null) {
+            hostCb.onFailed("peercraft.handoff.abort.transfer_failed");
         }
     }
 
@@ -277,14 +267,22 @@ public final class WorldTransfer {
     // ================= inbound demux (from P2PBridge) =================
 
     public void onPacket(byte[] data, int length, InetAddress ip, int port) {
+        if (!peerIp.equals(ip) || peerPort != port) return;
         if (stopped.get()) {
+            if (!isHost && verifiedResult != null && WorldTransferProtocol.messageType(data, length) == WorldTransferProtocol.T_BEGIN) {
+                try {
+                    WorldTransferProtocol.Begin begin = WorldTransferProtocol.decodeBegin(data, length);
+                    if (begin.transferId() == transferId && begin.size() == size && begin.chunkCount() == chunkCount
+                            && expectedSha != null && MessageDigest.isEqual(begin.sha512(), expectedSha)) send(verifiedResult);
+                } catch (RuntimeException ignored) { }
+            }
             return;
         }
         int type = WorldTransferProtocol.messageType(data, length);
         if (type < 0) {
             return;
         }
-        this.peerPort = port;
+
         try {
             switch (type) {
                 case WorldTransferProtocol.T_ACK: {
@@ -318,6 +316,7 @@ public final class WorldTransfer {
                     if (done.transferId() != transferId) {
                         return;
                     }
+                    if (stopped.get()) return;
                     stop();
                     if (hostCb != null) {
                         if (done.ok()) {
@@ -389,13 +388,14 @@ public final class WorldTransfer {
             }
             return;
         }
+        this.size = begin.size(); this.chunkCount = begin.chunkCount();
         this.expectedSha = begin.sha512();
         this.reassembler = new FileReassembler(partFile, begin.size(), begin.chunkCount(), begin.chunkSize(), maxBytes);
         ensureAckThread();
         LOGGER.info("[WorldTransfer] Начат приём архива мира: {} байт, {} чанков", begin.size(), begin.chunkCount());
     }
 
-    private void finishReceive() {
+    private synchronized void finishReceive() {
         if (finished) {
             return;
         }
@@ -410,6 +410,7 @@ public final class WorldTransfer {
             // Repeat DONE a few times — a single lost DONE would otherwise leave the host in
             // its 15s grace wait (it still succeeds, but slower).
             byte[] done = WorldTransferProtocol.encodeDone(transferId, ok);
+            verifiedResult = done;
             for (int i = 0; i < 5; i++) {
                 send(done);
             }
@@ -449,10 +450,7 @@ public final class WorldTransfer {
     /** Host: the successor has every chunk — end the send loop but keep listening for the DONE. */
     private void stopSendLoopOnly() {
         sendLoopDone.set(true);
-        Thread t = worker;
-        if (t != null) {
-            t.interrupt();
-        }
+        // Do not interrupt the worker: it must continue requesting the verified result.
     }
 
     public void abort(String reasonKey) {

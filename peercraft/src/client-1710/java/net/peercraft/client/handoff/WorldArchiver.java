@@ -2,7 +2,6 @@ package net.peercraft.client.handoff;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.MinecraftServer;
-import net.peercraft.client.mixin.MinecraftServerInvoker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,17 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.zip.ZipOutputStream;
 
-/**
- * Forge 1.7.10 backport of {@code src/main/.../client/handoff/WorldArchiver.java} (cf. the
- * 1.12.2 twin, almost mechanical from there). Deltas from 1.12.2:
- * <ul>
- *   <li>{@code saveAllWorlds(boolean)} is {@code protected} on 1.7.10 (public on 1.12.2) —
- *       invoked through {@link MinecraftServerInvoker}, still via
- *       {@code addScheduledTask(Runnable).get()} (obfuscated to {@code func_152344_a} — no
- *       readable stable_12 mapping, same as the already-ported {@code OpenToLanMixin}).</li>
- *   <li>{@code getActiveAnvilConverter()}/{@code getFolderName()} are unchanged (both public).</li>
- * </ul>
- */
+/** Minecraft 1.7.10 adapter: save tasks run through the injected server-tick queue. */
 public final class WorldArchiver {
 
     private static final Logger LOGGER = LogManager.getLogger("peercraft");
@@ -57,22 +46,32 @@ public final class WorldArchiver {
     }
 
     public static Result archive(MinecraftServer server, Path tmpDir) throws IOException {
-        // 1.7.10's MinecraftServer has no IThreadListener/addScheduledTask at all (added ~1.8) —
-        // this predates any cross-thread scheduling primitive, so the direct invoker call below
-        // is period-correct, not a shortcut.
-        try {
-            ((MinecraftServerInvoker) (Object) server).peercraft$saveAllWorlds(false);
-        } catch (RuntimeException e) {
-            throw new IOException("Could not flush world before handoff", e);
-        }
+        net.peercraft.network.handoff.ServerThreadTasks.execute(server, () -> {
+            server.getConfigurationManager().saveAllPlayerData();
+            if (server.worldServers == null) throw new IllegalStateException("Server has no loaded worlds");
+            for (net.minecraft.world.WorldServer world : server.worldServers) {
+                if (world == null) continue;
+                try { world.saveAllChunks(true, null); }
+                catch (net.minecraft.world.MinecraftException e) { throw new IllegalStateException("Could not save dimension", e); }
+            }
+        });
+        try { net.minecraft.world.storage.ThreadedFileIOBase.threadedIOInstance.waitForFinish(); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Interrupted world flush", e); }
 
-        Path worldDir = worldDir(server);
+        return archiveClosed(worldDir(server), tmpDir, java.util.UUID.randomUUID().toString());
+    }
+
+    /** Archive a fully closed save without submitting tasks to a Minecraft server. */
+    public static Result archiveClosed(Path worldDir, Path tmpDir, String attemptId) throws IOException {
+        if (!attemptId.matches("[a-zA-Z0-9_-]{1,64}")) throw new IOException("Invalid snapshot attempt id");
+        net.peercraft.network.p2p.LocalPlayerIdentity.prepareForArchive(worldDir);
         Files.createDirectories(tmpDir);
-        Path zip = tmpDir.resolve("peercraft-handoff-" + System.currentTimeMillis() + ".zip");
+        Path zip = tmpDir.resolve("peercraft-handoff-" + attemptId + ".zip");
 
+        Files.createFile(zip); // CREATE_NEW failure must never remove a previous attempt's archive.
         MessageDigest md = sha512();
         long[] total = {0L};
-        try (OutputStream fileOut = Files.newOutputStream(zip);
+        try (OutputStream fileOut = Files.newOutputStream(zip, java.nio.file.StandardOpenOption.WRITE);
              DigestOutputStream digestOut = new DigestOutputStream(fileOut, md, total);
              ZipOutputStream zos = new ZipOutputStream(digestOut)) {
             zos.setLevel(1);
@@ -86,6 +85,10 @@ public final class WorldArchiver {
             throw e;
         }
 
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(zip, java.nio.file.StandardOpenOption.WRITE)) {
+            channel.force(true);
+        }
+        net.peercraft.network.handoff.HandoffFiles.forceDirectory(tmpDir);
         long size = Files.size(zip);
         byte[] sha = md.digest();
         LOGGER.info("[Handoff] Архив мира готов: {} ({} байт)", zip.getFileName(), size);

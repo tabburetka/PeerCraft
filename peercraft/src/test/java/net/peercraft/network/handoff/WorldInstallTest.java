@@ -1,0 +1,64 @@
+package net.peercraft.network.handoff;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.*;
+import java.io.*;
+import java.util.Properties;
+import java.util.zip.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+class WorldInstallTest {
+    @TempDir Path root;
+    Path world(String name, String content) throws IOException {
+        Path p = Files.createDirectory(root.resolve(name)); Files.write(p.resolve("level.dat"), content.getBytes()); return p;
+    }
+    @Test void replacementRetainsExplicitBackup() throws Exception {
+        Path target = world("world", "old"), staging = world("staging", "new"), backup = root.resolve("backup");
+        WorldInstall.replace(staging, target, backup, root.resolve("journal"), true);
+        assertEquals("new", Files.readString(target.resolve("level.dat")));
+        assertEquals("old", Files.readString(backup.resolve("level.dat"))); assertFalse(Files.exists(root.resolve("journal")));
+    }
+    @Test void restartBetweenMovesCompletesPlacement() throws Exception {
+        Path target = world("world", "old"), staging = world("staging", "new"), backup = root.resolve("backup");
+        Properties p = new Properties(); p.setProperty("target", "world"); p.setProperty("staging", "staging");
+        p.setProperty("backup", "backup"); p.setProperty("keep", "false"); p.setProperty("installation", "test");
+        Files.write(staging.resolve(".peercraft-handoff-install"), "test".getBytes());
+        Path journal = root.resolve("journal"); try (OutputStream out = Files.newOutputStream(journal)) { p.store(out, ""); }
+        Files.move(target, backup); WorldInstall.recover(root, journal);
+        assertEquals("new", Files.readString(target.resolve("level.dat"))); assertFalse(Files.exists(backup));
+    }
+    @Test void noBackupStillPreservesOldWorldIfPlacementCannotStart() throws Exception {
+        Path target = world("world", "old"), backup = world("backup", "other");
+        assertThrows(IOException.class, () -> WorldInstall.replace(world("staging", "new"), target, backup, root.resolve("journal"), false));
+        assertEquals("old", Files.readString(target.resolve("level.dat")));
+    }
+    Path zip(String entry, byte[] data) throws IOException {
+        Path zip = root.resolve("world.zip");
+        try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip))) {
+            out.putNextEntry(new ZipEntry(entry)); out.write(data); out.closeEntry();
+        } return zip;
+    }
+    @Test void rejectsZipSlipAndRemovesOnlyItsStaging() throws Exception {
+        Path original = world("original", "keep"); Path staging = root.resolve("staging");
+        Path archive = zip("../escaped", new byte[1]);
+        assertThrows(IOException.class, () -> WorldInstall.unpack(archive, staging, 100));
+        assertFalse(Files.exists(staging)); assertFalse(Files.exists(root.resolve("escaped")));
+        assertEquals("keep", Files.readString(original.resolve("level.dat")));
+    }
+    @Test void refusesExpansionPastQuota() throws Exception {
+        Path archive = zip("level.dat", new byte[1000]); Path staging = root.resolve("staging");
+        assertThrows(IOException.class, () -> WorldInstall.unpack(archive, staging, 10)); assertFalse(Files.exists(staging));
+    }
+    @Test void recoveryNeverMistakesRestoredOldCopyForTransferredWorld() throws Exception {
+        Path backup = world("backup", "old");
+        Properties p = new Properties(); p.setProperty("target", "world"); p.setProperty("staging", "staging");
+        p.setProperty("backup", "backup"); p.setProperty("keep", "false"); p.setProperty("installation", "lost-new-world");
+        Path journal = root.resolve("journal"); try (OutputStream out = Files.newOutputStream(journal)) { p.store(out, ""); }
+        assertThrows(IOException.class, () -> WorldInstall.recover(root, journal));
+        assertEquals("old", Files.readString(root.resolve("world/level.dat")));
+        assertThrows(IOException.class, () -> WorldInstall.recover(root, journal));
+        assertTrue(Files.exists(journal));
+    }
+
+}

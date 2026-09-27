@@ -141,6 +141,34 @@ public class P2PBridge {
     // leave). null when no handoff is running. One at a time — the host picks one successor.
     // Cleared in cancelRendezvous() and when the attempt reaches a terminal state.
     private volatile HandoffCoordinator handoffHostSession;
+    private volatile net.peercraft.network.handoff.HandoffAuthorityClient handoffAuthority;
+    private volatile net.peercraft.network.handoff.HandoffRoomRegistration handoffRoom;
+    private volatile String registeredRoomCode;
+
+    public synchronized net.peercraft.network.handoff.HandoffAuthorityClient handoffAuthority() throws IOException {
+        if (handoffAuthority == null) {
+            InetAddress address = resolveRendezvousAddress();
+            if (address == null) throw new IOException("Could not resolve handoff authority");
+            handoffAuthority = new net.peercraft.network.handoff.HandoffAuthorityClient(this::sendRawDatagram,
+                    address, PeerCraftConfig.rendezvousPort());
+        }
+        return handoffAuthority;
+    }
+    public String registeredRoomCode() { return registeredRoomCode; }
+    public void prepareHandoffRoom(long offerId) {
+        handoffRoom = new net.peercraft.network.handoff.HandoffRoomRegistration(offerId, 180_000);
+    }
+    public void awaitHandoffRoom(long offerId, Runnable onReady, java.util.function.Consumer<String> onFailed) {
+        net.peercraft.network.handoff.HandoffRoomRegistration ticket = handoffRoom;
+        if (ticket == null || ticket.offerId != offerId) { onFailed.accept("peercraft.handoff.abort.transfer_failed"); return; }
+        Thread wait = new Thread(() -> {
+            try { ticket.await(); onReady.run(); }
+            catch (IOException e) { onFailed.accept("peercraft.handoff.abort.no_response"); }
+        }, "PeerCraft-Handoff-Room");
+        wait.setDaemon(true); wait.start();
+    }
+
+
 
     // JOINER: receives handoff control traffic (0xE3) from the current host for the whole
     // time this client is connected to a world — an offer to become the successor, or the
@@ -326,6 +354,7 @@ public class P2PBridge {
         net.peercraft.network.account.AccountClient.AccountSession session =
                 net.peercraft.network.account.AccountClient.INSTANCE.getCurrentSession();
 
+        final net.peercraft.network.handoff.HandoffRoomRegistration registration = this.handoffRoom;
         client.registerRoom(
                 maxPlayers,
                 this::currentPlayerCount,
@@ -336,6 +365,9 @@ public class P2PBridge {
                 worldName,
                 mcVersion,
                 (code, changed) -> {
+                    if (this.hostRendezvousClient != client) return;
+                    registeredRoomCode = code;
+                    if (registration != null && registration == this.handoffRoom) registration.registered(code);
                     if (changed) {
                         LOGGER.warn("[P2PBridge] Код комнаты изменился! Новый код для второго игрока: {}", code);
                     } else {
@@ -352,6 +384,7 @@ public class P2PBridge {
                     @Override
                     public void onFailed(String reason) {
                         LOGGER.error("[P2PBridge] Не удалось создать комнату на сервере знакомств: {}", reason);
+                        if (registration != null && registration == handoffRoom) registration.failed(reason);
                         listener.onFailed(reason); // key from RendezvousClient; OpenToLanMixin nest-translates it
                     }
                 }
@@ -1126,6 +1159,12 @@ public class P2PBridge {
         // first) and re-bound a fresh socket to go host itself, so it calls from a new local
         // port that was never punched against this host. Accept that one case by IP alone,
         // matched against the specific successor this handoff already vetted via ACCEPT.
+        if (length >= 1 && data[0] == net.peercraft.network.handoff.HandoffAuthorityProtocol.MAGIC) {
+            net.peercraft.network.handoff.HandoffAuthorityClient authority = handoffAuthority;
+            if (authority != null) authority.onPacket(data, length, senderAddress, senderPort);
+            return;
+        }
+
         if (length >= 2 && data[0] == HandoffProtocol.MAGIC) {
             if (this.isHost) {
                 if ((data[1] & 0xFF) == (HandoffProtocol.T_SUCCESSOR_PREFERENCE & 0xFF)) {
@@ -1143,7 +1182,8 @@ public class P2PBridge {
                 }
             } else {
                 HandoffClientAgent agent = this.handoffClientAgent;
-                if (agent != null) {
+                PeerAddress expectedHost = this.clientTargetPeer;
+                if (agent != null && expectedHost != null && expectedHost.equals(new PeerAddress(senderAddress, senderPort))) {
                     agent.onPacket(data, length, senderAddress, senderPort);
                 }
             }

@@ -30,8 +30,8 @@ public final class HandoffCoordinator {
     private static final long OFFER_RETRY_MILLIS = 700;
     /** Successor never answered the offer at all — give up and let the host keep hosting. */
     private static final long OFFER_TIMEOUT_MILLIS = 20_000;
-    /** After MIGRATE is broadcast, wait this long for the successor's MIGRATE_OK before proceeding to tear down anyway. */
-    private static final long MIGRATE_OK_TIMEOUT_MILLIS = 90_000;
+    /** Missing READY must never be interpreted as success. */
+    private static final long MIGRATE_OK_TIMEOUT_MILLIS = 180_000;
     private static final long KEEPALIVE_INTERVAL_MILLIS = 3_000;
     /** How many times to repeat the MIGRATE broadcast to each joiner (it is one-shot and lossy). */
     private static final int MIGRATE_REPEAT = 5;
@@ -174,6 +174,8 @@ public final class HandoffCoordinator {
         if (type < 0) {
             return;
         }
+        // Only the chosen peer can advance this attempt; other admitted players cannot.
+        if (!successorIp.equals(senderAddress) || (type != HandoffProtocol.T_MIGRATE_OK && successorPort != senderPort)) return;
         switch (type) {
             case HandoffProtocol.T_PING:
                 // keepalive from the successor; nothing to do
@@ -237,10 +239,9 @@ public final class HandoffCoordinator {
         // early broadcast in handleAccept was one-shot and lossy, and anyone who joined mid-
         // transfer never got it at all) — HandoffClientAgent.onPacket ignores a MIGRATE it's
         // already seen, so a repeat to someone who left already is harmless.
-        broadcastMigrate(false);
         state.compareAndSet(State.MIGRATING, State.WAITING_OK);
-        // Give the successor a bounded window to confirm its server is up; if it never does,
-        // proceed anyway — the host has already handed everyone the successor's account id.
+        broadcastMigrate(false);
+        // Missing READY must not be interpreted as a successful handoff.
         Thread wait = new Thread(() -> {
             try {
                 Thread.sleep(MIGRATE_OK_TIMEOUT_MILLIS);
@@ -248,9 +249,8 @@ public final class HandoffCoordinator {
                 Thread.currentThread().interrupt();
                 return;
             }
-            if (transitionToTerminal(State.DONE)) {
-                callbacks.onStatus("peercraft.handoff.status.ok_timeout");
-                callbacks.onSuccessorReady();
+            if (state.get() == State.WAITING_OK) {
+                cancel("peercraft.handoff.abort.no_response");
             }
         }, "PeerCraft-Handoff-WaitOK");
         wait.setDaemon(true);
@@ -294,7 +294,7 @@ public final class HandoffCoordinator {
     }
 
     private void handleMigrateOk() {
-        if (transitionToTerminal(State.DONE)) {
+        if (state.compareAndSet(State.WAITING_OK, State.DONE)) {
             callbacks.onSuccessorReady();
         }
     }

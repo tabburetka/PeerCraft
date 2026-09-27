@@ -88,7 +88,10 @@ public class HostMigrationScreen extends Screen {
 
                     @Override
                     public void failed(String reasonKey) {
-                        fail(reasonKey);
+                        Minecraft.getInstance().execute(() -> {
+                            fail(reasonKey);
+                            PeerCraftUi.setScreen(Minecraft.getInstance(), HostMigrationScreen.this);
+                        });
                     }
                 });
     }
@@ -152,6 +155,7 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void fail(String key) {
+        if (amSuccessor) leaveCurrentWorld();
         this.statusKey = key;
         this.failed = true;
         this.init();

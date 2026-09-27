@@ -7,6 +7,9 @@
 		"OpenToLanMixin",
 		"PauseScreenMixin",
 		"ServerLoginPacketListenerImplMixin",
+		"PlayerDataLoadMixin",
+		"PlayerDataMigrationMixin",
+		"PlayerDataSaveMixin",
 		"ShareToLanScreenMixin",
 		"TitleScreenMixin",
 		"WorldOpenFlowsMixin"

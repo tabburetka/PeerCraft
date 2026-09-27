@@ -50,6 +50,26 @@ final class RoomRegistry {
     // listPublicRooms()'s visibility, not the room's actual TTL/expiry.
     static final long PUBLIC_LISTING_STALE_MILLIS = 40_000L;
 
+    private final java.util.Map<String, String> handoffSuspended = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, byte[]> handoffRoomKeys = new java.util.concurrent.ConcurrentHashMap<>();
+    byte[] handoffChallenge(String code, RendezvousProtocol.Address address) {
+        if (!ownsRoom(code, address)) return new byte[32];
+        return handoffRoomKeys.computeIfAbsent(code, ignored -> {
+            byte[] key = new byte[32]; new java.security.SecureRandom().nextBytes(key); return key;
+        }).clone();
+    }
+    boolean authorizesHandoff(String code, RendezvousProtocol.Address address, byte[] proof) {
+        byte[] expected = handoffRoomKeys.get(code);
+        return ownsRoom(code, address) && expected != null && proof != null && proof.length == 32
+                && java.security.MessageDigest.isEqual(expected, proof);
+    }
+    boolean ownsRoom(String code, RendezvousProtocol.Address address) {
+        Room room = roomsByCode.get(code);
+        return room != null && room.hostAddress.equals(address) && clock.getAsLong() - room.lastSeenAt <= ROOM_TTL_MILLIS;
+    }
+    void suspendForHandoff(String code, String attempt) { handoffSuspended.put(code, attempt); }
+    void resumeAfterHandoff(String code, String attempt) { handoffSuspended.remove(code, attempt); }
+
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
     private final LongSupplier clock;
     private final CodeGenerator codeGenerator = new CodeGenerator(CODE_LENGTH);
@@ -189,6 +209,7 @@ final class RoomRegistry {
      */
     JoinResult join(String code, RendezvousProtocol.Address joinerAddress, Optional<UUID> joinerAccountId,
                      BiPredicate<UUID, UUID> friendChecker) {
+        if (handoffSuspended.containsKey(code)) return new JoinRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         Room room = roomsByCode.get(code);
         if (room == null) {
             return new JoinRejected(RendezvousProtocol.REASON_INVALID_CODE);
@@ -245,6 +266,8 @@ final class RoomRegistry {
     void sweepExpired() {
         long now = clock.getAsLong();
         roomsByCode.values().removeIf(room -> now - room.lastSeenAt > ROOM_TTL_MILLIS);
+        handoffSuspended.keySet().retainAll(roomsByCode.keySet());
+        handoffRoomKeys.keySet().retainAll(roomsByCode.keySet());
     }
 
     int roomCount() {

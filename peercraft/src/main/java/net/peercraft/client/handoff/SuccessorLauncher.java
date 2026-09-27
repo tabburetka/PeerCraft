@@ -2,9 +2,6 @@ package net.peercraft.client.handoff;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.server.IntegratedServer;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.world.level.GameType;
 import net.peercraft.client.PeerCraftHostOptions;
 import net.peercraft.client.gui.HandoffReclaimConfirmScreen;
@@ -53,16 +50,16 @@ public final class SuccessorLauncher {
 
     public static void launch(HandoffProtocol.Offer offer, Path worldZip, Done done) {
         Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> {
+        background(() -> {
             Path staging = null;
             try {
                 Path savesDir = mc.getLevelSource().getBaseDir();
                 Files.createDirectories(savesDir);
+                net.peercraft.network.handoff.WorldInstall.recoverAll(savesDir);
                 staging = savesDir.resolve(".peercraft-handoff-staging-" + offer.offerId());
                 deleteRecursive(staging);
                 unzipInto(worldZip, staging);
                 Files.deleteIfExists(staging.resolve("session.lock"));
-                stripEmbeddedOwnerPosition(staging);
 
                 String incomingId = readWorldId(staging);
                 Path existing = incomingId.isEmpty() ? null : findWorldById(savesDir, incomingId, staging);
@@ -71,15 +68,15 @@ public final class SuccessorLauncher {
                     String existingName = savesDir.relativize(existing).toString();
                     String backupName = existingName + " (до возврата " + timestamp() + ")";
                     Path st = staging;
-                    PeerCraftUi.setScreen(mc, new HandoffReclaimConfirmScreen(existingName, backupName,
-                            () -> finish(reclaimInPlace(savesDir, existing, st, backupName), offer, done),
-                            () -> finish(overwriteInPlace(savesDir, existing, st), offer, done)));
+                    mc.execute(() -> PeerCraftUi.setScreen(mc, new HandoffReclaimConfirmScreen(existingName, backupName,
+                            () -> background(() -> finish(reclaimInPlace(savesDir, existing, st, backupName), offer, done)),
+                            () -> background(() -> finish(overwriteInPlace(savesDir, existing, st), offer, done)))));
                 } else {
                     finish(freshFolder(savesDir, staging, offer.worldLabel()), offer, done);
                 }
             } catch (IOException | RuntimeException e) {
                 LOGGER.warn("[Handoff] Не удалось запустить мир как новый хост: {}", e.toString());
-                if (staging != null) {
+                if (staging != null && !Files.exists(staging.resolveSibling(staging.getFileName().toString() + ".install"))) {
                     deleteRecursive(staging);
                 }
                 done.failed("peercraft.handoff.abort.transfer_failed");
@@ -100,7 +97,21 @@ public final class SuccessorLauncher {
         } catch (RuntimeException e) {
             LOGGER.debug("[Handoff] markBecameHost: {}", e.toString());
         }
-        openThenPublish(mc, levelId, done);
+        net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(offer.offerId());
+        mc.execute(() -> openThenPublish(mc, levelId, new Done() {
+            private final java.util.concurrent.atomic.AtomicBoolean terminal = new java.util.concurrent.atomic.AtomicBoolean();
+            public void serverPublished() {
+                net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(offer.offerId(),
+                        () -> { if (terminal.compareAndSet(false, true)) done.serverPublished(); },
+                        reason -> { if (terminal.compareAndSet(false, true)) done.failed(reason); });
+            }
+            public void failed(String reason) { if (terminal.compareAndSet(false, true)) done.failed(reason); }
+        }));
+    }
+
+    private static void background(Runnable task) {
+        Thread worker = new Thread(task, "PeerCraft-Handoff-Install");
+        worker.setDaemon(true); worker.start();
     }
 
     private static void applyHostOptions(HandoffProtocol.Offer offer) {
@@ -116,31 +127,26 @@ public final class SuccessorLauncher {
 
     /** Rename the old copy to a dated backup, then move staging into its place. Returns the (unchanged) level id. */
     private static String reclaimInPlace(Path savesDir, Path existing, Path staging, String backupName) {
-        try {
-            Files.move(existing, savesDir.resolve(backupName), StandardCopyOption.ATOMIC_MOVE);
-            Files.move(staging, existing);
-            LOGGER.info("[Handoff] Локальная копия «{}» обновлена (бэкап: {})", savesDir.relativize(existing), backupName);
-            return savesDir.relativize(existing).toString();
-        } catch (IOException e) {
-            LOGGER.warn("[Handoff] Обновление на месте не удалось ({}), кладём в новую папку", e.toString());
-            return freshFolder(savesDir, staging, savesDir.relativize(existing).toString());
-        }
+        return place(savesDir, existing, staging, savesDir.resolve(backupName), true);
     }
 
-    /** Deletes the old copy outright (no backup — the player confirmed this on a warning screen first), then moves staging into its place. */
     private static String overwriteInPlace(Path savesDir, Path existing, Path staging) {
+        return place(savesDir, existing, staging,
+                savesDir.resolve(".peercraft-handoff-backup-" + java.util.UUID.randomUUID()), false);
+    }
+
+    private static String place(Path savesDir, Path existing, Path staging, Path backup, boolean keep) {
         try {
-            deleteRecursive(existing);
-            Files.move(staging, existing);
-            LOGGER.info("[Handoff] Локальная копия «{}» перезаписана без бэкапа", savesDir.relativize(existing));
+            net.peercraft.network.handoff.WorldInstall.replace(staging, existing, backup,
+                    savesDir.resolve(staging.getFileName().toString() + ".install"), keep);
+            if (keep) Files.write(backup.resolve(".peercraft-backup"), new byte[0]);
             return savesDir.relativize(existing).toString();
         } catch (IOException e) {
-            LOGGER.warn("[Handoff] Перезапись не удалась ({}), кладём в новую папку", e.toString());
-            return freshFolder(savesDir, staging, savesDir.relativize(existing).toString());
+            LOGGER.warn("[Handoff] Placement failed; retaining journal and world copies: {}", e.toString());
+            return null;
         }
     }
 
-    /** Move staging into a fresh, unique {@code <base>-peercraft} folder. */
     private static String freshFolder(Path savesDir, Path staging, String label) {
         String base = sanitize(label == null || label.isBlank() ? "world" : label);
         String name = base + "-peercraft";
@@ -161,17 +167,18 @@ public final class SuccessorLauncher {
         }
     }
 
-    private static Path findWorldById(Path savesDir, String worldId, Path staging) {
+    private static Path findWorldById(Path savesDir, String worldId, Path staging) throws IOException {
         try (Stream<Path> dirs = Files.list(savesDir)) {
-            return dirs.filter(Files::isDirectory)
-                    .filter(p -> !p.equals(staging))
+            java.util.List<Path> matches = dirs.filter(Files::isDirectory)
+                    .filter(p -> !p.equals(staging) && !p.getFileName().toString().startsWith(".peercraft-")
+                            && !p.getFileName().toString().contains(" (до возврата ")
+                            && !Files.exists(p.resolve(".peercraft-backup")))
                     .filter(p -> {
                         PeercraftWorldMeta m = PeercraftWorldMeta.loadOrNull(p);
                         return m != null && worldId.equals(m.worldId());
-                    })
-                    .findFirst().orElse(null);
-        } catch (IOException e) {
-            return null;
+                    }).collect(java.util.stream.Collectors.toList());
+            if (matches.size() > 1) throw new IOException("Multiple independent world copies require explicit selection");
+            return matches.isEmpty() ? null : matches.get(0);
         }
     }
 
@@ -180,68 +187,10 @@ public final class SuccessorLauncher {
         return m == null || m.worldId() == null ? "" : m.worldId();
     }
 
-    /**
-     * True singleplayer stores the local player's position directly in level.dat's
-     * {@code Data.Player} compound, not in {@code playerdata/<uuid>.dat} — and
-     * {@code MinecraftServer.isSingleplayerOwner(...)} treats WHOEVER's local session opens a
-     * world this way as "the owner", regardless of account identity. Left in place, every
-     * successor (and every original host reclaiming a returned world) would spawn standing
-     * exactly where the previous owner last stood instead of at their own position or the
-     * world spawn. Strip it so the normal per-account playerdata path is used instead.
-     */
-    private static void stripEmbeddedOwnerPosition(Path worldDir) {
-        Path levelDat = worldDir.resolve("level.dat");
-        if (!Files.exists(levelDat)) {
-            return;
-        }
-        try {
-            CompoundTag root = NbtIo.readCompressed(levelDat, NbtAccounter.unlimitedHeap());
-            //? if <1.21.5
-            CompoundTag data = root.getCompound("Data");
-            //? if >=1.21.5
-            /*CompoundTag data = root.getCompoundOrEmpty("Data");*/
-            if (data.contains("Player")) {
-                data.remove("Player");
-                NbtIo.writeCompressed(root, levelDat);
-                LOGGER.info("[Handoff] Убрана встроенная позиция предыдущего владельца из level.dat ({})", levelDat);
-            } else {
-                LOGGER.info("[Handoff] В level.dat нет встроенной позиции игрока — нечего убирать ({})", levelDat);
-            }
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warn("[Handoff] Не удалось очистить встроенную позицию в level.dat: {}", e.toString());
-        }
-    }
-
     // ---- zip ----
 
     private static void unzipInto(Path worldZip, Path target) throws IOException {
-        Files.createDirectories(target);
-        byte[] buf = new byte[1 << 16];
-        try (InputStream fin = Files.newInputStream(worldZip);
-             ZipInputStream zis = new ZipInputStream(fin)) {
-            ZipEntry e;
-            while ((e = zis.getNextEntry()) != null) {
-                Path out = target.resolve(e.getName()).normalize();
-                if (!out.startsWith(target)) {
-                    throw new IOException("zip entry escapes target: " + e.getName()); // zip-slip guard
-                }
-                if (e.isDirectory()) {
-                    Files.createDirectories(out);
-                } else {
-                    Path parent = out.getParent();
-                    if (parent != null) {
-                        Files.createDirectories(parent);
-                    }
-                    try (var os = Files.newOutputStream(out)) {
-                        int r;
-                        while ((r = zis.read(buf)) > 0) {
-                            os.write(buf, 0, r);
-                        }
-                    }
-                }
-                zis.closeEntry();
-            }
-        }
+        net.peercraft.network.handoff.WorldInstall.unpack(worldZip, target, 32L * 1024 * 1024 * 1024);
     }
 
     private static void deleteRecursive(Path dir) {
@@ -278,7 +227,7 @@ public final class SuccessorLauncher {
         mc.createWorldOpenFlows().openWorld(levelId, () -> done.failed("peercraft.handoff.abort.transfer_failed"));
 
         Thread wait = new Thread(() -> {
-            long deadline = System.currentTimeMillis() + 60_000L;
+            long deadline = System.currentTimeMillis() + 180_000L;
             while (System.currentTimeMillis() < deadline) {
                 IntegratedServer server = mc.getSingleplayerServer();
                 // isRunning() alone isn't enough: it flips true as soon as the server thread

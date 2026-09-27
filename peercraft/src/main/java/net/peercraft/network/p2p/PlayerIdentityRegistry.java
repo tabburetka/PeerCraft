@@ -1,5 +1,7 @@
 package net.peercraft.network.p2p;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,8 +34,17 @@ public final class PlayerIdentityRegistry {
         accountIdByLocalPort.put(localPort, accountId);
     }
 
-    public UUID get(int remotePort) {
-        return accountIdByLocalPort.get(remotePort);
+    /**
+     * Resolve only an actual loopback connection from the host-side P2P proxy.
+     * A LAN client can use the same source port as that proxy; a port alone is
+     * therefore insufficient evidence that this is the authenticated P2P peer.
+     * Unresolved addresses are rejected without performing DNS during login.
+     */
+    public UUID get(SocketAddress remoteAddress) {
+        if (!(remoteAddress instanceof InetSocketAddress)) return null;
+        InetSocketAddress endpoint = (InetSocketAddress) remoteAddress;
+        if (endpoint.getAddress() == null || !endpoint.getAddress().isLoopbackAddress()) return null;
+        return accountIdByLocalPort.get(endpoint.getPort());
     }
 
     public void remove(int localPort) {

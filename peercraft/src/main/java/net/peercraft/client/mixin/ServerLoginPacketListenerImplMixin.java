@@ -3,6 +3,8 @@ package net.peercraft.client.mixin;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.Connection;
+import net.minecraft.server.MinecraftServer;
+import net.peercraft.network.p2p.LocalPlayerIdentity;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
 import net.peercraft.network.p2p.PlayerIdentityRegistry;
 import org.spongepowered.asm.mixin.Final;
@@ -11,8 +13,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.UUID;
 
 /**
@@ -45,6 +45,21 @@ public abstract class ServerLoginPacketListenerImplMixin {
     @Final
     Connection connection;
 
+    // Vanilla accepts the owner's entire profile on NAME equality, even for remote
+    // connections. Restrict this shortcut to the real in-process local connection.
+    @Redirect(method = "handleHello", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/server/MinecraftServer;getSingleplayerProfile()Lcom/mojang/authlib/GameProfile;"))
+    private GameProfile peercraft$localOwnerOnly(MinecraftServer server) {
+        if (!connection.isMemoryConnection()) return null;
+        GameProfile original = server.getSingleplayerProfile();
+        UUID id = LocalPlayerIdentity.current();
+        if (original == null || id == null) return original;
+        //? if <1.21.9
+        return id.equals(original.getId()) ? original : new GameProfile(id, original.getName());
+        //? if >=1.21.9
+        /*return id.equals(original.id()) ? original : new GameProfile(id, original.name());*/
+    }
+
     @Redirect(method = "handleHello", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/core/UUIDUtil;createOfflineProfile(Ljava/lang/String;)Lcom/mojang/authlib/GameProfile;"))
     private GameProfile peercraft$injectAccountUuid(String username) {
@@ -53,10 +68,6 @@ public abstract class ServerLoginPacketListenerImplMixin {
     }
 
     private UUID resolveAccountIdForThisConnection() {
-        SocketAddress address = this.connection.getRemoteAddress();
-        if (!(address instanceof InetSocketAddress inetAddress)) {
-            return null;
-        }
-        return PlayerIdentityRegistry.INSTANCE.get(inetAddress.getPort());
+        return PlayerIdentityRegistry.INSTANCE.get(this.connection.getRemoteAddress());
     }
 }

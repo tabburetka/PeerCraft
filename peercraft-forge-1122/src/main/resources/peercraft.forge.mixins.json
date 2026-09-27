@@ -7,6 +7,9 @@
   "mixins": [
     "OpenToLanMixin",
     "ServerLoginPacketListenerImplMixin",
+    "PlayerDataLoadMixin",
+    "PlayerDataMigrationMixin",
+    "PlayerDataSaveMixin",
     "WorldOpenFlowsMixin"
   ],
   "injectors": {

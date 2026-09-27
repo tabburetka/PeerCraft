@@ -61,18 +61,28 @@ public final class WorldArchiver {
     public static Result archive(MinecraftServer server, Path tmpDir) throws IOException {
         // Flush on the server thread so the save is consistent on disk before we read it.
         try {
-            server.executeBlocking(() -> server.saveEverything(true, true, true));
+            server.executeBlocking(() -> {
+                server.getPlayerList().saveAll();
+                server.saveEverything(true, true, true);
+            });
         } catch (RuntimeException e) {
             throw new IOException("Could not flush world before handoff", e);
         }
 
-        Path worldDir = worldDir(server);
-        Files.createDirectories(tmpDir);
-        Path zip = tmpDir.resolve("peercraft-handoff-" + System.currentTimeMillis() + ".zip");
+        return archiveClosed(worldDir(server), tmpDir, java.util.UUID.randomUUID().toString());
+    }
 
+    /** Archive a fully closed save without submitting tasks to a Minecraft server. */
+    public static Result archiveClosed(Path worldDir, Path tmpDir, String attemptId) throws IOException {
+        if (!attemptId.matches("[a-zA-Z0-9_-]{1,64}")) throw new IOException("Invalid snapshot attempt id");
+        net.peercraft.network.p2p.LocalPlayerIdentity.prepareForArchive(worldDir);
+        Files.createDirectories(tmpDir);
+        Path zip = tmpDir.resolve("peercraft-handoff-" + attemptId + ".zip");
+
+        Files.createFile(zip); // CREATE_NEW failure must never remove a previous attempt's archive.
         MessageDigest md = sha512();
         long[] total = {0L};
-        try (OutputStream fileOut = Files.newOutputStream(zip);
+        try (OutputStream fileOut = Files.newOutputStream(zip, java.nio.file.StandardOpenOption.WRITE);
              DigestOutputStream digestOut = new DigestOutputStream(fileOut, md, total);
              ZipOutputStream zos = new ZipOutputStream(digestOut)) {
             zos.setLevel(1);
@@ -86,6 +96,10 @@ public final class WorldArchiver {
             throw e;
         }
 
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(zip, java.nio.file.StandardOpenOption.WRITE)) {
+            channel.force(true);
+        }
+        net.peercraft.network.handoff.HandoffFiles.forceDirectory(tmpDir);
         long size = Files.size(zip);
         byte[] sha = md.digest();
         LOGGER.info("[Handoff] Архив мира готов: {} ({} байт)", zip.getFileName(), size);
