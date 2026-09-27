@@ -11,6 +11,7 @@
 		"PlayerDataMigrationMixin",
 		"PlayerDataSaveMixin",
 		"ShareToLanScreenMixin",
+		"PeerCraftListBackgroundMixin",
 		"TitleScreenMixin",
 		"WorldOpenFlowsMixin"
 	],

@@ -15,9 +15,8 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * Registration for unlicensed ("pirate") accounts — nickname + password. On success, shows
- * the assigned friend code prominently (it's the only recovery path if this device's saved
- * session is ever lost — see the accounts plan's accepted risk on this) instead of silently
- * returning to the previous screen. The code also gets a highlighted box and a one-click
+ * the assigned friend code prominently instead of silently returning to the previous
+ * screen. A separate public account-ID recovery card is also saved on successful login. The code also gets a highlighted box and a one-click
  * copy button, since asking a player to retype six characters correctly by hand is where a
  * lost-code support request starts.
  */
@@ -52,10 +51,10 @@ public class PeerCraftRegisterScreen extends Screen {
         int y = this.height / 2 - 50;
 
         if (this.registeredFriendCode != null) {
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.register.copy_code"), b -> onCopyCode())
-                    .bounds(centerX - 100, this.height / 2 + 8, 200, 20).build());
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen)))
-                    .bounds(centerX - 100, this.height / 2 + 34, 200, 20).build());
+            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, this.height / 2 + 8, 200, 20,
+                    Component.translatable("peercraft.gui.register.copy_code"), b -> onCopyCode(), false));
+            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, this.height / 2 + 34, 200, 20,
+                    Component.translatable("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen)), true));
             return;
         }
 

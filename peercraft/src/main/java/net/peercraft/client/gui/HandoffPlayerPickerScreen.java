@@ -36,6 +36,11 @@ public class HandoffPlayerPickerScreen extends Screen {
 
     private final Screen lastScreen;
 
+    private int panelHeight() {
+        return Math.min(this.height - 24, 174 + P2PBridge.INSTANCE.connectedJoiners().size() * 24);
+    }
+    private int panelTop() { return (this.height - panelHeight()) / 2; }
+
     public HandoffPlayerPickerScreen(Screen lastScreen) {
         super(Component.translatable("peercraft.handoff.picker.title"));
         this.lastScreen = lastScreen;
@@ -47,7 +52,7 @@ public class HandoffPlayerPickerScreen extends Screen {
         List<P2PBridge.HandoffCandidate> candidates = P2PBridge.INSTANCE.connectedJoiners();
         IntegratedServer server = this.minecraft.getSingleplayerServer();
 
-        int y = this.height / 2 - 40;
+        int y = panelTop() + 102;
         for (int i = 0; i < candidates.size(); i++) {
             P2PBridge.HandoffCandidate c = candidates.get(i);
             String name = displayName(server, c, i);
@@ -57,16 +62,16 @@ public class HandoffPlayerPickerScreen extends Screen {
                     : c.declinedSuccessor()
                             ? Component.translatable("peercraft.handoff.picker.row_declined_successor", name)
                             : Component.translatable("peercraft.handoff.picker.hand_off", name);
-            Button b = Button.builder(label, btn -> confirmAndChoose(c, name))
-                    .bounds(cx - 155, y, 310, 20).build();
+            Button b = SteampunkSettingsTheme.action(cx - 155, y, 310, 20,
+                    label, btn -> confirmAndChoose(c, name), true);
             b.active = eligible;
             this.addRenderableWidget(b);
             y += 24;
         }
 
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.picker.cancel"),
-                        btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen))
-                .bounds(cx - 100, this.height - 40, 200, 20).build());
+        this.addRenderableWidget(SteampunkSettingsTheme.action(cx - 155, panelTop() + panelHeight() - 32, 310, 20,
+                Component.translatable("peercraft.handoff.picker.cancel"),
+                btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen), false));
     }
 
     /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
@@ -229,7 +234,7 @@ public class HandoffPlayerPickerScreen extends Screen {
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.font,
                 Component.translatable("peercraft.handoff.picker.intro").getString(),
-                Math.min(this.width - 60, 380));
+                Math.min(this.width - 60, 310));
     }
 
     private boolean noneConnected() {
@@ -241,18 +246,23 @@ public class HandoffPlayerPickerScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        SteampunkSettingsTheme.frame(graphics, this.width / 2 - 180, panelTop(), 360, panelHeight(),
+                SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, cx, 24, 0xFFFFFFFF);
-        int y = 44;
+        graphics.drawCenteredString(this.font, this.title, cx, panelTop() + 14, SteampunkSettingsTheme.ACCENT);
+        int y = panelTop() + 38;
         for (String line : introLines()) {
             graphics.drawCenteredString(this.font, line, cx, y, 0xFFAAAAAA);
             y += 11;
         }
         if (noneConnected()) {
-            graphics.drawCenteredString(this.font,
-                    Component.translatable("peercraft.handoff.picker.no_candidates"),
-                    cx, this.height / 2 - 40, 0xFFFF5555);
+            int emptyY = panelTop() + 96;
+            for (String line : PeerCraftUi.wrap(this.font,
+                    Component.translatable("peercraft.handoff.picker.no_candidates").getString(), 310)) {
+                graphics.drawCenteredString(this.font, line, cx, emptyY, 0xFFFF5555);
+                emptyY += 11;
+            }
         }
     }
     //?} else {

@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /** Flat brass-and-charcoal styling for the 1.21.1 settings screen. */
-final class SteampunkSettingsTheme {
+public final class SteampunkSettingsTheme {
     static final int BACKGROUND = 0xFF111110;
     static final int PANEL = 0xFF1C1814;
     static final int BORDER = 0xFF715333;
@@ -35,6 +35,72 @@ final class SteampunkSettingsTheme {
     private static final int DISABLED = 0xFF211D18;
 
     private SteampunkSettingsTheme() {
+    }
+
+    /** Draws the LAN dialog while preserving vanilla widgets as the input/state owners. */
+    public static void renderLan(GuiGraphics graphics, Font font, int width, int height,
+                                 List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children,
+                                 int mouseX, int mouseY, float partialTick, long elapsedMillis) {
+        int panelWidth = Math.min(360, width - 24);
+        int left = (width - panelWidth) / 2;
+        var controls = new java.util.ArrayList<net.minecraft.client.gui.components.AbstractWidget>();
+        var actions = new java.util.ArrayList<net.minecraft.client.gui.components.AbstractWidget>();
+        for (var child : children) {
+            if (!(child instanceof net.minecraft.client.gui.components.AbstractWidget widget) || !widget.visible) continue;
+            if (widget instanceof Button && !(widget instanceof net.minecraft.client.gui.components.CycleButton)) {
+                actions.add(widget);
+            } else {
+                controls.add(widget);
+            }
+        }
+        int pitch = Math.max(22, Math.min(28, (height - 104) / Math.max(1, controls.size())));
+        int panelHeight = Math.min(height - 16, 98 + controls.size() * pitch);
+        int top = (height - panelHeight) / 2;
+        frame(graphics, left, top, panelWidth, panelHeight, PANEL, BORDER);
+        graphics.drawCenteredString(font, "PeerCraft", width / 2, top + 10, ACCENT);
+        graphics.drawCenteredString(font, Component.translatable("lanServer.title"), width / 2, top + 26, TEXT);
+        int y = top + 48;
+        for (var widget : controls) {
+            widget.setX(left + 12);
+            widget.setY(y);
+            widget.setWidth(panelWidth - 24);
+            if (widget instanceof EditBox field) {
+                boolean port = controls.indexOf(widget) == 2;
+                graphics.drawString(font, port ? Component.translatable("lanServer.port") :
+                        Component.translatable("peercraft.mixin.share_to_lan.world_name"), left + 12, y + 6, MUTED, false);
+                widget.setX(left + panelWidth / 2);
+                widget.setWidth(panelWidth / 2 - 12);
+                field.setBordered(false);
+                frame(graphics, widget.getX() - 4, y - 2, widget.getWidth() + 4, widget.getHeight() + 4, CONTROL, BORDER);
+                field.render(graphics, mouseX, mouseY, partialTick);
+            } else {
+                boolean hovered = mouseX >= widget.getX() && mouseX < widget.getX() + widget.getWidth()
+                        && mouseY >= y && mouseY < y + widget.getHeight();
+                frame(graphics, widget.getX(), y, widget.getWidth(), widget.getHeight(),
+                        !widget.active ? DISABLED : hovered ? CONTROL_HOVER : CONTROL, hovered ? BORDER_HOVER : BORDER);
+                Component label = widget.getMessage();
+                if (widget instanceof net.minecraft.client.gui.components.Checkbox checkbox) {
+                    label = Component.literal(checkbox.selected() ? "✓ " : "□ ").append(label);
+                }
+                centered(graphics, font, label, widget.getX() + 6, y, widget.getWidth() - 12,
+                        widget.getHeight(), widget.active ? TEXT : MUTED, false);
+            }
+            y += pitch;
+        }
+        y = top + panelHeight - 32;
+        int actionWidth = (panelWidth - 30) / 2;
+        for (int i = 0; i < actions.size(); i++) {
+            var widget = actions.get(i);
+            widget.setX(left + 12 + i * (actionWidth + 6));
+            widget.setY(y);
+            widget.setWidth(actionWidth);
+            boolean primary = i == 0;
+            boolean hovered = widget.isMouseOver(mouseX, mouseY);
+            frame(graphics, widget.getX(), y, actionWidth, widget.getHeight(),
+                    !widget.active ? DISABLED : primary ? (hovered ? PRIMARY_HOVER : PRIMARY) : CONTROL, BORDER);
+            centered(graphics, font, widget.getMessage(), widget.getX() + 4, y, actionWidth - 8,
+                    widget.getHeight(), !widget.active ? MUTED : primary ? CONTROL : TEXT, false);
+        }
     }
 
     static void frame(GuiGraphics graphics, int x, int y, int width, int height, int fill, int border) {
@@ -312,11 +378,17 @@ final class SteampunkSettingsTheme {
     static final class Choice extends Button {
         private final List<String> values;
         private final Function<String, Component> labels;
+        private final Consumer<String> onChange;
         private int index;
         private Component narrationLabel;
 
         Choice(int x, int y, int width, int height, List<String> values, String initial,
                Function<String, Component> labels) {
+            this(x, y, width, height, values, initial, labels, value -> { });
+        }
+
+        Choice(int x, int y, int width, int height, List<String> values, String initial,
+               Function<String, Component> labels, Consumer<String> onChange) {
             super(x, y, width, height, Component.empty(),
                     button -> ((Choice) button).cycle(Screen.hasShiftDown() ? -1 : 1), DEFAULT_NARRATION);
             if (values.isEmpty()) {
@@ -324,6 +396,7 @@ final class SteampunkSettingsTheme {
             }
             this.values = List.copyOf(values);
             this.labels = Objects.requireNonNull(labels);
+            this.onChange = Objects.requireNonNull(onChange);
             this.index = Math.max(0, this.values.indexOf(initial));
             setMessage(this.labels.apply(getValue()));
         }
@@ -346,6 +419,7 @@ final class SteampunkSettingsTheme {
         private void cycle(int direction) {
             this.index = Math.floorMod(this.index + direction, this.values.size());
             setMessage(this.labels.apply(getValue()));
+            this.onChange.accept(getValue());
         }
 
         @Override
