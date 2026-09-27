@@ -229,8 +229,6 @@ public class PeerCraftJoinScreen extends Screen {
                 : this.connectButton.active ? PeerCraftUi.TEXT_ERROR : SteampunkSettingsTheme.ACCENT;
         this.dialog.status(graphics, this.font, message, this.statusY, 27, color, mouseX, mouseY);
         //?} else {
-        // Fully opaque (0xFF alpha) — GuiGraphics.drawString() since 1.21.6 silently skips
-        // rendering entirely when a color's alpha byte is 0, which both of these were before.
         /*graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);*/
         //?}

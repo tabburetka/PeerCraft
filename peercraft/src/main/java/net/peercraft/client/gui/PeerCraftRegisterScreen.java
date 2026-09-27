@@ -51,15 +51,15 @@ public class PeerCraftRegisterScreen extends Screen {
         int y = this.height / 2 - 50;
 
         if (this.registeredFriendCode != null) {
-            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, this.height / 2 + 8, 200, 20,
+            this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, this.height / 2 + 8, 200, 20,
                     Component.translatable("peercraft.gui.register.copy_code"), b -> onCopyCode(), false));
-            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, this.height / 2 + 34, 200, 20,
+            this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, this.height / 2 + 34, 200, 20,
                     Component.translatable("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen)), true));
             return;
         }
 
         //? if =1.21.1 {
-        this.nicknameBox = new SteampunkSettingsTheme.Field(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.nickname_field"));
+        this.nicknameBox = PeerCraftUi.themedField(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.nickname_field"));
         //?} else {
         /*this.nicknameBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.nickname_field"));*/
         //?}
@@ -70,7 +70,7 @@ public class PeerCraftRegisterScreen extends Screen {
 
         y += 26;
         //? if =1.21.1 {
-        this.passwordBox = new SteampunkSettingsTheme.Field(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));
+        this.passwordBox = PeerCraftUi.themedField(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));
         //?} else {
         /*this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));*/
         //?}
@@ -81,7 +81,7 @@ public class PeerCraftRegisterScreen extends Screen {
 
         y += 26;
         //? if =1.21.1 {
-        this.registerButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
+        this.registerButton = this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, y, 200, 20,
                 Component.translatable("peercraft.gui.register.submit"), b -> onRegister(), true));
         //?} else {
         /*this.registerButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.register.submit"), b -> onRegister())
@@ -90,7 +90,7 @@ public class PeerCraftRegisterScreen extends Screen {
 
         y += 26;
         //? if =1.21.1 {
-        this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
+        this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, y, 200, 20,
                 Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen), false));
         //?} else {
         /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))

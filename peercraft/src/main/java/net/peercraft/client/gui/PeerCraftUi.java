@@ -166,4 +166,21 @@ public final class PeerCraftUi {
                 .tooltip(Tooltip.create(Component.literal(tooltipText)))
                 .build();
     }
+    /** Keeps the new controls scoped to the currently supported interface version. */
+    static Button themedAction(int x, int y, int width, int height, Component label, Button.OnPress onPress, boolean primary) {
+        //? if =1.21.1 {
+        return SteampunkSettingsTheme.action(x, y, width, height, label, onPress, primary);
+        //?} else {
+        /*return Button.builder(label, onPress).bounds(x, y, width, height).build();*/
+        //?}
+    }
+
+    static net.minecraft.client.gui.components.EditBox themedField(Font font, int x, int y, int width, int height, Component label) {
+        //? if =1.21.1 {
+        return new SteampunkSettingsTheme.Field(font, x, y, width, height, label);
+        //?} else {
+        /*return new net.minecraft.client.gui.components.EditBox(font, x, y, width, height, label);*/
+        //?}
+    }
+
 }

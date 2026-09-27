@@ -62,14 +62,14 @@ public class HandoffPlayerPickerScreen extends Screen {
                     : c.declinedSuccessor()
                             ? Component.translatable("peercraft.handoff.picker.row_declined_successor", name)
                             : Component.translatable("peercraft.handoff.picker.hand_off", name);
-            Button b = SteampunkSettingsTheme.action(cx - 155, y, 310, 20,
+            Button b = PeerCraftUi.themedAction(cx - 155, y, 310, 20,
                     label, btn -> confirmAndChoose(c, name), true);
             b.active = eligible;
             this.addRenderableWidget(b);
             y += 24;
         }
 
-        this.addRenderableWidget(SteampunkSettingsTheme.action(cx - 155, panelTop() + panelHeight() - 32, 310, 20,
+        this.addRenderableWidget(PeerCraftUi.themedAction(cx - 155, panelTop() + panelHeight() - 32, 310, 20,
                 Component.translatable("peercraft.handoff.picker.cancel"),
                 btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen), false));
     }
@@ -246,11 +246,16 @@ public class HandoffPlayerPickerScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        //? if =1.21.1 {
         SteampunkSettingsTheme.frame(graphics, this.width / 2 - 180, panelTop(), 360, panelHeight(),
                 SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
+        //?}
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, cx, panelTop() + 14, SteampunkSettingsTheme.ACCENT);
+        int titleColor = PeerCraftUi.TEXT_TITLE;
+        //? if =1.21.1
+        titleColor = SteampunkSettingsTheme.ACCENT;
+        graphics.drawCenteredString(this.font, this.title, cx, panelTop() + 14, titleColor);
         int y = panelTop() + 38;
         for (String line : introLines()) {
             graphics.drawCenteredString(this.font, line, cx, y, 0xFFAAAAAA);

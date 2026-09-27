@@ -1,4 +1,4 @@
-//? if =1.21.1 {
+//? if =1.21.1 && fabric {
 package net.peercraft.client.gui;
 
 import net.minecraft.client.gui.components.Button;

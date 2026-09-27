@@ -167,10 +167,16 @@ public class PeerCraftFriendRequestsScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
+        //? if =1.21.1 {
         graphics.drawCenteredString(this.font, this.title, centerX, panelTop() + 15, SteampunkSettingsTheme.ACCENT);
+        //?} else {
+        /*graphics.drawCenteredString(this.font, this.title, centerX, 15, PeerCraftUi.TEXT_TITLE);*/
+        //?}
 
         if (this.requests != null) {
-            int top = rowsTop();
+            int top = 40;
+            //? if =1.21.1
+            top = rowsTop();
             int shown = Math.min(this.requests.size(), MAX_ROWS_SHOWN);
             for (int i = 0; i < shown; i++) {
                 AccountClient.IncomingRequest request = this.requests.get(i);
@@ -178,7 +184,10 @@ public class PeerCraftFriendRequestsScreen extends Screen {
             }
         }
 
-        graphics.drawCenteredString(this.font, this.statusMessage, centerX, backTop() - 16, this.statusColor);
+        int statusY = this.height - 45;
+        //? if =1.21.1
+        statusY = backTop() - 16;
+        graphics.drawCenteredString(this.font, this.statusMessage, centerX, statusY, this.statusColor);
     }
     //?} else {
     /*@Override
