@@ -12,6 +12,10 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+//? if =1.21.1 {
+import net.minecraft.util.FormattedCharSequence;
+import org.lwjgl.glfw.GLFW;
+//?}
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.config.PeerCraftSettings;
 import net.peercraft.config.PeerCraftSettingsStore;
@@ -54,8 +58,24 @@ public class PeerCraftSettingsScreen extends Screen {
     private PeerCraftSettings settings;
 
     private final List<Row> rows = new ArrayList<>();
-    private Checkbox developerToggle;
+    private AbstractWidget developerToggle;
     private int scroll;
+
+    //? if =1.21.1 {
+    private static final int THEMED_ROW_PITCH = 30;
+    private final long animationStart = System.nanoTime();
+    private int panelLeft;
+    private int panelTop;
+    private int panelWidth;
+    private int panelHeight;
+    private int listTop;
+    private int listBottom;
+    private int controlWidth;
+    private boolean draggingScrollbar;
+    private int scrollbarGrabOffset;
+    private AbstractWidget pendingValidationFocus;
+    private final LinkedHashMap<String, String> draftValues = new LinkedHashMap<>();
+    //?}
 
     private Component statusMessage = Component.empty();
     private int statusColor = PeerCraftUi.TEXT_MUTED;
@@ -77,6 +97,10 @@ public class PeerCraftSettingsScreen extends Screen {
         String warnOverride;     // lang suffix for a red-warning row/tooltip (e.g. autoAccept); null otherwise
         AbstractWidget widget;
         int screenY = -1;
+        //? if =1.21.1 {
+        Button decrement;
+        Button increment;
+        //?}
 
         Row(String key, int kind, boolean developer, boolean restart, int min, int max,
             String labelKey, String tooltipKey) {
@@ -146,6 +170,17 @@ public class PeerCraftSettingsScreen extends Screen {
 
     @Override
     protected void init() {
+        //? if =1.21.1 {
+        captureDraft();
+        this.panelWidth = Math.min(Math.max(0, this.width - 16), Math.max(300, Math.min(420, this.width * 45 / 100)));
+        this.panelLeft = (this.width - this.panelWidth) / 2;
+        this.panelTop = Math.min(10, Math.max(0, this.height / 24));
+        this.panelHeight = this.height - this.panelTop * 2;
+        this.controlWidth = Math.min(140, Math.max(92, this.panelWidth * 36 / 100));
+        this.listTop = this.panelTop + 62;
+        this.listBottom = this.panelTop + this.panelHeight - 56;
+        this.draggingScrollbar = false;
+        //?}
         if (this.settings == null) {
             this.settings = PeerCraftSettingsStore.load();
         }
@@ -158,7 +193,10 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("modSync.maxTotalMb", KIND_INT, false, false, 1, 4096, "max_total_mb");
         addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
         addRow("internetPlay", KIND_BOOL, false, false, 0, 0, "internet_play");
-        addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");
+        //? if =1.21.1
+        addRow("maxPlayers", KIND_INT, false, false, 1, 32, "max_players");
+        //? if !=1.21.1
+        /*addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");*/
         addRow("handoff", KIND_BOOL, false, false, 0, 0, "handoff");
         addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
         addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
@@ -178,17 +216,58 @@ public class PeerCraftSettingsScreen extends Screen {
 
         for (Row row : this.rows) {
             row.widget = buildWidget(row);
+            //? if =1.21.1 {
+            Component label = Component.translatable("peercraft.gui.settings." + row.labelKey);
+            if (row.widget instanceof SteampunkSettingsTheme.Toggle toggle) {
+                toggle.setNarrationLabel(label);
+            } else if (row.widget instanceof SteampunkSettingsTheme.Choice choice) {
+                choice.setNarrationLabel(label);
+            }
+            //?}
             if (forcedByFlag(row.key)) {
                 row.widget.active = false;
                 row.widget.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.settings.forced_by_flag")));
             } else {
+                //? if =1.21.1 {
+                if ("maxPlayers".equals(row.key)) {
+                    row.widget.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.settings.max_players_desc_range", row.min, row.max)));
+                } else {
+                //?}
                 row.widget.setTooltip(Tooltip.create(Component.translatable(
                         "peercraft.gui.settings." + (row.warnOverride != null ? row.warnOverride : row.tooltipKey + "_desc"))));
+                //? if =1.21.1
+                }
             }
             this.addRenderableWidget(row.widget);
+            //? if =1.21.1 {
+            if ("maxPlayers".equals(row.key) && row.widget instanceof EditBox box) {
+                row.decrement = SteampunkSettingsTheme.action(controlX(), 0, 20, 24, Component.literal("−"),
+                        button -> adjustPlayerCount(row, -1), false,
+                        Component.translatable("peercraft.gui.settings.decrease", label));
+                row.increment = SteampunkSettingsTheme.action(controlX() + this.controlWidth - 20, 0, 20, 24,
+                        Component.literal("+"), button -> adjustPlayerCount(row, 1), false,
+                        Component.translatable("peercraft.gui.settings.increase", label));
+                row.decrement.setTooltip(row.widget.getTooltip());
+                row.increment.setTooltip(row.widget.getTooltip());
+                this.addRenderableWidget(row.decrement);
+                this.addRenderableWidget(row.increment);
+                box.setResponder(value -> refreshPlayerCountButtons(row));
+                refreshPlayerCountButtons(row);
+            }
+            //?}
         }
 
-        this.developerToggle = Checkbox.builder(Component.translatable("peercraft.gui.settings.developer_toggle"), this.font)
+        //? if =1.21.1 {
+        this.developerToggle = new SteampunkSettingsTheme.Toggle(this.panelLeft + 12, this.panelTop + 40,
+                this.panelWidth - 24, 18, Component.translatable("peercraft.gui.settings.developer_toggle"),
+                this.settings.showDeveloperSection, value -> {
+                    this.settings.showDeveloperSection = value;
+                    this.scroll = 0;
+                    relayout();
+                });
+        this.developerToggle.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.settings.developer_warning")));
+        //?} else {
+        /*this.developerToggle = Checkbox.builder(Component.translatable("peercraft.gui.settings.developer_toggle"), this.font)
                 .pos(LABEL_X, LIST_TOP)
                 .selected(this.settings.showDeveloperSection)
                 .onValueChange((box, value) -> {
@@ -196,10 +275,26 @@ public class PeerCraftSettingsScreen extends Screen {
                     this.scroll = 0;
                     relayout();
                 })
-                .build();
+                .build();*/
+        //?}
         this.addRenderableWidget(this.developerToggle);
 
-        int by = this.height - 52;
+        //? if =1.21.1 {
+        int by = this.panelTop + this.panelHeight - 32;
+        int available = this.panelWidth - 24;
+        int secondaryWidth = (available - 12) * 29 / 100;
+        int primaryWidth = available - 12 - secondaryWidth * 2;
+        int buttonX = this.panelLeft + 12;
+        this.addRenderableWidget(SteampunkSettingsTheme.action(buttonX, by, primaryWidth, 22,
+                Component.translatable("peercraft.gui.settings.save"), b -> onSave(), true));
+        buttonX += primaryWidth + 6;
+        this.addRenderableWidget(SteampunkSettingsTheme.action(buttonX, by, secondaryWidth, 22,
+                Component.translatable("peercraft.gui.settings.reset"), b -> onReset(), false));
+        buttonX += secondaryWidth + 6;
+        this.addRenderableWidget(SteampunkSettingsTheme.action(buttonX, by, secondaryWidth, 22,
+                Component.translatable("peercraft.gui.settings.cancel"), b -> onClose(), false));
+        //?} else {
+        /*int by = this.height - 52;
         int cx = this.width / 2;
         this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.settings.save"), b -> onSave())
                 .bounds(cx - 154, by, 100, 20).build());
@@ -207,7 +302,8 @@ public class PeerCraftSettingsScreen extends Screen {
                 .bounds(cx - 50, by, 100, 20).build());
         this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.settings.cancel"),
                         b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(cx + 54, by, 100, 20).build());
+                .bounds(cx + 54, by, 100, 20).build());*/
+        //?}
 
         relayout();
     }
@@ -222,6 +318,11 @@ public class PeerCraftSettingsScreen extends Screen {
     // env var / baked default is currently forcing (so e.g. a -Dpeercraft.rendezvousHost shows
     // its real address instead of a blank box), else the hardcoded default.
     private String seed(String key) {
+        //? if =1.21.1 {
+        if (this.draftValues.containsKey(key)) {
+            return this.draftValues.get(key);
+        }
+        //?}
         String saved = this.settings.get(key);
         if (saved != null && !saved.trim().isEmpty()) {
             return saved.trim();
@@ -230,14 +331,19 @@ public class PeerCraftSettingsScreen extends Screen {
         return !baseline.isEmpty() ? baseline : builtinDefault(key);
     }
 
-    // Right-hand column where the widgets sit; right-aligned to a 20px margin so long Russian
-    // labels to its left have room. Never overlaps: rowLabel() clips to labelMaxWidth().
+    // Controls stay inside the panel; labels wrap separately within their available space.
     private int controlX() {
-        return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);
+        //? if =1.21.1
+        return this.panelLeft + this.panelWidth - 26 - this.controlWidth;
+        //? if !=1.21.1
+        /*return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);*/
     }
 
     private int labelMaxWidth() {
-        return Math.max(60, controlX() - 12 - LABEL_X);
+        //? if =1.21.1
+        return Math.max(40, controlX() - 8 - (this.panelLeft + 20));
+        //? if !=1.21.1
+        /*return Math.max(60, controlX() - 12 - LABEL_X);*/
     }
 
     private String clip(String text, int maxWidth) {
@@ -251,7 +357,28 @@ public class PeerCraftSettingsScreen extends Screen {
         int x = controlX();
         int y = ROWS_TOP;
         String current = seed(row.key);
+        //? if =1.21.1 {
+        Component label = Component.translatable("peercraft.gui.settings." + row.labelKey);
         switch (row.kind) {
+            case KIND_BOOL:
+                return new SteampunkSettingsTheme.Toggle(x, y, this.controlWidth, 24, Component.empty(),
+                        "true".equalsIgnoreCase(current), value -> { });
+            case KIND_MODE:
+                return new SteampunkSettingsTheme.Choice(x, y, this.controlWidth, 24, MODE_VALUES, current,
+                        value -> Component.translatable("peercraft.gui.settings.mode." + value));
+            case KIND_MODSYNC:
+                return new SteampunkSettingsTheme.Choice(x, y, this.controlWidth, 24, MODSYNC_VALUES, current,
+                        value -> Component.translatable("peercraft.gui.settings.modsync_mode." + value));
+            default:
+                boolean stepper = "maxPlayers".equals(row.key);
+                EditBox box = new SteampunkSettingsTheme.Field(this.font, x + (stepper ? 24 : 0), y,
+                        this.controlWidth - (stepper ? 48 : 0), 24, label);
+                box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
+                box.setValue(current);
+                return box;
+        }
+        //?} else {
+        /*switch (row.kind) {
             case KIND_BOOL:
                 return Checkbox.builder(Component.empty(), this.font)
                         .pos(x, y)
@@ -268,7 +395,8 @@ public class PeerCraftSettingsScreen extends Screen {
                 box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
                 box.setValue(current);
                 return box;
-        }
+        }*/
+        //?}
     }
 
     private CycleButton<String> makeCycle(List<String> values, String initial, int x, int y, Function<String, Component> labels) {
@@ -294,8 +422,12 @@ public class PeerCraftSettingsScreen extends Screen {
     }
 
     private int rowsShown() {
-        int band = (this.height - 66) - ROWS_TOP;
-        return Math.max(1, band / ROW_PITCH);
+        //? if =1.21.1
+        return Math.max(1, (this.listBottom - this.listTop) / THEMED_ROW_PITCH);
+        //? if !=1.21.1 {
+        /*int band = (this.height - 66) - ROWS_TOP;
+        return Math.max(1, band / ROW_PITCH);*/
+        //?}
     }
 
     private void relayout() {
@@ -309,20 +441,61 @@ public class PeerCraftSettingsScreen extends Screen {
             if (row.widget != null) {
                 row.widget.visible = false;
             }
+            //? if =1.21.1 {
+            if (row.decrement != null) {
+                row.decrement.visible = false;
+                row.increment.visible = false;
+            }
+            //?}
         }
         for (int i = 0; i < shown && this.scroll + i < visible.size(); i++) {
             Row row = visible.get(this.scroll + i);
-            int y = ROWS_TOP + i * ROW_PITCH;
+            //? if =1.21.1
+            int y = this.listTop + i * THEMED_ROW_PITCH;
+            //? if !=1.21.1
+            /*int y = ROWS_TOP + i * ROW_PITCH;*/
             row.screenY = y;
             row.widget.visible = true;
-            row.widget.setX(controlX());
-            row.widget.setY(y);
+            //? if =1.21.1
+            row.widget.setX(controlX() + (row.decrement != null ? 24 : 0));
+            //? if !=1.21.1
+            /*row.widget.setX(controlX());*/
+            //? if =1.21.1
+            row.widget.setY(y + (THEMED_ROW_PITCH - row.widget.getHeight()) / 2);
+            //? if !=1.21.1
+            /*row.widget.setY(y);*/
+            //? if =1.21.1 {
+            if (row.decrement != null) {
+                row.decrement.visible = true;
+                row.increment.visible = true;
+                row.decrement.setX(controlX());
+                row.increment.setX(controlX() + this.controlWidth - 20);
+                row.decrement.setY(row.widget.getY());
+                row.increment.setY(row.widget.getY());
+            }
+            //?}
         }
+        //? if =1.21.1 {
+        for (Row row : this.rows) {
+            if (!row.widget.visible && (row.widget == getFocused()
+                    || row.decrement != null && (row.decrement == getFocused() || row.increment == getFocused()))) {
+                setFocused(null);
+            }
+        }
+        //?}
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int total = visibleRows().size();
+        //? if =1.21.1 {
+        if (mouseX >= this.panelLeft + 10 && mouseX < this.panelLeft + this.panelWidth - 10
+                && mouseY >= this.listTop && mouseY < this.listBottom && scrollY != 0) {
+            scrollTo(this.scroll - (int) Math.signum(scrollY));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        //?} else {
+        /*int total = visibleRows().size();
         int shown = rowsShown();
         if (scrollY != 0 && total > shown && mouseY >= ROWS_TOP && mouseY < ROWS_TOP + shown * ROW_PITCH) {
             int next = Math.max(0, Math.min(this.scroll - (int) Math.signum(scrollY), total - shown));
@@ -332,7 +505,8 @@ public class PeerCraftSettingsScreen extends Screen {
             }
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);*/
+        //?}
     }
 
     @Override
@@ -345,6 +519,10 @@ public class PeerCraftSettingsScreen extends Screen {
         PeerCraftConfig.applyOverrides(new LinkedHashMap<>());
         this.settings = new PeerCraftSettings();
         this.scroll = 0;
+        //? if =1.21.1 {
+        this.rows.clear();
+        this.draftValues.clear();
+        //?}
         rebuildWidgets();
         this.statusMessage = Component.translatable("peercraft.gui.settings.reset_done");
         this.statusColor = PeerCraftUi.TEXT_SUCCESS;
@@ -352,6 +530,11 @@ public class PeerCraftSettingsScreen extends Screen {
 
     private void onSave() {
         for (Row row : this.rows) {
+            //? if =1.21.1 {
+            if (!row.widget.active) {
+                continue;
+            }
+            //?}
             if (row.kind != KIND_INT || !(row.widget instanceof EditBox)) {
                 continue;
             }
@@ -387,7 +570,10 @@ public class PeerCraftSettingsScreen extends Screen {
                 this.settings.set(row.key, value2);
             }
         }
-        this.settings.showDeveloperSection = this.developerToggle != null && this.developerToggle.selected();
+        //? if =1.21.1
+        this.settings.showDeveloperSection = this.developerToggle instanceof SteampunkSettingsTheme.Toggle toggle && toggle.selected();
+        //? if !=1.21.1
+        /*this.settings.showDeveloperSection = this.developerToggle instanceof Checkbox box && box.selected();*/
 
         PeerCraftSettingsStore.save(this.settings);
         PeerCraftConfig.applyOverrides(this.settings.toOverrideMap());
@@ -400,11 +586,33 @@ public class PeerCraftSettingsScreen extends Screen {
         this.statusMessage = Component.translatable("peercraft.gui.settings.invalid_number",
                 Component.translatable("peercraft.gui.settings." + row.labelKey));
         this.statusColor = PeerCraftUi.TEXT_ERROR;
+        //? if =1.21.1 {
+        if (row.developer && !this.settings.showDeveloperSection) {
+            this.settings.showDeveloperSection = true;
+            ((SteampunkSettingsTheme.Toggle) this.developerToggle).setSelected(true);
+        }
+        List<Row> visible = visibleRows();
+        int index = visible.indexOf(row);
+        if (index < this.scroll || index >= this.scroll + rowsShown()) {
+            scrollTo(index);
+        } else {
+            relayout();
+        }
+        this.pendingValidationFocus = row.widget;
+        //?}
     }
 
     @SuppressWarnings("unchecked")
     private String readWidget(Row row) {
         AbstractWidget w = row.widget;
+        //? if =1.21.1 {
+        if (w instanceof SteampunkSettingsTheme.Toggle toggle) {
+            return Boolean.toString(toggle.selected());
+        }
+        if (w instanceof SteampunkSettingsTheme.Choice choice) {
+            return choice.getValue();
+        }
+        //?}
         if (w instanceof Checkbox) {
             return Boolean.toString(((Checkbox) w).selected());
         }
@@ -418,15 +626,225 @@ public class PeerCraftSettingsScreen extends Screen {
         return null;
     }
 
+    //? if =1.21.1 {
+    private void adjustPlayerCount(Row row, int direction) {
+        EditBox box = (EditBox) row.widget;
+        int value;
+        try {
+            value = Integer.parseInt(box.getValue().trim());
+        } catch (NumberFormatException ignored) {
+            value = Integer.parseInt(builtinDefault(row.key));
+        }
+        box.setValue(Integer.toString(Math.max(row.min, Math.min(row.max, value + direction))));
+    }
+
+    private void refreshPlayerCountButtons(Row row) {
+        int value;
+        try {
+            value = Integer.parseInt(((EditBox) row.widget).getValue().trim());
+        } catch (NumberFormatException ignored) {
+            value = Integer.parseInt(builtinDefault(row.key));
+        }
+        row.decrement.active = row.widget.active && value > row.min;
+        row.increment.active = row.widget.active && value < row.max;
+    }
+
+    private void captureDraft() {
+        for (Row row : this.rows) {
+            if (row.widget != null && row.widget.active) {
+                this.draftValues.put(row.key, readWidget(row));
+            }
+        }
+    }
+
+    private void scrollTo(int target) {
+        int next = Math.max(0, Math.min(target, Math.max(0, visibleRows().size() - rowsShown())));
+        if (next != this.scroll) {
+            this.scroll = next;
+            relayout();
+        }
+    }
+
+    private int scrollbarX() {
+        return this.panelLeft + this.panelWidth - 20;
+    }
+
+    private int scrollbarTrackTop() {
+        return this.listTop + 10;
+    }
+
+    private int scrollbarTrackHeight() {
+        return Math.max(1, this.listBottom - this.listTop - 20);
+    }
+
+    private int scrollbarThumbHeight() {
+        int total = visibleRows().size();
+        return Math.min(scrollbarTrackHeight(), Math.max(14, scrollbarTrackHeight() * rowsShown() / Math.max(1, total)));
+    }
+
+    private int scrollbarThumbY() {
+        int maxScroll = Math.max(0, visibleRows().size() - rowsShown());
+        int travel = scrollbarTrackHeight() - scrollbarThumbHeight();
+        return scrollbarTrackTop() + (maxScroll == 0 ? 0 : travel * this.scroll / maxScroll);
+    }
+
+    private void scrollFromMouse(double mouseY) {
+        int maxScroll = Math.max(0, visibleRows().size() - rowsShown());
+        int travel = scrollbarTrackHeight() - scrollbarThumbHeight();
+        if (travel > 0) {
+            scrollTo((int) Math.round((mouseY - scrollbarTrackTop() - this.scrollbarGrabOffset) * maxScroll / travel));
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && visibleRows().size() > rowsShown()
+                && mouseX >= scrollbarX() - 1 && mouseX < scrollbarX() + 9
+                && mouseY >= this.listTop && mouseY < this.listBottom) {
+            if (mouseY < scrollbarTrackTop()) {
+                scrollTo(this.scroll - 1);
+            } else if (mouseY >= scrollbarTrackTop() + scrollbarTrackHeight()) {
+                scrollTo(this.scroll + 1);
+            } else {
+                this.scrollbarGrabOffset = mouseY >= scrollbarThumbY()
+                        && mouseY < scrollbarThumbY() + scrollbarThumbHeight()
+                        ? (int) mouseY - scrollbarThumbY() : scrollbarThumbHeight() / 2;
+                this.draggingScrollbar = true;
+                scrollFromMouse(mouseY);
+            }
+            return true;
+        }
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        applyValidationFocus();
+        return handled;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && this.draggingScrollbar) {
+            scrollFromMouse(mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && this.draggingScrollbar) {
+            this.draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN || keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+            scrollTo(this.scroll + (keyCode == GLFW.GLFW_KEY_PAGE_DOWN ? rowsShown() : -rowsShown()));
+            return true;
+        }
+        if (!(getFocused() instanceof EditBox)) {
+            if (keyCode == GLFW.GLFW_KEY_HOME || keyCode == GLFW.GLFW_KEY_END) {
+                scrollTo(keyCode == GLFW.GLFW_KEY_HOME ? 0 : visibleRows().size());
+                return true;
+            }
+        }
+        boolean handled = super.keyPressed(keyCode, scanCode, modifiers);
+        applyValidationFocus();
+        return handled;
+    }
+
+    private void applyValidationFocus() {
+        if (this.pendingValidationFocus != null) {
+            setFocused(this.pendingValidationFocus);
+            this.pendingValidationFocus = null;
+        }
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.fill(0, 0, this.width, this.height, SteampunkSettingsTheme.BACKGROUND);
+        SteampunkSettingsTheme.particles(graphics, this.width, this.height, this.panelLeft,
+                this.panelLeft + this.panelWidth, (System.nanoTime() - this.animationStart) / 1_000_000L);
+        SteampunkSettingsTheme.frame(graphics, this.panelLeft, this.panelTop, this.panelWidth,
+                this.panelHeight, SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
+        graphics.pose().pushPose();
+        graphics.pose().scale(1.5F, 1.5F, 1.0F);
+        graphics.drawCenteredString(this.font, "PeerCraft", (int) (this.width / 3.0F),
+                (int) ((this.panelTop + 8) / 1.5F), SteampunkSettingsTheme.ACCENT);
+        graphics.pose().popPose();
+        graphics.drawCenteredString(this.font, Component.translatable("options.title"), this.width / 2,
+                this.panelTop + 26, SteampunkSettingsTheme.TEXT);
+
+        SteampunkSettingsTheme.frame(graphics, this.panelLeft + 10, this.listTop - 1,
+                this.panelWidth - 32, this.listBottom - this.listTop + 2, 0xFF18120D, 0xFF49331F);
+        for (Row row : this.rows) {
+            if (row.screenY < 0) {
+                continue;
+            }
+            if (mouseX >= this.panelLeft + 11 && mouseX < scrollbarX() - 4
+                    && mouseY >= row.screenY && mouseY < row.screenY + THEMED_ROW_PITCH) {
+                graphics.fill(this.panelLeft + 11, row.screenY, scrollbarX() - 3,
+                        row.screenY + THEMED_ROW_PITCH, 0xFF241B12);
+            }
+            graphics.fill(this.panelLeft + 11, row.screenY + THEMED_ROW_PITCH - 1,
+                    scrollbarX() - 3, row.screenY + THEMED_ROW_PITCH, 0xFF38291B);
+            int color = !row.widget.active ? SteampunkSettingsTheme.MUTED
+                    : row.warnOverride != null ? PeerCraftUi.TEXT_ERROR : SteampunkSettingsTheme.TEXT;
+            List<FormattedCharSequence> lines = this.font.split(fullRowLabel(row), labelMaxWidth());
+            int count = Math.min(3, lines.size());
+            int textY = row.screenY + (THEMED_ROW_PITCH - count * this.font.lineHeight) / 2;
+            for (int i = 0; i < count; i++) {
+                graphics.drawString(this.font, lines.get(i), this.panelLeft + 20,
+                        textY + i * this.font.lineHeight, color, false);
+            }
+        }
+        drawThemedScrollbar(graphics, mouseX, mouseY);
+        Component footerMessage = this.statusMessage;
+        int color = this.statusColor;
+        if (footerMessage.getString().isEmpty() && this.settings.showDeveloperSection) {
+            footerMessage = Component.translatable("peercraft.gui.settings.developer_warning");
+            color = PeerCraftUi.TEXT_ERROR;
+        }
+        List<FormattedCharSequence> lines = this.font.split(footerMessage, this.panelWidth - 24);
+        int y = this.panelTop + this.panelHeight - 53;
+        for (int i = 0; i < Math.min(2, lines.size()); i++) {
+            FormattedCharSequence line = lines.get(i);
+            graphics.drawString(this.font, line, (this.width - this.font.width(line)) / 2,
+                    y + i * this.font.lineHeight, color, false);
+        }
+    }
+
+    private Component fullRowLabel(Row row) {
+        Component label = Component.translatable("peercraft.gui.settings." + row.labelKey);
+        return row.restart ? label.copy().append(" ").append(Component.translatable("peercraft.gui.settings.restart_hint")) : label;
+    }
+
+    private void drawThemedScrollbar(GuiGraphics graphics, int mouseX, int mouseY) {
+        int x = scrollbarX();
+        int top = scrollbarTrackTop();
+        SteampunkSettingsTheme.frame(graphics, x, top, 8, scrollbarTrackHeight(), 0xFF120E0A, 0xFF49331F);
+        if (visibleRows().size() > rowsShown()) {
+            boolean hovered = mouseX >= x - 1 && mouseX < x + 9 && mouseY >= this.listTop && mouseY < this.listBottom;
+            int border = hovered || this.draggingScrollbar ? SteampunkSettingsTheme.BORDER_HOVER : SteampunkSettingsTheme.BORDER;
+            SteampunkSettingsTheme.frame(graphics, x + 1, scrollbarThumbY(), 6, scrollbarThumbHeight(), 0xFF604328, border);
+            int color = hovered ? SteampunkSettingsTheme.ACCENT : SteampunkSettingsTheme.MUTED;
+            graphics.drawCenteredString(this.font, "^", x + 4, this.listTop, color);
+            graphics.drawCenteredString(this.font, "v", x + 4, this.listBottom - 8, color);
+        }
+    }
+    //?}
+
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and drawString/drawCenteredString ->
-    // text/centeredText; the background is painted by Screen itself since 1.21.6.
+    // text/centeredText. 1.21.1 calls our custom background through Screen.render().
     //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        //? if <1.21.6
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        //? if !=1.21.1 && <1.21.6
+        /*this.renderBackground(graphics, mouseX, mouseY, partialTick);*/
         super.render(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
+        //? if !=1.21.1 {
+        /*int cx = this.width / 2;
         graphics.drawCenteredString(this.font, this.title, cx, 16, PeerCraftUi.TEXT_TITLE);
         for (Row row : this.rows) {
             if (row.screenY < 0) {
@@ -439,7 +857,8 @@ public class PeerCraftSettingsScreen extends Screen {
         if (this.settings != null && this.settings.showDeveloperSection) {
             graphics.drawString(this.font, devWarning(), LABEL_X, LIST_TOP + 16, PeerCraftUi.TEXT_ERROR, false);
         }
-        graphics.drawCenteredString(this.font, this.statusMessage, cx, this.height - 68, this.statusColor);
+        graphics.drawCenteredString(this.font, this.statusMessage, cx, this.height - 68, this.statusColor);*/
+        //?}
     }
     //?} else {
     /*@Override
