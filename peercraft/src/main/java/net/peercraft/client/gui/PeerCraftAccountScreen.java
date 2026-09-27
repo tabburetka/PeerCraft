@@ -265,8 +265,8 @@ public class PeerCraftAccountScreen extends Screen {
     private void drawSkinFace(GuiGraphics graphics, int x, int y, int size) {
         Minecraft mc = Minecraft.getInstance();
         net.minecraft.resources.ResourceLocation texture = mc.getSkinManager().getInsecureSkin(mc.getGameProfile()).texture();
-        graphics.blit(texture, x, y, 0, 8, 8, size, size, 64, 64);
-        graphics.blit(texture, x, y, 0, 40, 8, size, size, 64, 64);
+        graphics.blit(texture, x, y, size, size, 8, 8, 8, 8, 64, 64);
+        graphics.blit(texture, x, y, size, size, 40, 8, 8, 8, 64, 64);
     }
     //?}
 
