@@ -47,6 +47,15 @@ final class SteampunkSettingsTheme {
         }
     }
 
+    /** Shared flat shell for full PeerCraft screens; the caller still owns its content layout. */
+    static void screenBackground(GuiGraphics graphics, int screenWidth, int screenHeight,
+                                 int panelLeft, int panelTop, int panelWidth, int panelHeight,
+                                 long elapsedMillis) {
+        graphics.fill(0, 0, screenWidth, screenHeight, BACKGROUND);
+        particles(graphics, screenWidth, screenHeight, panelLeft, panelLeft + panelWidth, elapsedMillis);
+        frame(graphics, panelLeft, panelTop, panelWidth, panelHeight, PANEL, BORDER);
+    }
+
     /** Positions are derived from elapsed time, so animation speed does not depend on FPS. */
     static void particles(GuiGraphics graphics, int screenWidth, int screenHeight,
                           int panelLeft, int panelRight, long elapsedMillis) {

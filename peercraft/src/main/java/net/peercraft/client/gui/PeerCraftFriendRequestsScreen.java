@@ -22,6 +22,9 @@ public class PeerCraftFriendRequestsScreen extends Screen {
     private final List<AccountClient.IncomingRequest> requests;
     private Component statusMessage = Component.empty();
     private int statusColor = PeerCraftUi.TEXT_MUTED;
+    //? if =1.21.1 {
+    private final long animationStart = System.nanoTime();
+    //?}
 
     public PeerCraftFriendRequestsScreen(Screen lastScreen) {
         this(lastScreen, null);
@@ -58,8 +61,13 @@ public class PeerCraftFriendRequestsScreen extends Screen {
                 }
             });
 
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                    .bounds(this.width / 2 - 100, this.height - 30, 200, 20).build());
+            //? if =1.21.1 {
+            this.addRenderableWidget(SteampunkSettingsTheme.action(this.width / 2 - 100, this.height - 30, 200, 20,
+                    Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen), false));
+            //?} else {
+            /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
+                    .bounds(this.width / 2 - 100, this.height - 30, 200, 20).build());*/
+            //?}
             return;
         }
 
@@ -69,10 +77,17 @@ public class PeerCraftFriendRequestsScreen extends Screen {
         for (int i = 0; i < shown; i++) {
             AccountClient.IncomingRequest request = this.requests.get(i);
             int rowY = top + i * ROW_HEIGHT;
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.friend_requests.accept"), b -> onRespond(request, true))
+            //? if =1.21.1 {
+            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX + 30, rowY, 90, 20,
+                    Component.translatable("peercraft.gui.friend_requests.accept"), b -> onRespond(request, true), true));
+            this.addRenderableWidget(SteampunkSettingsTheme.action(centerX + 125, rowY, 90, 20,
+                    Component.translatable("peercraft.gui.friend_requests.decline"), b -> onRespond(request, false), false));
+            //?} else {
+            /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.friend_requests.accept"), b -> onRespond(request, true))
                     .bounds(centerX + 30, rowY, 90, 20).build());
             this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.friend_requests.decline"), b -> onRespond(request, false))
-                    .bounds(centerX + 125, rowY, 90, 20).build());
+                    .bounds(centerX + 125, rowY, 90, 20).build());*/
+            //?}
         }
         if (this.requests.isEmpty()) {
             this.statusMessage = Component.translatable("peercraft.gui.friend_requests.empty");
@@ -82,8 +97,13 @@ public class PeerCraftFriendRequestsScreen extends Screen {
             this.statusColor = PeerCraftUi.TEXT_MUTED;
         }
 
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, top + shown * ROW_HEIGHT + 20, 200, 20).build());
+        //? if =1.21.1 {
+        this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, top + shown * ROW_HEIGHT + 20, 200, 20,
+                Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen), false));
+        //?} else {
+        /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
+                .bounds(centerX - 100, top + shown * ROW_HEIGHT + 20, 200, 20).build());*/
+        //?}
     }
 
     private void onRespond(AccountClient.IncomingRequest request, boolean accept) {
@@ -120,6 +140,16 @@ public class PeerCraftFriendRequestsScreen extends Screen {
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
     // #extractRenderState; drawString/drawCenteredString became text/centeredText.
     //? if <26.1 {
+    //? if =1.21.1 {
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        int panelWidth = Math.min(440, this.width - 16);
+        int panelHeight = Math.min(this.height - 16, Math.max(180, 82 + Math.min(MAX_ROWS_SHOWN, this.requests == null ? 1 : this.requests.size()) * ROW_HEIGHT));
+        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
+                (this.width - panelWidth) / 2, (this.height - panelHeight) / 2, panelWidth, panelHeight,
+                (System.nanoTime() - this.animationStart) / 1_000_000L);
+    }
+    //?}
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it

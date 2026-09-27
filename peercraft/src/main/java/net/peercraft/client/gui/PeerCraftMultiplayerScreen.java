@@ -62,6 +62,9 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     private final Screen lastScreen;
     private Tab currentTab;
+    //? if =1.21.1 {
+    private final long steampunkAnimationStart = System.nanoTime();
+    //?}
 
     // ---- tab bar ----
     private Button tabFavoritesButton;
@@ -343,14 +346,25 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int startX = this.width / 2 - barWidth / 2;
         int y = 30;
 
-        this.tabFavoritesButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES))
+        //? if =1.21.1 {
+        this.tabFavoritesButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX, y, tabWidth, 20,
+                Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES), false));
+        this.tabFriendsButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + tabWidth + 4, y, tabWidth, 20,
+                friendsTabLabel(), b -> switchTab(Tab.FRIENDS), false));
+        this.tabDiscoverButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + 2 * (tabWidth + 4), y, tabWidth, 20,
+                Component.translatable("peercraft.gui.multiplayer.tab_discover"), b -> switchTab(Tab.DISCOVER), false));
+        this.tabGamesButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + 3 * (tabWidth + 4), y, tabWidth, 20,
+                gamesTabLabel(), b -> switchTab(Tab.GAMES), false));
+        //?} else {
+        /*this.tabFavoritesButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES))
                 .bounds(startX, y, tabWidth, 20).build());
         this.tabFriendsButton = this.addRenderableWidget(Button.builder(friendsTabLabel(), b -> switchTab(Tab.FRIENDS))
                 .bounds(startX + tabWidth + 4, y, tabWidth, 20).build());
         this.tabDiscoverButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_discover"), b -> switchTab(Tab.DISCOVER))
                 .bounds(startX + 2 * (tabWidth + 4), y, tabWidth, 20).build());
         this.tabGamesButton = this.addRenderableWidget(Button.builder(gamesTabLabel(), b -> switchTab(Tab.GAMES))
-                .bounds(startX + 3 * (tabWidth + 4), y, tabWidth, 20).build());
+                .bounds(startX + 3 * (tabWidth + 4), y, tabWidth, 20).build());*/
+        //?}
     }
 
     private Component friendsTabLabel() {
@@ -1207,6 +1221,16 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
     // #extractRenderState; drawString/drawCenteredString became text/centeredText.
     //? if <26.1 {
+    //? if =1.21.1 {
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        int panelWidth = Math.min(460, this.width - 16);
+        int panelHeight = Math.max(1, this.height - 16);
+        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
+                (this.width - panelWidth) / 2, 8, panelWidth, panelHeight,
+                (System.nanoTime() - this.steampunkAnimationStart) / 1_000_000L);
+    }
+    //?}
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);

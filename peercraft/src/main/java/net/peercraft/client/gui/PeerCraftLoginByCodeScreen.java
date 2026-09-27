@@ -25,6 +25,9 @@ public class PeerCraftLoginByCodeScreen extends Screen {
     private Button loginButton;
     private Component statusMessage = Component.empty();
     private int statusColor = PeerCraftUi.TEXT_MUTED;
+    //? if =1.21.1 {
+    private final long animationStart = System.nanoTime();
+    //?}
 
     public PeerCraftLoginByCodeScreen(Screen lastScreen) {
         super(Component.translatable("peercraft.gui.login_code.title"));
@@ -43,19 +46,33 @@ public class PeerCraftLoginByCodeScreen extends Screen {
         this.setInitialFocus(this.friendCodeBox);
 
         y += 26;
-        this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));
+        //? if =1.21.1 {
+        this.passwordBox = new SteampunkSettingsTheme.Field(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));
+        //?} else {
+        /*this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));*/
+        //?}
         this.passwordBox.setMaxLength(64);
         this.passwordBox.setHint(Component.translatable("peercraft.gui.register.password_hint"));
         PeerCraftUi.maskAsPassword(this.passwordBox);
         this.addRenderableWidget(this.passwordBox);
 
         y += 26;
-        this.loginButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.login_code.submit"), b -> onLogin())
-                .bounds(centerX - 100, y, 200, 20).build());
+        //? if =1.21.1 {
+        this.loginButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
+                Component.translatable("peercraft.gui.login_code.submit"), b -> onLogin(), true));
+        //?} else {
+        /*this.loginButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.login_code.submit"), b -> onLogin())
+                .bounds(centerX - 100, y, 200, 20).build());*/
+        //?}
 
         y += 26;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, y, 200, 20).build());
+        //? if =1.21.1 {
+        this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
+                Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen), false));
+        //?} else {
+        /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
+                .bounds(centerX - 100, y, 200, 20).build());*/
+        //?}
     }
 
     // Screen.keyPressed switched from (int,int,int) to a KeyEvent record parameter in 1.21.9.
@@ -136,6 +153,16 @@ public class PeerCraftLoginByCodeScreen extends Screen {
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
     // #extractRenderState; drawString/drawCenteredString became text/centeredText.
     //? if <26.1 {
+    //? if =1.21.1 {
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        int panelWidth = Math.min(320, this.width - 16);
+        int panelHeight = Math.min(this.height - 16, 194);
+        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
+                (this.width - panelWidth) / 2, (this.height - panelHeight) / 2, panelWidth, panelHeight,
+                (System.nanoTime() - this.animationStart) / 1_000_000L);
+    }
+    //?}
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
