@@ -350,7 +350,13 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 if (state.state == HandoffAuthorityProtocol.ABORTED || state.state == HandoffAuthorityProtocol.UNKNOWN
                         || state.state == HandoffAuthorityProtocol.DENIED || System.nanoTime() > deadline
                         || System.nanoTime() - c.lastSourceHeartbeat > TimeUnit.SECONDS.toNanos(30)) {
-                    Thread finish = new Thread(() -> { c.stopWorkers(); c.terminal(state.state == HandoffAuthorityProtocol.ABORTED ? "" : "peercraft.handoff.abort.no_response", false); }, "PeerCraft-Handoff-Early-Terminal");
+                    Thread finish = new Thread(() -> {
+                        try {
+                            boolean aborted = c.successor && c.operation.abort();
+                            c.stopWorkers().get(); if (aborted) c.cleanup().get();
+                        } catch (Exception unknown) { /* No cleanup without confirmed ABORT. */ }
+                        c.stopWorkers(); c.terminal(state.state == HandoffAuthorityProtocol.ABORTED ? "" : "peercraft.handoff.abort.no_response", false);
+                    }, "PeerCraft-Handoff-Early-Terminal");
                     finish.setDaemon(true); finish.start(); return null;
                 }
                 Thread.sleep(3000);
