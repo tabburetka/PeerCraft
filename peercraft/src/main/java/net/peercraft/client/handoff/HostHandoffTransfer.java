@@ -52,6 +52,7 @@ public final class HostHandoffTransfer {
         }
 
         final Path zip = archive.zip();
+        java.util.concurrent.atomic.AtomicReference<WorldTransfer> active = new java.util.concurrent.atomic.AtomicReference<>();
         WorldTransfer wt = WorldTransfer.host(offerId, zip, archive.size(), archive.sha512(),
                 P2PBridge.INSTANCE::sendRawDatagram, successor.host(), successor.port(),
                 new WorldTransfer.HostCallbacks() {
@@ -62,20 +63,30 @@ public final class HostHandoffTransfer {
 
                     @Override
                     public void onComplete() {
-                        cleanup(zip);
-                        P2PBridge.INSTANCE.setHostWorldTransfer(null);
-                        onDone.run();
+                        finishTransfer(active.get(), zip, () -> {
+                            P2PBridge.INSTANCE.setHostWorldTransfer(null); onDone.run();
+                        });
                     }
 
                     @Override
                     public void onFailed(String reasonKey) {
-                        cleanup(zip);
-                        P2PBridge.INSTANCE.setHostWorldTransfer(null);
-                        onFail.accept(reasonKey);
+                        finishTransfer(active.get(), zip, () -> {
+                            P2PBridge.INSTANCE.setHostWorldTransfer(null); onFail.accept(reasonKey);
+                        });
                     }
                 });
+        active.set(wt);
         P2PBridge.INSTANCE.setHostWorldTransfer(wt);
         wt.startHost();
+    }
+
+    private static void finishTransfer(WorldTransfer transfer, Path zip, Runnable terminal) {
+        Thread cleanup = new Thread(() -> {
+            try { if (transfer != null) transfer.stopAndAwait(30_000); cleanup(zip); }
+            catch (IOException failure) { LOGGER.warn("[Handoff] Retaining snapshot: transfer reader is still active", failure); }
+            terminal.run();
+        }, "PeerCraft-Handoff-Transfer-Cleanup");
+        cleanup.setDaemon(true); cleanup.start();
     }
 
     private static void cleanup(Path zip) {

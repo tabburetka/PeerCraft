@@ -26,8 +26,9 @@ final class HandoffRegistry {
         UUID session;
         long offer, epoch, updated;
         int state;
+        boolean installed;
         byte[] owner, host, successor, observer, digest;
-        String room, sourceRoom;
+        String room, sourceRoom, restoredRoom;
     }
     HandoffRegistry(Path root, LongSupplier clock) throws IOException {
         this.root = root; this.clock = clock; Files.createDirectories(root);
@@ -58,13 +59,20 @@ final class HandoffRegistry {
         }
         if (m.type == BEGIN) {
             Path previous = history(m.sessionId, m.offerId);
-            if (Files.isRegularFile(previous)) return result(reply, read(previous), m.key);
+            if (Files.isRegularFile(previous)) {
+                Entry historic = read(previous);
+                if (!same(historic.host, m.key)) { reply.state = DENIED; return reply; }
+                return result(reply, historic, m.key, e);
+            }
+            if (e != null && e.offer == m.offerId) {
+                if (!same(e.host, m.key)) { reply.state = DENIED; return reply; }
+                return result(reply, e, m.key);
+            }
             if (!sourceOwnsRoom || ZERO.equals(m.sessionId) || m.epoch < 0
                     || allZero(m.key) || allZero(m.successorKey) || allZero(m.observerKey)
                     || same(m.key, m.successorKey) || same(m.key, m.observerKey) || same(m.successorKey, m.observerKey)) {
                 reply.state = DENIED; return reply;
             }
-            if (e != null && e.offer == m.offerId) return result(reply, e, m.key);
             if (e != null && ((e.state != COMMITTED && e.state != ROOM_READY && e.state != ABORTED && e.state != UNKNOWN)
                     || e.epoch != m.epoch || !same(e.owner, m.key))) {
                 reply.state = DENIED; return reply;
@@ -84,23 +92,30 @@ final class HandoffRegistry {
         }
         if (e == null || e.offer != m.offerId) {
             Path old = history(m.sessionId, m.offerId);
-            if (Files.isRegularFile(old)) return result(reply, read(old), m.key);
+            if (Files.isRegularFile(old)) return result(reply, read(old), m.key, e);
             else { reply.state = UNKNOWN; return reply; }
         }
         boolean host = same(e.host, m.key), successor = same(e.successor, m.key);
         if (!host && !successor && !same(e.observer, m.key)) { reply.state = DENIED; return reply; }
+        if (m.type == QUIESCE && (!host || e.state != PENDING || m.epoch != e.epoch)) {
+            reply.state = DENIED; return reply;
+        }
         boolean changed = false;
-        if (m.type == VERIFIED && successor && e.state == PENDING && !allZero(m.digest)) {
+        if (m.type == VERIFIED && successor && e.state == PENDING && m.epoch == e.epoch && !allZero(m.digest)) {
             e.digest = m.digest.clone(); e.state = STAGED; changed = true;
-        } else if (m.type == COMMIT && host && e.state == STAGED && e.epoch == m.epoch
+        } else if (m.type == COMMIT && host && e.state == STAGED && e.epoch == m.epoch && e.epoch < Long.MAX_VALUE
                 && same(e.digest, m.digest)) {
             e.epoch++; e.owner = e.successor.clone(); e.state = COMMITTED; changed = true;
-        } else if (m.type == ABORT && (host || successor) && (e.state == PENDING || e.state == STAGED)) {
+        } else if (m.type == ABORT && (host || successor) && m.epoch == e.epoch && (e.state == PENDING || e.state == STAGED)) {
             e.state = ABORTED; changed = true;
-        } else if (m.type == READY && successor && e.state == COMMITTED && sourceOwnsRoom) {
+        } else if (m.type == INSTALLED && successor && e.state == COMMITTED && e.epoch == m.epoch && !e.installed) {
+            e.installed = true; changed = true;
+        } else if (m.type == READY && successor && m.epoch == e.epoch && e.state == COMMITTED && e.installed && sourceOwnsRoom) {
             e.room = m.room; e.state = ROOM_READY; changed = true;
+        } else if (m.type == RECOVERED && host && e.state == ABORTED && e.epoch == m.epoch && sourceOwnsRoom) {
+            if (!m.room.equals(e.restoredRoom)) { e.restoredRoom = m.room; changed = true; }
         } else if (m.type != QUERY && m.type != QUIESCE && m.type != VERIFIED && m.type != COMMIT
-                && m.type != ABORT && m.type != READY) {
+                && m.type != ABORT && m.type != READY && m.type != RECOVERED && m.type != INSTALLED) {
             reply.state = DENIED; return reply;
         }
         if (changed) {
@@ -111,10 +126,16 @@ final class HandoffRegistry {
         }
         return result(reply, e, m.key);
     }
-    private Message result(Message reply, Entry e, byte[] key) {
+    private Message result(Message reply, Entry e, byte[] key) { return result(reply, e, key, e); }
+    private Message result(Message reply, Entry e, byte[] key, Entry current) {
         if (!same(key, e.host) && !same(key, e.successor) && !same(key, e.observer)) { reply.state = DENIED; return reply; }
-        reply.state = e.state; reply.epoch = e.epoch;
-        reply.room = e.state == PENDING || e.state == STAGED || e.state == ABORTED ? e.sourceRoom : e.room;
+        reply.state = e.state; reply.epoch = e.epoch; reply.installed = e.installed;
+        reply.currentEpoch = current == null ? -1 : current.epoch;
+        reply.ownsCurrentEpoch = current != null && current.offer == e.offer
+                && current.epoch == e.epoch && same(current.owner, key);
+        reply.sourceRestored = e.state == ABORTED && e.restoredRoom != null && !e.restoredRoom.isEmpty();
+        reply.room = reply.sourceRestored ? e.restoredRoom
+                : e.state == PENDING || e.state == STAGED || e.state == ABORTED ? e.sourceRoom : e.room;
         reply.digest = e.digest == null ? new byte[64] : e.digest.clone(); return reply;
     }
     private Entry load(UUID id) throws IOException {
@@ -165,7 +186,7 @@ final class HandoffRegistry {
                 if (e.updated < cutoff && (e.state == COMMITTED || e.state == ROOM_READY || e.state == ABORTED)) {
                     e.state = UNKNOWN; e.host = e.owner.clone();
                     e.successor = e.owner.clone(); e.observer = new byte[32]; e.digest = null;
-                    e.room = ""; e.sourceRoom = ""; save(e);
+                    e.room = ""; e.sourceRoom = ""; e.restoredRoom = ""; e.installed = false; save(e);
                 }
             }
         }

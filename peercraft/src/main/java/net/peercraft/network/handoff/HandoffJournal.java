@@ -13,6 +13,7 @@ public final class HandoffJournal {
     public final long offer;
     public long epoch;
     public final byte[] key;
+    public byte[] digest = new byte[64];
     public Phase phase;
     public String source = "", archive = "", staging = "", target = "";
     private final Path file;
@@ -33,9 +34,11 @@ public final class HandoffJournal {
         Files.createDirectories(file.toAbsolutePath().getParent());
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(bytes)) {
-            out.writeInt(0x50434832); out.writeLong(session.getMostSignificantBits()); out.writeLong(session.getLeastSignificantBits());
+            out.writeInt(0x50434833); out.writeLong(session.getMostSignificantBits()); out.writeLong(session.getLeastSignificantBits());
             out.writeLong(offer); out.writeLong(epoch); out.write(key); out.writeUTF(phase.name());
             out.writeUTF(source); out.writeUTF(archive); out.writeUTF(staging); out.writeUTF(target);
+            if (digest == null || digest.length != 64) throw new IOException("Invalid snapshot digest");
+            out.write(digest);
         }
         Path tmp = Files.createTempFile(file.toAbsolutePath().getParent(), ".handoff-journal-", ".tmp");
         try {
@@ -48,12 +51,14 @@ public final class HandoffJournal {
     }
     public static HandoffJournal read(Path file) throws IOException {
         try (DataInputStream in = new DataInputStream(Files.newInputStream(file))) {
-            if (in.readInt() != 0x50434832) throw new IOException("Unknown handoff journal");
+            int format = in.readInt();
+            if (format != 0x50434832 && format != 0x50434833) throw new IOException("Unknown handoff journal");
             UUID session = new UUID(in.readLong(), in.readLong()); long offer = in.readLong(), epoch = in.readLong();
             byte[] key = new byte[32]; in.readFully(key);
             HandoffJournal j = new HandoffJournal(file, session, offer, epoch, key);
             j.phase = Phase.valueOf(in.readUTF()); j.source = in.readUTF(); j.archive = in.readUTF();
             j.staging = in.readUTF(); j.target = in.readUTF();
+            if (format == 0x50434833) in.readFully(j.digest);
             if (in.read() != -1) throw new IOException("Trailing handoff journal data"); return j;
         } catch (RuntimeException e) { throw new IOException("Corrupt handoff journal", e); }
     }

@@ -20,6 +20,26 @@ public final class ServerThreadTasks {
             queues.computeIfPresent(server, (key, queue) -> { queue.remove(result); return queue.isEmpty() ? null : queue; });
         }
     }
+    /** Bounded scheduling for versions that expose the server executor. */
+    public static void executeOn(java.util.function.Consumer<Runnable> executor, Runnable task) throws IOException {
+        FutureTask<Void> result = new FutureTask<>(task, null);
+        try {
+            executor.accept(result);
+            result.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            result.cancel(false); Thread.currentThread().interrupt(); throw new IOException(e);
+        } catch (ExecutionException | TimeoutException | RuntimeException e) {
+            result.cancel(false); throw new IOException("Server-thread operation failed", e);
+        }
+    }
+    /** Only actual thread termination permits archiving; a stopped flag alone is insufficient. */
+    public static void awaitTermination(Thread thread, long timeoutMillis) throws IOException {
+        if (thread == null || thread == Thread.currentThread() || timeoutMillis <= 0)
+            throw new IOException("Invalid server termination wait");
+        try { thread.join(timeoutMillis); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
+        if (thread.isAlive()) throw new IOException("Server did not finish stopping");
+    }
     public static void drain(Object server) {
         ConcurrentLinkedQueue<FutureTask<Void>> queue = queues.get(server);
         if (queue == null) return;

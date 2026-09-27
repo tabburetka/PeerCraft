@@ -61,4 +61,30 @@ class WorldInstallTest {
         assertTrue(Files.exists(journal));
     }
 
+
+    @Test void aliasedPlacementCannotRenameOrDeleteTheOriginal() throws Exception {
+        Path original = world("world", "old");
+        assertThrows(IOException.class, () -> WorldInstall.replace(original, original,
+                root.resolve("backup"), root.resolve("journal"), false));
+        assertEquals("old", Files.readString(original.resolve("level.dat")));
+        assertFalse(Files.exists(original.resolve(".peercraft-handoff-install")));
+    }
+    @Test void corruptJournalCannotUseTheTargetAsRollback() throws Exception {
+        Path target = world("world", "keep");
+        Files.writeString(target.resolve(".peercraft-handoff-install"), "id");
+        Properties p = new Properties(); p.setProperty("target", "world"); p.setProperty("staging", "staging");
+        p.setProperty("backup", "world"); p.setProperty("keep", "false"); p.setProperty("installation", "id");
+        Path journal = root.resolve("journal"); try (OutputStream out = Files.newOutputStream(journal)) { p.store(out, ""); }
+        assertThrows(IOException.class, () -> WorldInstall.recover(root, journal));
+        assertEquals("keep", Files.readString(target.resolve("level.dat")));
+        assertTrue(Files.exists(journal));
+    }
+    @Test void interruptionClosesAndRemovesOnlyIncompleteStaging() throws Exception {
+        Path original = world("original", "keep"), archive = zip("level.dat", new byte[1000]);
+        Thread.currentThread().interrupt();
+        try { assertThrows(InterruptedIOException.class, () -> WorldInstall.unpack(archive, root.resolve("staging"), 2000)); }
+        finally { Thread.interrupted(); }
+        assertFalse(Files.exists(root.resolve("staging")));
+        assertEquals("keep", Files.readString(original.resolve("level.dat")));
+    }
 }

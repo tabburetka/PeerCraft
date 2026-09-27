@@ -33,6 +33,9 @@ public final class PeerCraftClientCommon {
             LOGGER.warn("[PeerCraft] settings.json пропущен: {}", e.toString());
         }
 
+        net.peercraft.network.handoff.WorldInstallRecovery.start(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());
+
         String mode = PeerCraftConfig.mode();
 
         // Accounts/friends work independently of hosting/joining mode — a player might only

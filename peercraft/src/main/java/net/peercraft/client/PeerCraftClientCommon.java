@@ -32,6 +32,9 @@ public final class PeerCraftClientCommon {
             LOGGER.warn("[PeerCraft] settings.json пропущен: {}", e.toString());
         }
 
+        net.peercraft.network.handoff.WorldInstallRecovery.start(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());
+
         String mode = PeerCraftConfig.mode();
 
         // Best-effort: clear any half-written mod-sync temp files (*.jar.part, serving/) from a

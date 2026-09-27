@@ -31,6 +31,16 @@ public abstract class WorldOpenFlowsMixin {
 
     @Inject(method = "launchIntegratedServer", at = @At("HEAD"), cancellable = true)
     private void peercraft$warnStaleHandoff(String folderName, String worldName, WorldSettings worldSettingsIn, CallbackInfo ci) {
+        Minecraft peercraft$client = (Minecraft) (Object) this;
+        if (net.peercraft.network.handoff.WorldInstallRecovery.deferOpen(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory(), peercraft$client::func_152344_a,
+                () -> peercraft$client.launchIntegratedServer(folderName, worldName, worldSettingsIn), failure -> {
+                    net.peercraft.client.gui.HandoffStatusScreen error = new net.peercraft.client.gui.HandoffStatusScreen(new GuiMainMenu(), "");
+                    error.onAborted("peercraft.handoff.abort.recovery_failed");
+                    PeerCraftUi.setScreen(peercraft$client, error);
+                })) {
+            ci.cancel(); return;
+        }
         if (Boolean.TRUE.equals(peercraft$bypass.get())) {
             peercraft$bypass.set(Boolean.FALSE);
             return;

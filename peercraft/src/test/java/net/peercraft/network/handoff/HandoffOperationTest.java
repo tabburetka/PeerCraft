@@ -31,6 +31,15 @@ class HandoffOperationTest {
         assertThrows(IOException.class, op::requireCommitted); assertFalse(op.abort());
         assertEquals(HandoffJournal.Phase.COMMIT_SENT, HandoffJournal.read(dir.resolve("attempt")).phase);
     }
+    @Test void historicalCommitOrAnotherOwnerCannotLaunch() throws Exception {
+        HandoffJournal j = journal();
+        HandoffOperation op = new HandoffOperation(m -> {
+            Message r = new Message(REPLY); r.state = COMMITTED; r.epoch = 1; r.currentEpoch = 2;
+            r.ownsCurrentEpoch = false; return r;
+        }, j);
+        assertThrows(IOException.class, op::requireCommitted);
+        assertFalse(op.abort());
+    }
     @Test void onlyConfirmedAbortAllowsCleanup() throws Exception {
         HandoffJournal j = journal();
         HandoffOperation op = new HandoffOperation(m -> { Message r = new Message(REPLY); r.state = ABORTED; return r; }, j);

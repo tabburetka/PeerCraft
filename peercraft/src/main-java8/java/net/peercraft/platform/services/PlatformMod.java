@@ -17,9 +17,16 @@ public final class PlatformMod {
     private final String homepageUrl;
     private final String sourcesUrl;
     private final boolean nested;
+    private final String parentId;
 
     public PlatformMod(String id, String version, Path jarPath, String environment,
                        String homepageUrl, String sourcesUrl, boolean nested) {
+        this(id, version, jarPath, environment, homepageUrl, sourcesUrl, nested, "");
+    }
+
+    public PlatformMod(String id, String version, Path jarPath, String environment,
+                       String homepageUrl, String sourcesUrl, boolean nested, String parentId) {
+        this.parentId = parentId;
         this.id = id;
         this.version = version;
         this.jarPath = jarPath;
@@ -52,6 +59,8 @@ public final class PlatformMod {
     public String sourcesUrl() {
         return sourcesUrl;
     }
+
+    public String parentId() { return parentId; }
 
     public boolean nested() {
         return nested;

@@ -30,6 +30,16 @@ public abstract class WorldOpenFlowsMixin {
 
     @Inject(method = "loadLevel", at = @At("HEAD"), cancellable = true)
     private void peercraft$warnStaleHandoff(String levelId, CallbackInfo ci) {
+        Minecraft peercraft$client = (Minecraft) (Object) this;
+        if (net.peercraft.network.handoff.WorldInstallRecovery.deferOpen(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory(), peercraft$client::execute,
+                () -> peercraft$client.loadLevel(levelId), failure -> {
+                    net.peercraft.client.gui.HandoffStatusScreen error = new net.peercraft.client.gui.HandoffStatusScreen(new TitleScreen(), "");
+                    error.onAborted("peercraft.handoff.abort.recovery_failed");
+                    PeerCraftUi.setScreen(peercraft$client, error);
+                })) {
+            ci.cancel(); return;
+        }
         if (Boolean.TRUE.equals(peercraft$bypass.get())) {
             peercraft$bypass.set(Boolean.FALSE);
             return;

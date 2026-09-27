@@ -46,6 +46,16 @@ public final class WorldArchiver {
     }
 
     public static Result archive(MinecraftServer server, Path tmpDir) throws IOException {
+        Path path = worldDir(server);
+        net.peercraft.network.p2p.LocalPlayerIdentity.ArchiveIdentity identity =
+                net.peercraft.network.p2p.LocalPlayerIdentity.captureForArchive(path);
+        flush(server);
+        identity.prepare(path);
+        return archiveClosed(path, tmpDir, java.util.UUID.randomUUID().toString());
+    }
+
+    /** Flush running server state; call before requesting its normal shutdown. */
+    public static void flush(MinecraftServer server) throws IOException {
         net.peercraft.network.handoff.ServerThreadTasks.execute(server, () -> {
             server.getConfigurationManager().saveAllPlayerData();
             if (server.worldServers == null) throw new IllegalStateException("Server has no loaded worlds");
@@ -58,13 +68,22 @@ public final class WorldArchiver {
         try { net.minecraft.world.storage.ThreadedFileIOBase.threadedIOInstance.waitForFinish(); }
         catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Interrupted world flush", e); }
 
-        return archiveClosed(worldDir(server), tmpDir, java.util.UUID.randomUUID().toString());
+    }
+
+    /** Worker-thread operation: save, request normal shutdown, and verify its thread has exited. */
+    public static void saveAndStop(MinecraftServer server, long stopTimeoutMillis) throws IOException {
+        flush(server);
+        java.util.concurrent.atomic.AtomicReference<Thread> serverThread = new java.util.concurrent.atomic.AtomicReference<>();
+        net.peercraft.network.handoff.ServerThreadTasks.execute(server, () -> {
+            serverThread.set(Thread.currentThread());
+            server.initiateShutdown();
+        });
+        net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(serverThread.get(), stopTimeoutMillis);
     }
 
     /** Archive a fully closed save without submitting tasks to a Minecraft server. */
     public static Result archiveClosed(Path worldDir, Path tmpDir, String attemptId) throws IOException {
         if (!attemptId.matches("[a-zA-Z0-9_-]{1,64}")) throw new IOException("Invalid snapshot attempt id");
-        net.peercraft.network.p2p.LocalPlayerIdentity.prepareForArchive(worldDir);
         Files.createDirectories(tmpDir);
         Path zip = tmpDir.resolve("peercraft-handoff-" + attemptId + ".zip");
 

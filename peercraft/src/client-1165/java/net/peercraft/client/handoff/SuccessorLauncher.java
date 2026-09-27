@@ -50,6 +50,70 @@ public final class SuccessorLauncher {
     private SuccessorLauncher() {
     }
 
+    public static Path savesDirectory() { return Minecraft.getInstance().getLevelSource().getBaseDir(); }
+    public static final class TargetChoice {
+        public final Path directory;
+        public final boolean keepBackup;
+        public final String backupName;
+        public TargetChoice(Path directory, boolean keepBackup) {
+            this(directory, keepBackup, WorldTargetPlan.backupName(directory, keepBackup));
+        }
+        public TargetChoice(Path directory, boolean keepBackup, String backupName) {
+            this.directory = directory; this.keepBackup = keepBackup; this.backupName = backupName;
+        }
+    }
+    public interface SelectionUi {
+        java.util.concurrent.CompletableFuture<TargetChoice> choose(java.util.List<Path> copies);
+    }
+    /** Called during PREFLIGHT, before any player is prepared/frozen. */
+    public static java.util.concurrent.CompletableFuture<WorldTargetPlan> preflightTarget(HandoffProtocol.Offer offer, SelectionUi ui) {
+        java.util.concurrent.CompletableFuture<WorldTargetPlan> result = new java.util.concurrent.CompletableFuture<>();
+        background(() -> {
+            try {
+                Path root = savesDirectory(); Files.createDirectories(root);
+                net.peercraft.network.handoff.WorldInstall.recoverAll(root);
+                java.util.List<Path> copies = WorldTargetPlan.candidates(root, offer.worldId());
+                if (copies.isEmpty()) {
+                    WorldTargetPlan plan = WorldTargetPlan.fresh(root, offer.worldLabel(), offer.worldId());
+                    plan.requireSpace(offer.estArchiveBytes()); result.complete(plan);
+                } else {
+                    Minecraft.getInstance().execute(() -> {
+                        try {
+                            ui.choose(copies).whenComplete((choice, failure) -> {
+                                if (failure != null) { result.completeExceptionally(failure); return; }
+                                background(() -> {
+                                    try {
+                                        if (choice == null || !copies.contains(choice.directory)) throw new IOException("Unknown return target");
+                                        WorldTargetPlan plan = WorldTargetPlan.selected(root, choice.directory, root.resolve(choice.backupName), choice.keepBackup, offer.worldId());
+                                        plan.requireSpace(offer.estArchiveBytes()); result.complete(plan);
+                                    } catch (IOException | RuntimeException e) { result.completeExceptionally(e); }
+                                });
+                            });
+                        } catch (RuntimeException e) { result.completeExceptionally(e); }
+                    });
+                }
+            } catch (IOException | RuntimeException e) { result.completeExceptionally(e); }
+        });
+        return result;
+    }
+    /** Stage only. The target remains untouched until the operation proves COMMIT. */
+    public static Path verifyStaging(HandoffProtocol.Offer offer, Path archive, WorldTargetPlan plan, String attemptId) throws IOException {
+        if (!attemptId.matches("[a-zA-Z0-9_-]{1,64}")) throw new IOException("Invalid staging attempt id");
+        Path staging = plan.root.resolve(".peercraft-handoff-staging-" + attemptId);
+        net.peercraft.network.handoff.WorldInstall.unpack(archive, staging, WorldTargetPlan.UNPACK_LIMIT);
+        net.peercraft.network.handoff.SnapshotValidation.validate(staging);
+        PeercraftWorldMeta meta = PeercraftWorldMeta.loadOrNull(staging);
+        if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
+        return staging;
+    }
+    public static void startPlaced(WorldTargetPlan plan, HandoffProtocol.Offer offer,
+            net.peercraft.network.handoff.HandoffOperation operation, java.util.UUID sessionId, Done done) {
+        background(() -> {
+            try { operation.requireCommitted(); finish(plan.root.relativize(plan.target).toString(), offer, done, sessionId); }
+            catch (IOException | RuntimeException e) { done.failed("peercraft.handoff.abort.transfer_failed"); }
+        });
+    }
+
     public static void launch(HandoffProtocol.Offer offer, Path worldZip, Done done) {
         Minecraft mc = Minecraft.getInstance();
         background(() -> {
@@ -87,6 +151,9 @@ public final class SuccessorLauncher {
     }
 
     private static void finish(String levelId, HandoffProtocol.Offer offer, Done done) {
+        finish(levelId, offer, done, new java.util.UUID(0, 0));
+    }
+    private static void finish(String levelId, HandoffProtocol.Offer offer, Done done, java.util.UUID sessionId) {
         if (levelId == null) {
             done.failed("peercraft.handoff.abort.transfer_failed");
             return;
@@ -98,11 +165,11 @@ public final class SuccessorLauncher {
         } catch (RuntimeException e) {
             LOGGER.debug("[Handoff] markBecameHost: {}", e.toString());
         }
-        net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(offer.offerId());
+        net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(sessionId, offer.offerId());
         mc.execute(() -> openThenPublish(mc, levelId, new Done() {
             private final java.util.concurrent.atomic.AtomicBoolean terminal = new java.util.concurrent.atomic.AtomicBoolean();
             public void serverPublished() {
-                net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(offer.offerId(),
+                net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(sessionId, offer.offerId(),
                         () -> { if (terminal.compareAndSet(false, true)) done.serverPublished(); },
                         reason -> { if (terminal.compareAndSet(false, true)) done.failed(reason); });
             }

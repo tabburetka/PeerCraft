@@ -308,5 +308,10 @@
   "peercraft.handoff.chat.declined": "%s отказался принять хостинг.",
   "peercraft.handoff.chat.done": "Передача игроку %s завершена — можно выходить.",
   "peercraft.handoff.chat.aborted": "Передача игроку %s отменена.",
-  "peercraft.gui.progress_notice.open": "О сохранности прогресса"
+  "peercraft.gui.progress_notice.open": "О сохранности прогресса",
+  "peercraft.handoff.target.title": "Выбор копии мира",
+  "peercraft.handoff.target.body": "В этом каталоге есть несколько копий. Использовать «%s»?",
+  "peercraft.handoff.target.use": "Использовать",
+  "peercraft.handoff.target.next": "Следующая копия",
+  "peercraft.handoff.abort.recovery_failed": "Не удалось восстановить прерванную замену мира. Копии мира и журнал сохранены; подробности в логе."
 }
