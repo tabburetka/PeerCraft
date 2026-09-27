@@ -67,6 +67,7 @@ def syncSharedMain = tasks.register("syncSharedMain", Sync) {
 	// twin (modern net.minecraft.* API, modern GUI screens) — see src/client-1710/.../handoff.
 	exclude "net/peercraft/client/handoff/WorldArchiver.java"
 	exclude "net/peercraft/client/handoff/SuccessorLauncher.java"
+        exclude "net/peercraft/client/handoff/SafeHandoffPlatform.java"
 	(java8Twins + sharedForgeTwins).each { exclude it }
 }
 

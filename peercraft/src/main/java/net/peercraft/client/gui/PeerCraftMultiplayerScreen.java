@@ -7,7 +7,6 @@ import net.minecraft.client.gui.GuiGraphics;
 /*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
@@ -62,6 +61,9 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     private final Screen lastScreen;
     private Tab currentTab;
+    //? if =1.21.1 {
+    private final long steampunkAnimationStart = System.nanoTime();
+    //?}
 
     // ---- tab bar ----
     private Button tabFavoritesButton;
@@ -139,7 +141,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // A CycleButton can't have its value list changed after creation, so this is torn down and
     // rebuilt (rebuildVersionFilterButton()) every time `games` refreshes with a new set of
     // versions. "" is the sentinel for "All" (no filter).
-    private CycleButton<String> gameVersionFilterButton;
+    private SteampunkSettingsTheme.Choice gameVersionFilterButton;
     private String selectedVersionFilter = "";
     private Component gamesStatusMessage = Component.empty();
     private int gamesStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -193,17 +195,15 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
      * Back/Account above: shown regardless of the currently selected tab.
      */
     private void peercraft$addFooterButtons() {
-        this.feedbackButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.title.feedback_button"),
-                        ConfirmLinkScreen.confirmLink(this, FEEDBACK_MAILTO))
-                .bounds(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT)
-                .tooltip(Tooltip.create(Component.translatable("peercraft.gui.title.feedback_tooltip")))
-                .build());
+        this.feedbackButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
+                Component.translatable("peercraft.gui.title.feedback_button"),
+                ConfirmLinkScreen.confirmLink(this, FEEDBACK_MAILTO), false));
+        this.feedbackButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.feedback_tooltip")));
 
-        this.donateButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.title.donate_button"),
-                        ConfirmLinkScreen.confirmLink(this, DONATE_URL))
-                .bounds(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT)
-                .tooltip(Tooltip.create(Component.translatable("peercraft.gui.title.donate_tooltip")))
-                .build());
+        this.donateButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
+                Component.translatable("peercraft.gui.title.donate_button"),
+                ConfirmLinkScreen.confirmLink(this, DONATE_URL), false));
+        this.donateButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.donate_tooltip")));
 
         peercraft$layoutFooterButtons();
     }
@@ -296,9 +296,20 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.favoritesList = list;
         list.setRectangle(this.width, this.height - 64 - CONTENT_TOP, 0, CONTENT_TOP);
 
+        this.favoritesSelectButton = peercraft$decorateVanillaButton(this.favoritesSelectButton, true);
+        this.favoritesDirectButton = peercraft$decorateVanillaButton(this.favoritesDirectButton, false);
+        this.favoritesAddButton = peercraft$decorateVanillaButton(this.favoritesAddButton, false);
+        this.favoritesEditButton = peercraft$decorateVanillaButton(this.favoritesEditButton, false);
+        this.favoritesDeleteButton = peercraft$decorateVanillaButton(this.favoritesDeleteButton, false);
+        // Refresh has its own PeerCraft callback. Do not decorate the vanilla button:
+        // DecoratedAction synchronizes visibility from its original and would revive it.
+        this.removeWidget(vanillaRefresh);
         this.vanillaRefreshButton = vanillaRefresh;
-        this.vanillaBackButton = vanillaBack;
+        this.vanillaBackButton = peercraft$decorateVanillaButton(vanillaBack, false);
+        vanillaRefresh = this.vanillaRefreshButton;
+        vanillaBack = this.vanillaBackButton;
         vanillaRefresh.visible = false;
+        vanillaRefresh.active = false;
         //? if <1.21.9 {
         this.favoritesWidgets.remove(7); // back — always visible, not tab-gated
         this.favoritesWidgets.remove(6); // vanilla refresh — permanently hidden, replaced below
@@ -307,34 +318,48 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.favoritesWidgets.remove(vanillaRefresh); // vanilla refresh — permanently hidden, replaced below*/
         //?}
 
-        this.customRefreshButton = this.addRenderableWidget(Button.builder(vanillaRefresh.getMessage(),
-                        b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)))
-                .bounds(vanillaRefresh.getX(), vanillaRefresh.getY(), vanillaRefresh.getWidth(), vanillaRefresh.getHeight())
-                .build());
+        this.customRefreshButton = this.addRenderableWidget(SteampunkSettingsTheme.action(
+                vanillaRefresh.getX(), vanillaRefresh.getY(), vanillaRefresh.getWidth(), vanillaRefresh.getHeight(), vanillaRefresh.getMessage(),
+                b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)), false));
 
         // Account button — used to be a full-width entry on the title screen; every PeerCraft
         // path already funnels through this screen (see TitleScreenMixin), so a small icon
         // tucked next to Back reaches it without competing for space with vanilla's own menu.
         // Not tab-gated, same as Back itself. Plain vanilla-styled glyph rather than a custom
         // face render, to stay visually consistent with the rest of the button row.
-        this.accountGlyphButton = this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
+        this.accountGlyphButton = this.addRenderableWidget(SteampunkSettingsTheme.action(
                 vanillaBack.getX() + vanillaBack.getWidth() + 6, vanillaBack.getY(), vanillaBack.getHeight(),
-                "☺", Component.translatable("peercraft.gui.multiplayer.account_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this))));
+                vanillaBack.getHeight(), Component.literal("☺"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this)), false));
+        this.accountGlyphButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.multiplayer.account_tooltip")));
 
         // PeerCraft Settings — gear glyph right after the account button. All PeerCraft flags
         // (mod sync host/client modes, ports, rendezvous, …) are edited here and persisted to
         // config/peercraft/settings.json.
-        this.settingsGlyphButton = this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
+        this.settingsGlyphButton = this.addRenderableWidget(SteampunkSettingsTheme.action(
                 this.accountGlyphButton.getX() + this.accountGlyphButton.getWidth() + 6, vanillaBack.getY(), vanillaBack.getHeight(),
-                "⚙", Component.translatable("peercraft.gui.settings.glyph_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftSettingsScreen(this))));
+                vanillaBack.getHeight(), Component.literal("⚙"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftSettingsScreen(this)), false));
+        this.settingsGlyphButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.settings.glyph_tooltip")));
 
         // "Join by code" — same relocation, next to Add Server. Skipped in host mode
         // like the old title-screen button was: a host never needs to join someone else's room.
         if (!PeerCraftConfig.MODE_HOST.equals(PeerCraftConfig.mode())) {
-            this.joinByCodeGlyphButton = this.addRenderableWidget(PeerCraftUi.squareGlyphButton(
+            this.joinByCodeGlyphButton = this.addRenderableWidget(SteampunkSettingsTheme.action(
                     this.favoritesAddButton.getX() + this.favoritesAddButton.getWidth() + 6, this.favoritesAddButton.getY(), this.favoritesAddButton.getHeight(),
-                    "▶", Component.translatable("peercraft.gui.multiplayer.join_by_code_tooltip").getString(), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftJoinScreen(this))));
+                    this.favoritesAddButton.getHeight(), Component.literal("▶"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftJoinScreen(this)), false));
+            this.joinByCodeGlyphButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.multiplayer.join_by_code_tooltip")));
         }
+    }
+
+    /** Keeps vanilla behavior while replacing its grey widget with the shared brass control. */
+    private Button peercraft$decorateVanillaButton(Button original, boolean primary) {
+        Button decorated = SteampunkSettingsTheme.decorate(original, original.getX(), original.getY(),
+                original.getWidth(), original.getHeight(), primary);
+        int position = this.favoritesWidgets.indexOf(original);
+        if (position >= 0) {
+            this.favoritesWidgets.set(position, decorated);
+        }
+        this.removeWidget(original);
+        return this.addRenderableWidget(decorated);
     }
 
     private void buildTabBar() {
@@ -343,14 +368,25 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int startX = this.width / 2 - barWidth / 2;
         int y = 30;
 
-        this.tabFavoritesButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES))
+        //? if =1.21.1 {
+        this.tabFavoritesButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX, y, tabWidth, 20,
+                Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES), false));
+        this.tabFriendsButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + tabWidth + 4, y, tabWidth, 20,
+                friendsTabLabel(), b -> switchTab(Tab.FRIENDS), false));
+        this.tabDiscoverButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + 2 * (tabWidth + 4), y, tabWidth, 20,
+                Component.translatable("peercraft.gui.multiplayer.tab_discover"), b -> switchTab(Tab.DISCOVER), false));
+        this.tabGamesButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + 3 * (tabWidth + 4), y, tabWidth, 20,
+                gamesTabLabel(), b -> switchTab(Tab.GAMES), false));
+        //?} else {
+        /*this.tabFavoritesButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES))
                 .bounds(startX, y, tabWidth, 20).build());
         this.tabFriendsButton = this.addRenderableWidget(Button.builder(friendsTabLabel(), b -> switchTab(Tab.FRIENDS))
                 .bounds(startX + tabWidth + 4, y, tabWidth, 20).build());
         this.tabDiscoverButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.tab_discover"), b -> switchTab(Tab.DISCOVER))
                 .bounds(startX + 2 * (tabWidth + 4), y, tabWidth, 20).build());
         this.tabGamesButton = this.addRenderableWidget(Button.builder(gamesTabLabel(), b -> switchTab(Tab.GAMES))
-                .bounds(startX + 3 * (tabWidth + 4), y, tabWidth, 20).build());
+                .bounds(startX + 3 * (tabWidth + 4), y, tabWidth, 20).build());*/
+        //?}
     }
 
     private Component friendsTabLabel() {
@@ -376,7 +412,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** Y of the Friends "Add by code" row: just below a full friend list, pulled up on a short window. */
     private int friendsInputTop() {
-        return Math.min(CONTENT_TOP + 4 + MAX_ROWS_SHOWN * ROW_HEIGHT, this.height - 124);
+        return CONTENT_TOP - 4;
     }
 
     /** ROW_HEIGHT rows that fit in [rowsTop, rowsBottom], capped at MAX_ROWS_SHOWN. */
@@ -398,7 +434,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** How many result rows are on screen at once — same adaptive cap the Friends/Games lists use. */
     private int discoverVisibleRows() {
-        return rowsFitting(discoverResultsTop(), statusLineY() - 4);
+        return Math.max(0, (statusLineY() - 4 - discoverResultsTop()) / ROW_HEIGHT);
     }
 
     /** Largest valid {@link #discoverScroll}: 0 when every result already fits. */
@@ -557,17 +593,18 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int rowsBottom = friendsInputTop();
 
-        this.addByCodeBox = new EditBox(this.font, centerX - 200, rowsBottom + 8, 120, 20, Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
+        this.addByCodeBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, rowsBottom + 8, 190, 20, Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
         this.addByCodeBox.setMaxLength(6);
         this.addByCodeBox.setHint(Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
         this.friendsStaticWidgets.add(this.addRenderableWidget(this.addByCodeBox));
 
-        this.addByCodeButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.add_by_code_button"), b -> onAddByCode())
-                .bounds(centerX - 70, rowsBottom + 8, 150, 20).build());
+        this.addByCodeButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX, rowsBottom + 8, 200, 20,
+                Component.translatable("peercraft.gui.multiplayer.add_by_code_button"), b -> onAddByCode(), true));
         this.friendsStaticWidgets.add(this.addByCodeButton);
 
-        this.friendsStaticWidgets.add(this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.friend_requests_button"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftFriendRequestsScreen(this)))
-                .bounds(centerX - 100, rowsBottom + 34, 200, 20).build()));
+        this.friendsStaticWidgets.add(this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 200, rowsBottom + 34, 400, 20,
+                Component.translatable("peercraft.gui.multiplayer.friend_requests_button"),
+                b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftFriendRequestsScreen(this)), false)));
 
         rebuildFriendRows();
         if (this.friends == null) {
@@ -615,27 +652,26 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         }
 
         int centerX = this.width / 2;
-        int top = CONTENT_TOP + 4;
-        int shown = Math.min(this.friends.size(), rowsFitting(top, friendsInputTop() + 4));
+        int top = CONTENT_TOP + 64;
+        int shown = Math.min(this.friends.size(), Math.max(0, (statusLineY() - 4 - top) / ROW_HEIGHT));
         boolean fr = this.currentTab == Tab.FRIENDS;
         for (int i = 0; i < shown; i++) {
             AccountClient.FriendInfo friend = this.friends.get(i);
             int rowY = top + i * ROW_HEIGHT;
 
             boolean canConnect = friend.status() == AccountProtocol.STATUS_HOSTING;
-            Button.Builder connectBuilder = Button.builder(Component.translatable("peercraft.gui.multiplayer.connect"), b -> onConnectToFriend(friend))
-                    .bounds(centerX + 20, rowY, 110, 18);
+            Button connectButton = SteampunkSettingsTheme.action(centerX + 20, rowY, 110, 18,
+                    Component.translatable("peercraft.gui.multiplayer.connect"), b -> onConnectToFriend(friend), true);
             if (!canConnect) {
-                connectBuilder.tooltip(Tooltip.create(Component.translatable("peercraft.gui.multiplayer.not_hosting_tooltip")));
+                connectButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.multiplayer.not_hosting_tooltip")));
             }
-            Button connectButton = connectBuilder.build();
             connectButton.active = canConnect;
             connectButton.visible = fr;
             this.addRenderableWidget(connectButton);
             this.friendRowWidgets.add(connectButton);
 
-            Button removeButton = Button.builder(Component.translatable("peercraft.gui.multiplayer.remove"), b -> confirmRemoveFriend(friend))
-                    .bounds(centerX + 135, rowY, 60, 18).build();
+            Button removeButton = SteampunkSettingsTheme.action(centerX + 135, rowY, 60, 18,
+                    Component.translatable("peercraft.gui.multiplayer.remove"), b -> confirmRemoveFriend(friend), false);
             removeButton.visible = fr;
             this.addRenderableWidget(removeButton);
             this.friendRowWidgets.add(removeButton);
@@ -784,13 +820,13 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 4;
 
-        this.searchQueryBox = new EditBox(this.font, centerX - 100, top, 200, 20, Component.translatable("peercraft.gui.multiplayer.search_query_field"));
+        this.searchQueryBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, top, 300, 20, Component.translatable("peercraft.gui.multiplayer.search_query_field"));
         this.searchQueryBox.setMaxLength(16);
         this.searchQueryBox.setHint(Component.translatable("peercraft.gui.multiplayer.search_query_hint"));
         this.discoverStaticWidgets.add(this.addRenderableWidget(this.searchQueryBox));
 
-        this.searchButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.multiplayer.search_button"), b -> onSearch())
-                .bounds(centerX + 105, top, 90, 20).build());
+        this.searchButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX + 105, top, 90, 20,
+                Component.translatable("peercraft.gui.multiplayer.search_button"), b -> onSearch(), true));
         this.discoverStaticWidgets.add(this.searchButton);
 
         rebuildSearchResults();
@@ -852,8 +888,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
         for (int i = 0; i < shown; i++) {
             AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
-            Button addButton = Button.builder(Component.translatable("peercraft.gui.multiplayer.add_friend"), b -> onAddFriend(result))
-                    .bounds(centerX + 30, top + i * ROW_HEIGHT, 170, 18).build();
+            Button addButton = SteampunkSettingsTheme.action(centerX + 30, top + i * ROW_HEIGHT, 170, 18,
+                    Component.translatable("peercraft.gui.multiplayer.add_friend"), b -> onAddFriend(result), true);
             addButton.visible = disc;
             this.addRenderableWidget(addButton);
             this.discoverResultWidgets.add(addButton);
@@ -907,7 +943,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 4;
 
-        this.gameSearchBox = new EditBox(this.font, centerX - 200, top, 190, 20, Component.translatable("peercraft.gui.multiplayer.game_search_field"));
+        this.gameSearchBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, top, 270, 20, Component.translatable("peercraft.gui.multiplayer.game_search_field"));
         this.gameSearchBox.setMaxLength(32);
         this.gameSearchBox.setHint(Component.translatable("peercraft.gui.multiplayer.game_search_hint"));
         this.gameSearchBox.setResponder(value -> rebuildGameRows());
@@ -946,22 +982,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int top = CONTENT_TOP + 4;
         java.util.function.Function<String, Component> valueName = v ->
                 v.isEmpty() ? Component.translatable("peercraft.gui.multiplayer.game_version_filter_all") : Component.literal(v);
-        // CycleButton.builder(Function) lost its no-initial-value overload in 1.21.11 —
-        // withInitialValue() is gone, the initial value is now a required constructor arg (same
-        // quirk as ShareToLanScreenMixin's maxPlayersButton).
-        //? if <1.21.11 {
-        CycleButton.Builder<String> versionBuilder = CycleButton.<String>builder(valueName)
-                .withInitialValue(this.selectedVersionFilter);
-        //?} else {
-        /*CycleButton.Builder<String> versionBuilder = CycleButton.<String>builder(valueName, this.selectedVersionFilter);*/
-        //?}
-        this.gameVersionFilterButton = versionBuilder
-                .withValues(versions)
-                .create(centerX + 10, top, 110, 20, Component.translatable("peercraft.gui.multiplayer.game_version_filter_field"),
-                        (button, value) -> {
-                            this.selectedVersionFilter = value;
-                            rebuildGameRows();
-                        });
+        this.gameVersionFilterButton = new SteampunkSettingsTheme.Choice(centerX + 80, top, 120, 20,
+                versions, this.selectedVersionFilter, valueName, value -> {
+                    this.selectedVersionFilter = value;
+                    rebuildGameRows();
+                });
+        this.gameVersionFilterButton.setNarrationLabel(Component.translatable("peercraft.gui.multiplayer.game_version_filter_field"));
         // A freshly created widget defaults to visible=true regardless of the tab that's
         // actually showing — this rebuild can be triggered by loadGames()'s async callback
         // landing after the player has already switched away from the Games tab, so unlike the
@@ -1038,8 +1064,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             AccountClient.PublicGameInfo game = this.filteredGames.get(i);
             int rowY = top + i * ROW_HEIGHT;
 
-            Button joinButton = Button.builder(Component.translatable("peercraft.gui.multiplayer.connect"), b -> onJoinGame(game))
-                    .bounds(centerX + 20, rowY, 110, 18).build();
+            Button joinButton = SteampunkSettingsTheme.action(centerX + 20, rowY, 110, 18,
+                    Component.translatable("peercraft.gui.multiplayer.connect"), b -> onJoinGame(game), true);
             joinButton.visible = gamesTab;
             this.addRenderableWidget(joinButton);
             this.gameRowWidgets.add(joinButton);
@@ -1207,14 +1233,24 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
     // #extractRenderState; drawString/drawCenteredString became text/centeredText.
     //? if <26.1 {
+    //? if =1.21.1 {
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        int panelWidth = Math.min(460, this.width - 16);
+        int panelHeight = Math.max(1, this.height - 16);
+        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
+                (this.width - panelWidth) / 2, 8, panelWidth, panelHeight,
+                (System.nanoTime() - this.steampunkAnimationStart) / 1_000_000L);
+    }
+    //?}
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
 
         if (this.currentTab == Tab.FRIENDS) {
-            int top = CONTENT_TOP + 4;
-            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), rowsFitting(top, friendsInputTop() + 4));
+            int top = CONTENT_TOP + 64;
+            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), Math.max(0, (statusLineY() - 4 - top) / ROW_HEIGHT));
             for (int i = 0; i < shown; i++) {
                 AccountClient.FriendInfo friend = this.friends.get(i);
                 int rowY = top + i * ROW_HEIGHT + 5;

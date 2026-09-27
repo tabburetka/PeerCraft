@@ -40,9 +40,20 @@ public class HostMigrationScreen extends Screen {
 
     private volatile String statusKey = "peercraft.handoff.migrating.body";
     private volatile boolean failed;
+    private volatile boolean exited;
+    private net.peercraft.client.handoff.SuccessorLauncher.Launch successorLaunch;
     private LookupHostClient lookup;
     private volatile boolean started;
 
+    private String safeRoom;
+    private java.util.concurrent.CompletableFuture<Void> safeJoin;
+    public HostMigrationScreen(String room, java.util.concurrent.CompletableFuture<Void> join) {
+        this(new UUID(0, 0), false); safeRoom = room; safeJoin = join;
+    }
+    public void cancelSafeReconnect() {
+        exited = true; failed = true; if (lookup != null) lookup.stop();
+        if (safeJoin != null) safeJoin.cancel(false);
+    }
     public HostMigrationScreen(UUID successorAccountId, boolean amSuccessor) {
         super(new TranslatableComponent("peercraft.handoff.migrating.title"));
         this.successorAccountId = successorAccountId;
@@ -76,8 +87,9 @@ public class HostMigrationScreen extends Screen {
         }
         net.peercraft.network.handoff.HandoffClientAgent agent = P2PBridge.INSTANCE.handoffClientAgent();
         this.statusKey = "peercraft.handoff.migrating.body";
-        net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
+        successorLaunch = net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
                 new net.peercraft.client.handoff.SuccessorLauncher.Done() {
+                    public boolean active() { return !failed && !exited; }
                     @Override
                     public void serverPublished() {
                         if (agent != null) {
@@ -89,6 +101,7 @@ public class HostMigrationScreen extends Screen {
                     @Override
                     public void failed(String reasonKey) {
                         Minecraft.getInstance().execute(() -> {
+                            if (failed || exited) return;
                             fail(reasonKey);
                             PeerCraftUi.setScreen(Minecraft.getInstance(), HostMigrationScreen.this);
                         });
@@ -97,6 +110,7 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void startReconnect() {
+        if (safeRoom != null) { connectTo(safeRoom); return; }
         this.statusKey = "peercraft.handoff.migrating.waiting_for_host";
         this.lookup = new LookupHostClient();
         lookup.start(successorAccountId, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
@@ -114,6 +128,7 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void connectTo(String roomCode) {
+        if (failed || exited) return;
         this.statusKey = "peercraft.handoff.migrating.body";
         leaveCurrentWorld();
         P2PBridge.INSTANCE.prepareForHandoffReconnect();
@@ -149,19 +164,33 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void enterWorld() {
+        if (failed || exited) return;
         int port = P2PBridge.INSTANCE.getProxyPort();
         ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, false);
         this.minecraft.setScreen(new ConnectScreen(new TitleScreen(), this.minecraft, serverData));
     }
 
+    private void leaveAttemptWorld() {
+        net.minecraft.server.MinecraftServer server = this.minecraft.getSingleplayerServer();
+        if (server != null && successorLaunch != null && successorLaunch.ownsServer(server,
+                net.peercraft.client.handoff.WorldArchiver.worldDir(server))) leaveCurrentWorld();
+    }
+
     private void fail(String key) {
-        if (amSuccessor) leaveCurrentWorld();
-        this.statusKey = key;
+        if (failed || exited) return;
         this.failed = true;
+        if (safeJoin != null) safeJoin.completeExceptionally(new java.io.IOException(key));
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
+        if (amSuccessor) leaveAttemptWorld();
+        this.statusKey = key;
         this.init();
     }
 
     private void toTitle() {
+        exited = true;
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
         leaveCurrentWorld();
         this.minecraft.setScreen(new TitleScreen());
     }

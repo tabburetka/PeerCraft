@@ -43,6 +43,9 @@ public final class ForgePlatform implements PeercraftPlatform {
         } catch (RuntimeException ignored) {
             // Called too early / loader not ready — an empty list is fine (selfVersion() falls back).
         }
-        return out;
+        boolean minecraft = false;
+        for (PlatformMod mod : out) if ("minecraft".equalsIgnoreCase(mod.id())) minecraft = true;
+        if (!minecraft) out.add(new PlatformMod("minecraft", "1.12.2", null, "both", "", "", false));
+        return net.peercraft.network.handoff.NestedModParents.containedDependencies(out);
     }
 }

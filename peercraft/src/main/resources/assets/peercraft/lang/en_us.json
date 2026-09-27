@@ -5,6 +5,9 @@
   "peercraft.gui.common.unlicensed_badge": "(offline)",
 
   "peercraft.gui.account.title": "PeerCraft — Account",
+  "peercraft.gui.account.subtitle": "Account",
+  "peercraft.gui.account.licensed_status": "Licensed account",
+  "peercraft.gui.account.unlicensed_status": "Unlicensed account",
   "peercraft.gui.account.login_licensed": "Log in with Mojang (licensed)",
   "peercraft.gui.account.register": "Register",
   "peercraft.gui.account.login_by_code": "Log in with friend code",
@@ -55,6 +58,8 @@
   "peercraft.gui.friend_requests.empty": "No incoming requests",
 
   "peercraft.gui.join.title": "PeerCraft — Join by Code",
+  "peercraft.gui.join.subtitle": "Join by code",
+  "peercraft.gui.join.code_help": "Ask the host for their room code.",
   "peercraft.gui.join.room_code_field": "Room code",
   "peercraft.gui.join.room_code_hint": "Room code",
   "peercraft.gui.join.connect": "Connect",
@@ -228,6 +233,9 @@
   "peercraft.gui.settings.handoff_chat_notify_desc": "Post a chat line when an offer arrives, and when it's accepted/declined/finished.",
   "peercraft.gui.settings.max_players": "Default players",
   "peercraft.gui.settings.max_players_desc": "Default player count for a room opened over the internet (1-8). Sets the starting value of the toggle on the Open to LAN screen.",
+  "peercraft.gui.settings.max_players_desc_range": "Default player count for a room opened over the internet (%s–%s). Sets the starting value of the toggle on the Open to LAN screen.",
+  "peercraft.gui.settings.increase": "Increase: %s",
+  "peercraft.gui.settings.decrease": "Decrease: %s",
   "peercraft.gui.settings.rendezvous_host": "Rendezvous server",
   "peercraft.gui.settings.rendezvous_host_desc": "Address of the matchmaking / account server.",
   "peercraft.gui.settings.rendezvous_port": "Rendezvous port",
@@ -299,5 +307,11 @@
   "peercraft.handoff.chat.accepted": "%s accepted — sending them the world…",
   "peercraft.handoff.chat.declined": "%s declined to take over.",
   "peercraft.handoff.chat.done": "Handoff to %s complete — you can leave now.",
-  "peercraft.handoff.chat.aborted": "Handoff to %s was cancelled."
+  "peercraft.handoff.chat.aborted": "Handoff to %s was cancelled.",
+  "peercraft.gui.progress_notice.open": "About your progress",
+  "peercraft.handoff.target.title": "Choose a world copy",
+  "peercraft.handoff.target.body": "Several copies exist. Use “%s”?",
+  "peercraft.handoff.target.use": "Use this copy",
+  "peercraft.handoff.target.next": "Next copy",
+  "peercraft.handoff.abort.recovery_failed": "Could not recover a previous world replacement. Your world copies and recovery journal have been kept; see the log for details."
 }

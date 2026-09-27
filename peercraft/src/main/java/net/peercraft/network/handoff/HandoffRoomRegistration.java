@@ -6,9 +6,15 @@ import java.util.concurrent.*;
 /** One launch attempt: LAN and rendezvous registration share a single finite deadline. */
 public final class HandoffRoomRegistration {
     public final long offerId;
+    public final java.util.UUID sessionId;
     private final long deadlineNanos;
     private final CompletableFuture<String> room = new CompletableFuture<>();
     public HandoffRoomRegistration(long offerId, long timeoutMillis) {
+        this(new java.util.UUID(0, 0), offerId, timeoutMillis);
+    }
+    public HandoffRoomRegistration(java.util.UUID sessionId, long offerId, long timeoutMillis) {
+        if (sessionId == null || timeoutMillis <= 0) throw new IllegalArgumentException("Invalid registration attempt");
+        this.sessionId = sessionId;
         this.offerId = offerId; this.deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
     }
     public void registered(String code) {

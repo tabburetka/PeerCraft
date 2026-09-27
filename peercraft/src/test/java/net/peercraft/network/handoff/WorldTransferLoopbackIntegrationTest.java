@@ -113,17 +113,19 @@ class WorldTransferLoopbackIntegrationTest {
     @Test void retainedDoneIsBoundToTheVerifiedSnapshot(@TempDir Path dir) throws Exception {
         byte[] data = new byte[]{4}, hash = sha512(data); InetAddress lo = InetAddress.getLoopbackAddress();
         java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
+        CompletableFuture<Thread> verified = new CompletableFuture<>();
         WorldTransfer receiver = WorldTransfer.receiver(1, dir.resolve("in.part"), 1024,
                 (ip, port, packet) -> { if (WorldTransferProtocol.messageType(packet, packet.length) == WorldTransferProtocol.T_DONE) done.incrementAndGet(); },
                 lo, 1000, new WorldTransfer.ReceiverCallbacks() {
                     public void onProgress(long a, long b) { }
-                    public void onComplete(Path p) { }
+                    public void onComplete(Path p) { verified.complete(Thread.currentThread()); }
                     public void onFailed(String reason) { fail(reason); }
                 });
         byte[] begin = WorldTransferProtocol.encodeBegin(1, 1, 1, hash, WorldTransferProtocol.CHUNK_PAYLOAD);
         receiver.onPacket(begin, begin.length, lo, 1000);
         byte[] chunk = WorldTransferProtocol.encodeChunk(1, 0, data, 0, 1);
         receiver.onPacket(chunk, chunk.length, lo, 1000);
+        assertNotSame(Thread.currentThread(), verified.get(2, TimeUnit.SECONDS));
         assertEquals(5, done.get());
         byte[] wrongHash = hash.clone(); wrongHash[0] ^= 1;
         byte[] wrong = WorldTransferProtocol.encodeBegin(1, 1, 1, wrongHash, WorldTransferProtocol.CHUNK_PAYLOAD);

@@ -67,7 +67,8 @@ public final class FileReassembler implements AutoCloseable {
         if (end > declaredSize || end > maxBytes) {
             throw new IOException("chunk " + index + " would overrun declared size " + declaredSize);
         }
-        channel.write(ByteBuffer.wrap(data), offset);
+        ByteBuffer bytes = ByteBuffer.wrap(data);
+        while (bytes.hasRemaining()) offset += channel.write(bytes, offset);
         received.set(index);
         bytesWritten += data.length;
     }

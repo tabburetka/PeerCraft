@@ -38,7 +38,8 @@ public final class FabricPlatform implements PeercraftPlatform {
                     envString(md.getEnvironment()),
                     contact(md, "homepage"),
                     contact(md, "sources"),
-                    nested || jar == null));
+                    nested || jar == null,
+                    mc.getContainingMod().map(parent -> parent.getMetadata().getId()).orElse("")));
         }
         return out;
     }

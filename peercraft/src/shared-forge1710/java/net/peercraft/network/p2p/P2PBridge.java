@@ -140,7 +140,64 @@ public class P2PBridge {
     // HOST: the in-progress graceful-handoff attempt (offer a chosen joiner the world and
     // leave). null when no handoff is running. One at a time — the host picks one successor.
     // Cleared in cancelRendezvous() and when the attempt reaches a terminal state.
+    private final net.peercraft.network.handoff.HandoffCapabilities handoffCapabilities =
+            new net.peercraft.network.handoff.HandoffCapabilities(
+                    (peer, packet) -> sendRawDatagram(peer.getAddress(), peer.getPort(), packet), 0L);
+
+    private volatile boolean handoffAdmissionClosed;
+    public void setHandoffAdmissionClosed(boolean closed) { handoffAdmissionClosed = closed; }
+    public boolean handoffAdmissionClosed() { return handoffAdmissionClosed; }
+    public void enableSafeHandoff() { handoffCapabilities.enable(net.peercraft.network.handoff.HandoffCapabilities.SAFE_HANDOFF); }
+    public String handoffAuthorityHost() throws IOException { return resolveRendezvousAddress().getHostAddress(); }
+
+    public void requireHandoffCapabilities(java.util.Set<java.net.InetSocketAddress> participants) throws IOException {
+        handoffCapabilities.require(participants, net.peercraft.network.handoff.HandoffCapabilities.SAFE_HANDOFF, 5_000);
+    }
+
+    public interface HandoffControlReceiver {
+        void onPacket(byte[] bytes, int length, java.net.InetSocketAddress sender);
+        default boolean onWorldPacket(byte[] bytes, int length, java.net.InetSocketAddress sender) { return false; }
+    }
+    private volatile HandoffControlReceiver independentHandoffReceiver;
+    public void setHandoffControlReceiver(HandoffControlReceiver receiver) { independentHandoffReceiver = receiver; }
+
     private volatile HandoffCoordinator handoffHostSession;
+    private volatile net.peercraft.network.handoff.HandoffTransport independentHandoff;
+
+    /** V2 operation ownership must be established before the game connection is closed. */
+    public synchronized void retainHandoffTransport(long offerId, java.util.Set<java.net.InetSocketAddress> participants) {
+        if (independentHandoff != null && !independentHandoff.isClosed())
+            throw new IllegalStateException("Another handoff transport is active");
+        retainHandoffTransport(offerId, participants, peer -> HandoffProtocol.encodePing());
+    }
+    public synchronized void retainHandoffTransport(long offerId, java.util.Set<java.net.InetSocketAddress> participants,
+            java.util.function.Function<java.net.InetSocketAddress, byte[]> heartbeat) {
+        if (independentHandoff != null && !independentHandoff.isClosed())
+            throw new IllegalStateException("Another handoff transport is active");
+        independentHandoff = new net.peercraft.network.handoff.HandoffTransport(offerId, participants,
+                (peer, bytes) -> sendRawDatagram(peer.getAddress(), peer.getPort(), bytes), heartbeat);
+    }
+
+    public synchronized void prepareSourceStop(long offerId) {
+        net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+        if (transport == null || transport.offerId != offerId)
+            throw new IllegalStateException("No matching handoff transport");
+        transport.sourceStopping();
+    }
+
+    public synchronized void releaseHandoffTransport(long offerId) {
+        net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+        if (transport != null && transport.offerId == offerId) {
+            independentHandoff = null;
+            transport.close();
+        }
+    }
+
+    private boolean retainingHandoffTransport() {
+        net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+        return transport != null && !transport.isClosed();
+    }
+
     private volatile net.peercraft.network.handoff.HandoffAuthorityClient handoffAuthority;
     private volatile net.peercraft.network.handoff.HandoffRoomRegistration handoffRoom;
     private volatile String registeredRoomCode;
@@ -156,11 +213,17 @@ public class P2PBridge {
     }
     public String registeredRoomCode() { return registeredRoomCode; }
     public void prepareHandoffRoom(long offerId) {
-        handoffRoom = new net.peercraft.network.handoff.HandoffRoomRegistration(offerId, 180_000);
+        prepareHandoffRoom(new java.util.UUID(0, 0), offerId);
+    }
+    public void prepareHandoffRoom(java.util.UUID sessionId, long offerId) {
+        handoffRoom = new net.peercraft.network.handoff.HandoffRoomRegistration(sessionId, offerId, 180_000);
     }
     public void awaitHandoffRoom(long offerId, Runnable onReady, java.util.function.Consumer<String> onFailed) {
+        awaitHandoffRoom(new java.util.UUID(0, 0), offerId, onReady, onFailed);
+    }
+    public void awaitHandoffRoom(java.util.UUID sessionId, long offerId, Runnable onReady, java.util.function.Consumer<String> onFailed) {
         net.peercraft.network.handoff.HandoffRoomRegistration ticket = handoffRoom;
-        if (ticket == null || ticket.offerId != offerId) { onFailed.accept("peercraft.handoff.abort.transfer_failed"); return; }
+        if (ticket == null || ticket.offerId != offerId || !ticket.sessionId.equals(sessionId)) { onFailed.accept("peercraft.handoff.abort.transfer_failed"); return; }
         Thread wait = new Thread(() -> {
             try { ticket.await(); onReady.run(); }
             catch (IOException e) { onFailed.accept("peercraft.handoff.abort.no_response"); }
@@ -550,6 +613,10 @@ public class P2PBridge {
         // The handoff GUI (HostMigrationScreen / the successor launcher) captures everything
         // it needs from the onMigrate/onOffer callback synchronously, so the agent can go
         // when the session ends — a fresh one is installed on the next join.
+        if (retainingHandoffTransport()) {
+            rendezvousClientBusy.set(false);
+            return;
+        }
         this.handoffClientAgent = null;
         WorldTransfer wt = this.successorWorldTransfer;
         if (wt != null) {
@@ -794,6 +861,12 @@ public class P2PBridge {
     // so the room doesn't keep living (and stay reusable) after hosting has actually
     // stopped.
     public void cancelRendezvous() {
+        net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+        if (transport != null && transport.preservesSourceStop()) return;
+        cancelRendezvousUnconditionally();
+    }
+
+    private void cancelRendezvousUnconditionally() {
         setHostRendezvousClient(null);
         clearRendezvousListener();
         for (PeerAddress addr : activePunches.keySet()) {
@@ -1159,6 +1232,19 @@ public class P2PBridge {
         // first) and re-bound a fresh socket to go host itself, so it calls from a new local
         // port that was never punched against this host. Accept that one case by IP alone,
         // matched against the specific successor this handoff already vetted via ACCEPT.
+        if (length >= 1 && data[0] == net.peercraft.network.handoff.HandoffControlProtocol.MAGIC) {
+            HandoffControlReceiver handler = independentHandoffReceiver;
+            if (handler != null) handler.onPacket(data, length, new java.net.InetSocketAddress(senderAddress, senderPort));
+            return;
+        }
+        if (length >= 1 && data[0] == net.peercraft.network.handoff.HandoffCapabilities.MAGIC) {
+            PeerAddress from = new PeerAddress(senderAddress, senderPort);
+            net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+            if (authorizedPeers.contains(from) || from.equals(clientTargetPeer)
+                    || (transport != null && transport.contains(new java.net.InetSocketAddress(senderAddress, senderPort))))
+                handoffCapabilities.onPacket(data, length, new java.net.InetSocketAddress(senderAddress, senderPort));
+            return;
+        }
         if (length >= 1 && data[0] == net.peercraft.network.handoff.HandoffAuthorityProtocol.MAGIC) {
             net.peercraft.network.handoff.HandoffAuthorityClient authority = handoffAuthority;
             if (authority != null) authority.onPacket(data, length, senderAddress, senderPort);
@@ -1193,6 +1279,8 @@ public class P2PBridge {
         // World-save archive transfer (0xE4) — host serves, successor receives. Same
         // authorized-peer gate on the host side.
         if (length >= 2 && data[0] == WorldTransferProtocol.MAGIC) {
+            HandoffControlReceiver independent = independentHandoffReceiver;
+            if (independent != null && independent.onWorldPacket(data, length, new java.net.InetSocketAddress(senderAddress, senderPort))) return;
             if (this.isHost) {
                 WorldTransfer wt = this.hostWorldTransfer;
                 if (wt != null && authorizedPeers.contains(new PeerAddress(senderAddress, senderPort))) {
@@ -1308,6 +1396,7 @@ public class P2PBridge {
     }
 
     private HostConnection startNewHostConnection(long sessionId, PeerAddress peerAddress) {
+        if (handoffAdmissionClosed) return null;
         try {
             LOGGER.info("[P2PBridge] Подключаемся к локальному MC серверу 127.0.0.1:{} (сессия {}, пир {}:{})...", localMinecraftPort, sessionId, peerAddress.ip(), peerAddress.port());
             Socket mcSocket = new Socket("127.0.0.1", localMinecraftPort);
@@ -1434,7 +1523,7 @@ public class P2PBridge {
         // gone out, this same disconnect is expected (the successor leaves to load its own
         // world) and must not be treated as a cancel — see HandoffCoordinator.migrationStarted().
         PeerAddress successor = this.handoffSuccessorPeer;
-        if (successor != null && successor.equals(conn.peerAddress)) {
+        if (!retainingHandoffTransport() && successor != null && successor.equals(conn.peerAddress)) {
             HandoffCoordinator session = this.handoffHostSession;
             WorldTransfer wt = this.hostWorldTransfer;
             if (wt != null) {
@@ -1463,6 +1552,18 @@ public class P2PBridge {
     }
 
     public void stop() {
+        net.peercraft.network.handoff.HandoffAuthorityClient authority = handoffAuthority;
+        handoffAuthority = null;
+        if (authority != null) authority.close();
+        net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
+        independentHandoff = null;
+        if (transport != null) transport.close();
+        cancelRendezvousUnconditionally();
+        WorldTransfer incoming = successorWorldTransfer;
+        successorWorldTransfer = null;
+        if (incoming != null) incoming.stop();
+        handoffClientAgent = null;
+        independentHandoffReceiver = null;
         for (HostConnection conn : hostConnectionsByAddress.values()) {
             closeHostConnection(conn);
         }

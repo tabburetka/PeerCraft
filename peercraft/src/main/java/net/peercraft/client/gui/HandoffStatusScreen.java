@@ -103,6 +103,8 @@ public class HandoffStatusScreen extends Screen {
     // title screen — ClientLevel.disconnect() gained a reason-Component param and
     // Minecraft.disconnect(Screen) was replaced by disconnectWithSavingScreen() at 1.21.6.
     private void toTitle() {
+        net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.cancel();
+        if (this.minecraft.level == null) { PeerCraftUi.setScreen(this.minecraft, new TitleScreen()); return; }
         //? if <1.21.6 {
         this.minecraft.level.disconnect();
         this.minecraft.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")));

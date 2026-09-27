@@ -50,41 +50,13 @@ public final class HandoffClientController {
     }
 
     public void register() {
+        net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.register();
         P2PBridge.INSTANCE.setOnClientConnected(this::installForSession);
     }
 
     private void installForSession() {
-        AccountClient.AccountSession session = AccountClient.INSTANCE.getCurrentSession();
-        final UUID localAccountId = session != null ? session.accountId() : null;
-
-        HandoffClientAgent agent = new HandoffClientAgent(
-                localAccountId,
-                P2PBridge.INSTANCE::sendRawDatagram,
-                new HandoffClientAgent.Callbacks() {
-                    @Override
-                    public void onOffer(HandoffProtocol.Offer offer) {
-                        handleOffer(offer, localAccountId);
-                    }
-
-                    @Override
-                    public void onMigrate(UUID successorAccountId, boolean amSuccessor) {
-                        Minecraft mc = Minecraft.getMinecraft();
-                        mc.addScheduledTask(() -> PeerCraftUi.setScreen(mc,
-                                new HostMigrationScreen(successorAccountId, amSuccessor)));
-                    }
-
-                    @Override
-                    public void onAborted(String reasonKey) {
-                        LOGGER.info("[Handoff] Передача отменена хостом: {}", reasonKey);
-                        HandoffOfferScreen screen = currentOfferScreen;
-                        if (screen != null) {
-                            Minecraft.getMinecraft().addScheduledTask(() -> screen.onAbortedExternally(reasonKey));
-                        }
-                    }
-                });
-
-        P2PBridge.INSTANCE.installHandoffClientAgent(agent);
-        LOGGER.debug("[Handoff] Клиентский агент установлен на сессию (аккаунт: {})", localAccountId);
+        P2PBridge.INSTANCE.setHandoffControlReceiver(net.peercraft.client.handoff.SafeHandoffSession.INSTANCE);
+        P2PBridge.INSTANCE.installHandoffClientAgent(null);
         sendPreference();
     }
 

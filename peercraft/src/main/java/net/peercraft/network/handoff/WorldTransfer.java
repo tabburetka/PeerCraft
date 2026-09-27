@@ -74,7 +74,8 @@ public final class WorldTransfer {
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     /** Host: the send loop is finished, but the coordinator keeps processing packets to catch the authoritative DONE. */
     private final AtomicBoolean sendLoopDone = new AtomicBoolean(false);
-    private volatile Thread worker;
+    private volatile Thread worker, finalizer;
+    private final AtomicBoolean finalizing = new AtomicBoolean();
 
     // host state
     private Path servingFile;
@@ -248,11 +249,11 @@ public final class WorldTransfer {
             if (r == null) {
                 continue;
             }
-            int next = r.nextContiguous();
-            int[] gaps = r.missingIndices(MAX_GAPS_PER_ACK);
+            int next; int[] gaps; long received;
+            synchronized (r) { next = r.nextContiguous(); gaps = r.missingIndices(MAX_GAPS_PER_ACK); received = r.bytesWritten(); }
             send(WorldTransferProtocol.encodeAck(transferId, next, gaps));
             if (recvCb != null) {
-                recvCb.onProgress(r.bytesWritten(), sizeOrZero(r));
+                recvCb.onProgress(received, sizeOrZero(r));
             }
         }
         if (!finished && !stopped.get() && recvCb != null) {
@@ -273,7 +274,7 @@ public final class WorldTransfer {
                 try {
                     WorldTransferProtocol.Begin begin = WorldTransferProtocol.decodeBegin(data, length);
                     if (begin.transferId() == transferId && begin.size() == size && begin.chunkCount() == chunkCount
-                            && expectedSha != null && MessageDigest.isEqual(begin.sha512(), expectedSha)) send(verifiedResult);
+                            && begin.chunkSize() == WorldTransferProtocol.CHUNK_PAYLOAD && expectedSha != null && MessageDigest.isEqual(begin.sha512(), expectedSha)) send(verifiedResult);
                 } catch (RuntimeException ignored) { }
             }
             return;
@@ -342,9 +343,14 @@ public final class WorldTransfer {
                     if (c.transferId() != transferId) {
                         return;
                     }
-                    reassembler.accept(c.index(), c.data());
-                    if (reassembler.isComplete()) {
-                        finishReceive();
+                    if (finalizing.get()) return;
+                    FileReassembler assembly = reassembler;
+                    synchronized (assembly) {
+                        assembly.accept(c.index(), c.data());
+                        if (assembly.isComplete() && finalizing.compareAndSet(false, true)) {
+                            Thread hash = new Thread(this::finishReceive, "PeerCraft-WorldTransfer-Verify");
+                            hash.setDaemon(true); finalizer = hash; hash.start();
+                        }
                     }
                     break;
                 }
@@ -381,7 +387,8 @@ public final class WorldTransfer {
         if (begin.transferId() != transferId || reassembler != null) {
             return;
         }
-        if (begin.size() > maxBytes) {
+        if (begin.size() <= 0 || begin.size() > maxBytes || begin.chunkSize() != WorldTransferProtocol.CHUNK_PAYLOAD
+                || begin.chunkCount() != (begin.size() + WorldTransferProtocol.CHUNK_PAYLOAD - 1) / WorldTransferProtocol.CHUNK_PAYLOAD) {
             send(WorldTransferProtocol.encodeAbort(transferId, "peercraft.handoff.abort.transfer_failed"));
             if (recvCb != null) {
                 recvCb.onFailed("peercraft.handoff.abort.transfer_failed");
@@ -405,10 +412,10 @@ public final class WorldTransfer {
         }
         try {
             byte[] actual = r.finishAndHash();
+            if (stopped.get()) return;
             boolean ok = expectedSha != null && Arrays.equals(actual, expectedSha);
             finished = true;
-            // Repeat DONE a few times — a single lost DONE would otherwise leave the host in
-            // its 15s grace wait (it still succeeds, but slower).
+            // Repeat the verified result; subsequent BEGIN also re-requests it.
             byte[] done = WorldTransferProtocol.encodeDone(transferId, ok);
             verifiedResult = done;
             for (int i = 0; i < 5; i++) {
@@ -423,6 +430,7 @@ public final class WorldTransfer {
                 }
             }
         } catch (IOException e) {
+            if (stopped.get()) return;
             LOGGER.warn("[WorldTransfer] Ошибка финализации архива: {}", e.toString());
             send(WorldTransferProtocol.encodeDone(transferId, false));
             stop();
@@ -439,11 +447,27 @@ public final class WorldTransfer {
         sendLoopDone.set(true);
         Thread t = worker;
         if (t != null) {
-            t.interrupt();
+            if (t != Thread.currentThread()) t.interrupt();
         }
+        Thread hash = finalizer;
+        if (hash != null && hash != Thread.currentThread()) hash.interrupt();
         FileReassembler r = reassembler;
         if (r != null) {
-            r.close();
+            synchronized (r) { r.close(); }
+        }
+    }
+
+    /** Worker-thread cleanup must await all file readers before deleting attempt files. */
+    public void stopAndAwait(long timeoutMillis) throws IOException {
+        stop();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        for (Thread thread : new Thread[]{worker, finalizer}) {
+            if (thread == null || thread == Thread.currentThread()) continue;
+            long left = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+            if (left <= 0) throw new IOException("Transfer workers did not stop");
+            try { thread.join(left); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
+            if (thread.isAlive()) throw new IOException("Transfer worker still owns snapshot files");
         }
     }
 

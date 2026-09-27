@@ -50,6 +50,13 @@ public final class WorldArchiver {
         }
     }
 
+    private static final java.util.Map<MinecraftServer, Thread> closingThreads =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<MinecraftServer, Thread>());
+    public static void awaitClosed(MinecraftServer server, long timeoutMillis) throws IOException {
+        Thread thread = closingThreads.get(server);
+        if (thread == null) throw new IOException("Source server thread termination is not established");
+        net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(thread, timeoutMillis);
+    }
     private WorldArchiver() {
     }
 
@@ -59,9 +66,19 @@ public final class WorldArchiver {
      * @return the finished archive, its byte length and its SHA-512
      */
     public static Result archive(MinecraftServer server, Path tmpDir) throws IOException {
+        Path path = worldDir(server);
+        net.peercraft.network.p2p.LocalPlayerIdentity.ArchiveIdentity identity =
+                net.peercraft.network.p2p.LocalPlayerIdentity.captureForArchive(path);
+        flush(server);
+        identity.prepare(path);
+        return archiveClosed(path, tmpDir, java.util.UUID.randomUUID().toString());
+    }
+
+    /** Flush running server state; call before requesting its normal shutdown. */
+    public static void flush(MinecraftServer server) throws IOException {
         // Flush on the server thread so the save is consistent on disk before we read it.
         try {
-            server.executeBlocking(() -> {
+            net.peercraft.network.handoff.ServerThreadTasks.executeOn(server::execute, () -> {
                 server.getPlayerList().saveAll();
                 server.saveEverything(true, true, true);
             });
@@ -69,13 +86,22 @@ public final class WorldArchiver {
             throw new IOException("Could not flush world before handoff", e);
         }
 
-        return archiveClosed(worldDir(server), tmpDir, java.util.UUID.randomUUID().toString());
+    }
+
+    /** Worker-thread operation: save, request normal shutdown, and verify its thread has exited. */
+    public static void saveAndStop(MinecraftServer server, long stopTimeoutMillis) throws IOException {
+        flush(server);
+        java.util.concurrent.atomic.AtomicReference<Thread> serverThread = new java.util.concurrent.atomic.AtomicReference<>();
+        net.peercraft.network.handoff.ServerThreadTasks.executeOn(server::execute, () -> {
+            serverThread.set(Thread.currentThread()); closingThreads.put(server, Thread.currentThread());
+            server.halt(false);
+        });
+        net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(serverThread.get(), stopTimeoutMillis);
     }
 
     /** Archive a fully closed save without submitting tasks to a Minecraft server. */
     public static Result archiveClosed(Path worldDir, Path tmpDir, String attemptId) throws IOException {
         if (!attemptId.matches("[a-zA-Z0-9_-]{1,64}")) throw new IOException("Invalid snapshot attempt id");
-        net.peercraft.network.p2p.LocalPlayerIdentity.prepareForArchive(worldDir);
         Files.createDirectories(tmpDir);
         Path zip = tmpDir.resolve("peercraft-handoff-" + attemptId + ".zip");
 

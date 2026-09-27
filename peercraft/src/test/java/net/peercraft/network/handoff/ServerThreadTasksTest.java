@@ -5,6 +5,19 @@ import java.io.IOException;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 class ServerThreadTasksTest {
+    @Test void executorSaveFailureCannotBeMistakenForSuccess() {
+        assertThrows(IOException.class, () -> ServerThreadTasks.executeOn(Runnable::run,
+                () -> { throw new IllegalStateException("disk failure"); }));
+    }
+    @Test @Timeout(5) void stoppedFlagCannotReplaceThreadTermination() throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        Thread thread = new Thread(() -> {
+            try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }); thread.start();
+        try { assertThrows(IOException.class, () -> ServerThreadTasks.awaitTermination(thread, 10)); }
+        finally { release.countDown(); thread.join(1000); }
+        ServerThreadTasks.awaitTermination(thread, 1000);
+    }
     @Test @Timeout(5)
     void executesOnTickThreadAndPropagatesSaveFailure() throws Exception {
         Object server = new Object();

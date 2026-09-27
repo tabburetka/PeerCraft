@@ -55,6 +55,7 @@ val backportReplaced = listOf(
 	// compile as-is — no twin, not excluded.
 	"**/net/peercraft/client/handoff/WorldArchiver.java",
 	"**/net/peercraft/client/handoff/SuccessorLauncher.java",
+    "**/net/peercraft/client/handoff/SafeHandoffPlatform.java",
 	"**/net/peercraft/mixin/**",
 	// Mod sync: the loader-agnostic core is records / switch-expressions (compiled from
 	// src/modsync-java8 instead), and the client layer twins drop the Java-11 HTTP fast-path

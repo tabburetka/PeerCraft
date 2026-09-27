@@ -87,7 +87,7 @@ public final class PeercraftWorldMeta {
         if (m.worldId == null || m.worldId.isEmpty()) {
             m.worldId = UUID.randomUUID().toString();
         }
-        m.lastBecameHostAt = nowSeconds();
+        m.lastBecameHostAt = Math.max(nowSeconds(), m.handedOffAt);
         m.write(worldDir);
         return m;
     }
@@ -101,7 +101,7 @@ public final class PeercraftWorldMeta {
         if (m.worldId == null || m.worldId.isEmpty()) {
             m.worldId = UUID.randomUUID().toString();
         }
-        m.handedOffAt = nowSeconds();
+        m.handedOffAt = Math.max(nowSeconds(), m.lastBecameHostAt + 1);
         m.handedOffTo = toName == null ? "" : toName;
         m.write(worldDir);
     }
@@ -115,7 +115,7 @@ public final class PeercraftWorldMeta {
         if (m.worldId == null || m.worldId.isEmpty()) {
             m.worldId = UUID.randomUUID().toString();
         }
-        m.lastBecameHostAt = nowSeconds();
+        m.lastBecameHostAt = Math.max(nowSeconds(), m.handedOffAt);
         m.write(worldDir);
     }
 

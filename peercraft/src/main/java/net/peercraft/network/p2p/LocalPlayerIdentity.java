@@ -35,16 +35,30 @@ public final class LocalPlayerIdentity {
         playingId = id;
     }
 
-    /** Called after saving, before the identity record is included in a handoff archive. */
-    public static void prepareForArchive(Path world) throws IOException {
-        UUID current = playingId;
-        if (current == null || !allowLateBinding
-                || !world.toAbsolutePath().normalize().equals(preparedWorld)) return;
-        AccountClient.AccountSession session = AccountClient.INSTANCE.getCurrentSession();
-        if (session == null) return;
-        PlayerDataMigration.queueIdentity(preparedWorld, originalId, session.accountId());
-        allowLateBinding = false;
+    /** Captured before stopping the server so account changes cannot alter the closed snapshot. */
+    public static final class ArchiveIdentity {
+        private final Path world;
+        private final UUID source, account;
+        private ArchiveIdentity(Path world, UUID source, UUID account) {
+            this.world = world; this.source = source; this.account = account;
+        }
+        public void prepare(Path closedWorld) throws IOException {
+            if (!closedWorld.toAbsolutePath().normalize().equals(world))
+                throw new IOException("Archive identity belongs to another world");
+            if (source == null || account == null) return;
+            PlayerDataMigration.queueIdentity(world, source, account);
+            if (world.equals(preparedWorld) && source.equals(originalId)) allowLateBinding = false;
+        }
     }
+    public static ArchiveIdentity captureForArchive(Path world) {
+        Path path = world.toAbsolutePath().normalize();
+        UUID current = playingId;
+        AccountClient.AccountSession session = AccountClient.INSTANCE.getCurrentSession();
+        boolean binding = current != null && allowLateBinding && path.equals(preparedWorld) && session != null;
+        return new ArchiveIdentity(path, binding ? originalId : null, binding ? session.accountId() : null);
+    }
+    /** Compatibility entry point for callers that still archive a live server. */
+    public static void prepareForArchive(Path world) throws IOException { captureForArchive(world).prepare(world); }
 
     public static UUID current() { return playingId; }
 }
