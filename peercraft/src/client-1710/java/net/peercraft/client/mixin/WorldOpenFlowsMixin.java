@@ -32,6 +32,11 @@ public abstract class WorldOpenFlowsMixin {
     @Inject(method = "launchIntegratedServer", at = @At("HEAD"), cancellable = true)
     private void peercraft$warnStaleHandoff(String folderName, String worldName, WorldSettings worldSettingsIn, CallbackInfo ci) {
         Minecraft peercraft$client = (Minecraft) (Object) this;
+        if (net.peercraft.client.handoff.HandoffNetworkRecovery.deferOpen(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(folderName), peercraft$client::func_152344_a,
+                () -> peercraft$client.launchIntegratedServer(folderName, worldName, worldSettingsIn), failure -> {
+                    net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.error("peercraft.handoff.abort.recovery_failed");
+                })) { ci.cancel(); return; }
         if (net.peercraft.network.handoff.WorldInstallRecovery.deferOpen(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory(), peercraft$client::func_152344_a,
                 () -> peercraft$client.launchIntegratedServer(folderName, worldName, worldSettingsIn), failure -> {
@@ -64,9 +69,18 @@ public abstract class WorldOpenFlowsMixin {
         ci.cancel();
         PeerCraftUi.setScreen(mc, new HandoffStaleWorldWarningScreen(meta,
                 () -> {
+                    try { net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.forkStaleWorld(
+                            net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(folderName)); }
+                    catch (java.io.IOException failure) { net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.error("peercraft.handoff.abort.recovery_failed"); return; }
                     peercraft$bypass.set(Boolean.TRUE);
                     mc.launchIntegratedServer(folderName, worldName, worldSettingsIn);
                 },
                 () -> PeerCraftUi.setScreen(mc, new GuiSelectWorld(new GuiMainMenu()))));
+    }
+    @Inject(method = "launchIntegratedServer", at = @At("RETURN"))
+    private void peercraft$bindCreatedServer(String folderName, String worldName, WorldSettings worldSettingsIn, CallbackInfo ci) {
+        net.minecraft.server.MinecraftServer server = ((Minecraft) (Object) this).getIntegratedServer();
+        if (server != null && !net.peercraft.network.handoff.HandoffLaunchContext.bind(new Object(), server,
+                net.peercraft.client.handoff.WorldArchiver.worldDir(server))) server.initiateShutdown();
     }
 }

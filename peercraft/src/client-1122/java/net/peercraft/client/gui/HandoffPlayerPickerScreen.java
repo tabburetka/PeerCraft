@@ -142,24 +142,6 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
 
         HandoffStatusScreen status = new HandoffStatusScreen(lastScreen, name);
 
-        HandoffCoordinator.Transfer transfer;
-        if (server == null) {
-            transfer = (onDone, onFail) -> onFail.accept("peercraft.handoff.abort.transfer_failed");
-        } else {
-            transfer = net.peercraft.client.handoff.HostHandoffTransfer.build(server, offer.offerId(), c.peer(),
-                    new net.peercraft.client.handoff.HostHandoffTransfer.Progress() {
-                        @Override
-                        public void archiving() {
-                            status.onStatus("peercraft.handoff.status.transferring");
-                        }
-
-                        @Override
-                        public void sending(long sent, long total) {
-                            status.onSendProgress(sent, total);
-                        }
-                    });
-        }
-
         final net.minecraft.server.MinecraftServer srv = server;
         HandoffCoordinator.Callbacks callbacks = new HandoffCoordinator.Callbacks() {
             @Override public void onAccepted() {
@@ -189,9 +171,8 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
             @Override public void onStatus(String messageKey) { status.onStatus(messageKey); }
         };
 
-        HandoffCoordinator session = P2PBridge.INSTANCE.beginHandoff(
-                c.peer(), offer, c.accountId(), transfer, callbacks);
-        if (session == null) {
+        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), offer, callbacks);
+        if (!session) {
             status.onAborted("peercraft.handoff.abort.unknown");
         }
         PeerCraftUi.setScreen(this.mc, status);

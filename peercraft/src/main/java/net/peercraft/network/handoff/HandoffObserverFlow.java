@@ -55,7 +55,7 @@ public final class HandoffObserverFlow {
                 if (answer.state == UNKNOWN || answer.state == DENIED) { outcome = Outcome.UNKNOWN; break; }
                 boolean ready = answer.state == ROOM_READY || (answer.state == ABORTED && answer.sourceRestored);
                 if (ready) {
-                    if (answer.room.isEmpty() || !answer.ownsCurrentEpoch || answer.currentEpoch != answer.epoch)
+                    if (answer.room.isEmpty() || !answer.isCurrentAttempt || answer.currentEpoch != answer.epoch)
                         throw new IOException("Room belongs to a superseded handoff");
                     awaitReconnect(steps.reconnect(answer.room, limits.startup));
                     outcome = Outcome.RECONNECTED; break;

@@ -130,4 +130,64 @@ class HandoffRegistryTest {
         assertEquals(PENDING, r.handle(another, true).state);
     }
 
+    @Test void realWireDistinguishesCurrentReceiptFromLaunchPermissionForEveryRole() throws Exception {
+        HandoffRegistry r = start();
+        r.handle(request(VERIFIED, successor), false); r.handle(request(COMMIT, host), false);
+        Message installed = request(INSTALLED, successor); installed.epoch = 1; r.handle(installed, false);
+        Message ready = request(READY, successor); ready.epoch = 1; ready.room = "NEW"; r.handle(ready, true);
+        for (byte[] key : new byte[][] { host, successor, observer }) {
+            byte[] requestBytes = encode(request(QUERY, key));
+            var clientRequest = net.peercraft.network.handoff.HandoffAuthorityProtocol.decode(requestBytes, requestBytes.length);
+            byte[] clientBytes = net.peercraft.network.handoff.HandoffAuthorityProtocol.encode(clientRequest);
+            Message reply = r.handle(decode(clientBytes, clientBytes.length), false);
+            byte[] replyBytes = encode(reply);
+            var clientReply = net.peercraft.network.handoff.HandoffAuthorityProtocol.decode(replyBytes, replyBytes.length);
+            assertEquals(ROOM_READY, clientReply.state); assertTrue(clientReply.isCurrentAttempt);
+            assertEquals(java.util.Arrays.equals(key, successor), clientReply.ownsCurrentEpoch);
+        }
+        Message next = request(BEGIN, successor); next.epoch = 1; next.offerId++;
+        next.successorKey = key(4); next.observerKey = key(5); r.handle(next, true);
+        assertFalse(r.handle(request(QUERY, observer), false).isCurrentAttempt);
+    }
+    @Test void recoveredReceiptReadableByObserverWithoutSourceOwnership() throws Exception {
+        HandoffRegistry r = start(); r.handle(request(ABORT, host), false);
+        Message recovered = request(RECOVERED, host); recovered.room = "BACK"; r.handle(recovered, true);
+        Message answer = r.handle(request(QUERY, observer), false);
+        assertTrue(answer.isCurrentAttempt); assertTrue(answer.sourceRestored); assertFalse(answer.ownsCurrentEpoch);
+        Message next = request(BEGIN, host); next.offerId++; r.handle(next, true);
+        assertFalse(r.handle(request(QUERY, observer), false).isCurrentAttempt);
+    }
+    @Test void abandonedAttemptExpiresDurablyBeforeAdmissionAfterRestart() throws Exception {
+        var now = new java.util.concurrent.atomic.AtomicLong(1000);
+        HandoffRegistry r = new HandoffRegistry(root, now::get);
+        r.handle(request(BEGIN, host), true);
+        now.addAndGet(2 * 60 * 60 * 1000L + 1);
+        r = new HandoffRegistry(root, now::get);
+        assertEquals(ABORTED, r.handle(request(QUERY, observer), false).state);
+        assertEquals(ABORTED, r.handle(request(COMMIT, host), false).state);
+        Message next = request(BEGIN, host); next.offerId++;
+        assertEquals(PENDING, r.handle(next, true).state);
+    }
+    @Test void damagedIndependentJournalDoesNotPreventOtherSessionsFromStarting() throws Exception {
+        java.nio.file.Files.writeString(root.resolve(UUID.randomUUID() + ".json"), "broken");
+        HandoffRegistry r = new HandoffRegistry(root, System::currentTimeMillis);
+        assertEquals(PENDING, r.handle(request(BEGIN, host), true).state);
+    }
+    @Test void hundredThousandHistoricalRecordsDoNotMonopolizeWriter() throws Exception {
+        var now = new java.util.concurrent.atomic.AtomicLong(1000); HandoffRegistry r = new HandoffRegistry(root, now::get);
+        r.handle(request(BEGIN, host), true);
+        String entry = java.nio.file.Files.readString(root.resolve(session + ".json"));
+        for (int n = 0; n < 100_000; n++) java.nio.file.Files.writeString(root.resolve(session + "-" + Integer.toHexString(n) + ".history"), entry);
+        long[] latency = new long[100]; long heapBefore = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        for (int n = 0; n < latency.length; n++) {
+            if (n % 10 == 0) { r.maintenance(); assertTrue(r.lastMaintenanceCount <= 64); }
+            long started = System.nanoTime(); assertEquals(PENDING, r.handle(request(QUERY, observer), false).state);
+            latency[n] = System.nanoTime() - started;
+        }
+        java.util.Arrays.sort(latency);
+        long heapAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        System.out.println("HANDOFF_BENCH history=100000 queries=100 p95us=" + latency[94] / 1000
+                + " p99us=" + latency[98] / 1000 + " heapDeltaBytes=" + (heapAfter - heapBefore) + " " + r.metrics());
+        assertEquals(PENDING, r.handle(request(QUERY, host), false).state);
+    }
 }

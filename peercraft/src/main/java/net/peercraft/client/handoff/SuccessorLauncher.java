@@ -45,6 +45,7 @@ public final class SuccessorLauncher {
         void failed(String reasonKey);
 
         default boolean active() { return true; }
+        default net.peercraft.network.handoff.HandoffLaunchContext context() { return null; }
     }
 
     /** Cancellation prevents queued open/publish actions; the caller must also stop a server already opened. */
@@ -52,6 +53,8 @@ public final class SuccessorLauncher {
         private final net.peercraft.network.handoff.HandoffLaunchGuard guard =
                 new net.peercraft.network.handoff.HandoffLaunchGuard();
         private final Done callback;
+        private volatile net.peercraft.network.handoff.HandoffLaunchContext nativeContext;
+        public boolean ownsServer(Object server, Path path) { return nativeContext != null && nativeContext.belongs(server, path); }
         private Launch(Done callback) { this.callback = callback; }
         public boolean active() { return guard.active() && callback.active(); }
         public void cancel() { guard.finish(); }
@@ -93,7 +96,7 @@ public final class SuccessorLauncher {
                 Path root = savesDirectory(); Files.createDirectories(root);
                 net.peercraft.network.handoff.WorldInstall.recoverAll(root);
                 java.util.List<Path> copies = WorldTargetPlan.candidates(root, offer.worldId());
-                if (copies.isEmpty()) {
+                if (copies.isEmpty() || System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
                     WorldTargetPlan plan = WorldTargetPlan.fresh(root, offer.worldLabel(), offer.worldId());
                     plan.requireSpace(offer.estArchiveBytes()); result.complete(plan);
                 } else {
@@ -125,6 +128,11 @@ public final class SuccessorLauncher {
         PeercraftWorldMeta meta = PeercraftWorldMeta.loadOrNull(staging);
         if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
         return staging;
+    }
+    public static Launch restoreClosed(Path path, HandoffProtocol.Offer offer, java.util.UUID sessionId, Done callback) {
+        Launch done = new Launch(callback);
+        background(() -> finish(savesDirectory().toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize()).toString(), offer, done, sessionId));
+        return done;
     }
     public static Launch startPlaced(WorldTargetPlan plan, HandoffProtocol.Offer offer,
             net.peercraft.network.handoff.HandoffOperation operation, java.util.UUID sessionId, Done callback) {
@@ -193,9 +201,12 @@ public final class SuccessorLauncher {
             LOGGER.debug("[Handoff] markBecameHost: {}", e.toString());
         }
         net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(sessionId, offer.offerId());
+        final net.peercraft.network.handoff.HandoffLaunchContext context = net.peercraft.network.handoff.HandoffLaunchContext.begin(savesDirectory().resolve(levelId), done::active);
+        if (done instanceof Launch) ((Launch) done).nativeContext = context;
         mc.execute(() -> openThenPublish(mc, levelId, new Done() {
             private final java.util.concurrent.atomic.AtomicBoolean terminal = new java.util.concurrent.atomic.AtomicBoolean();
             public boolean active() { return !terminal.get() && done.active(); }
+            public net.peercraft.network.handoff.HandoffLaunchContext context() { return context; }
             public void serverPublished() {
                 net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(sessionId, offer.offerId(),
                         () -> { if (terminal.compareAndSet(false, true)) done.serverPublished(); },
@@ -234,8 +245,7 @@ public final class SuccessorLauncher {
     private static String place(Path savesDir, Path existing, Path staging, Path backup, boolean keep) {
         try {
             net.peercraft.network.handoff.WorldInstall.replace(staging, existing, backup,
-                    savesDir.resolve(staging.getFileName().toString() + ".install"), keep);
-            if (keep) Files.write(backup.resolve(".peercraft-backup"), new byte[0]);
+                    savesDir.resolve(staging.getFileName().toString() + ".install"), keep, true, () -> { });
             return savesDir.relativize(existing).toString();
         } catch (IOException e) {
             LOGGER.warn("[Handoff] Placement failed; retaining journal and world copies: {}", e.toString());
@@ -321,7 +331,7 @@ public final class SuccessorLauncher {
     private static void openThenPublish(Minecraft mc, String levelId, Done done) {
         if (!done.active()) return;
         // WorldOpenFlows.openWorld(String, Runnable) — present on 1.20.2+ incl. 1.21.x / 26.x.
-        mc.createWorldOpenFlows().openWorld(levelId, () -> done.failed("peercraft.handoff.abort.transfer_failed"));
+        net.peercraft.network.handoff.HandoffLaunchContext.enter(done.context(), () -> mc.createWorldOpenFlows().openWorld(levelId, () -> done.failed("peercraft.handoff.abort.transfer_failed")));
 
         Thread wait = new Thread(() -> {
             long deadline = System.currentTimeMillis() + 180_000L;
@@ -333,7 +343,7 @@ public final class SuccessorLauncher {
                 // publishServer() dereferences that player, throwing an NPE if called too
                 // early (seen in testing: "Cannot invoke ...player.getGameProfile() because
                 // ...player is null"). Wait for both.
-                if (server != null && server.isRunning() && mc.player != null) {
+                if (server != null && server.isRunning() && mc.player != null && done.context() != null && done.context().owns(server, WorldArchiver.worldDir(server))) {
                     mc.execute(() -> publish(server, done));
                     return;
                 }
@@ -351,7 +361,7 @@ public final class SuccessorLauncher {
     }
 
     private static void publish(IntegratedServer server, Done done) {
-        if (!done.active()) return;
+        if (!done.active() || done.context() == null || !done.context().owns(server, WorldArchiver.worldDir(server))) return;
         try {
             int port = net.minecraft.util.HttpUtil.getAvailablePort();
             GameType gameType = server.getWorldData().getGameType();

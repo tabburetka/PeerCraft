@@ -41,8 +41,8 @@ public final class HandoffOperation {
             if (result.epoch < 0 || (journal.phase.ordinal() < HandoffJournal.Phase.COMMITTED.ordinal()
                     && result.epoch != journal.epoch + 1) || !java.security.MessageDigest.isEqual(journal.digest, result.digest))
                 throw new IOException("COMMIT does not match the journaled snapshot/epoch");
-            journal.epoch = result.epoch;
-            if (journal.phase.ordinal() < HandoffJournal.Phase.COMMITTED.ordinal()) journal.advance(HandoffJournal.Phase.COMMITTED);
+            if (journal.phase.ordinal() < HandoffJournal.Phase.COMMITTED.ordinal()) journal.committed(result.epoch);
+            else if (result.epoch != journal.epoch) throw new IOException("Committed epoch changed");
         } else if (result.state == ABORTED && journal.phase != HandoffJournal.Phase.ABORTED) {
             journal.advance(HandoffJournal.Phase.ABORTED);
         }

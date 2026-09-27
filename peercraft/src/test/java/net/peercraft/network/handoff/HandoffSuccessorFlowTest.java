@@ -20,7 +20,7 @@ class HandoffSuccessorFlowTest {
             if (m.type == VERIFIED) state = commitBeforeSourceLoss ? COMMITTED : STAGED;
             if (m.type == ABORT && state != COMMITTED && state != ROOM_READY) state = ABORTED;
             if (m.type == READY) { state = ROOM_READY; if (loseReadyReply) throw new IOException("lost ready reply"); }
-            Message result = new Message(REPLY); result.state = state; result.digest = digest;
+            Message result = new Message(REPLY); result.isCurrentAttempt = true; result.state = state; result.digest = digest;
             result.epoch = state == COMMITTED || state == ROOM_READY ? 1 : 0;
             result.currentEpoch = result.epoch; result.ownsCurrentEpoch = true; result.installed = m.type == INSTALLED || state == ROOM_READY;
             result.room = state == ROOM_READY ? "NEW" : ""; return result;
@@ -49,7 +49,7 @@ class HandoffSuccessorFlowTest {
     @Test void launchesFromConfirmedCommitWithoutStartPacketAndSurvivesLostReadyReply() throws Exception {
         commitBeforeSourceLoss = true; loseReadyReply = true;
         assertEquals(HandoffSuccessorFlow.Outcome.READY, flow(new Steps()).start().get(3, TimeUnit.SECONDS));
-        assertEquals(Arrays.asList("prepare", "receive", "verify", "install", "start", "terminal:READY"), events);
+        assertEquals(Arrays.asList("prepare", "receive", "verify", "install", "start", "close workers", "terminal:READY"), events);
     }
     @Test void sourceLostBeforeCommitAbortsBeforeDeletingScratch() throws Exception {
         alive = false;
@@ -62,5 +62,22 @@ class HandoffSuccessorFlowTest {
         assertEquals(HandoffSuccessorFlow.Outcome.FAILED_AFTER_COMMIT, flow(new Steps()).start().get(3, TimeUnit.SECONDS));
         assertTrue(events.contains("stop server")); assertFalse(events.contains("cleanup"));
         assertEquals(COMMITTED, state);
+    }
+    @Test void cancelDuringStartNeverAnnouncesReady() throws Exception {
+        commitBeforeSourceLoss = true;
+        CountDownLatch starting = new CountDownLatch(1);
+        CompletableFuture<HandoffSuccessorFlow.RegisteredRoom> registration = new CompletableFuture<>();
+        Steps steps = new Steps() {
+            public CompletableFuture<HandoffSuccessorFlow.RegisteredRoom> startAndRegister() {
+                events.add("start"); starting.countDown(); return registration;
+            }
+        };
+        HandoffSuccessorFlow flow = flow(steps);
+        CompletableFuture<HandoffSuccessorFlow.Outcome> done = flow.start();
+        assertTrue(starting.await(1, TimeUnit.SECONDS)); flow.cancel(); flow.cancel();
+        registration.complete(new HandoffSuccessorFlow.RegisteredRoom("NEW", new byte[32]));
+        assertEquals(HandoffSuccessorFlow.Outcome.FAILED_AFTER_COMMIT, done.get(3, TimeUnit.SECONDS));
+        assertEquals(COMMITTED, state); assertTrue(events.contains("stop server"));
+        assertFalse(events.contains("cleanup"));
     }
 }

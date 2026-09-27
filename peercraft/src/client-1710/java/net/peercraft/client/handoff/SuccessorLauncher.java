@@ -46,6 +46,7 @@ public final class SuccessorLauncher {
         void failed(String reasonKey);
 
         default boolean active() { return true; }
+        default net.peercraft.network.handoff.HandoffLaunchContext context() { return null; }
     }
 
     /** Cancellation prevents queued open/publish actions; the caller must also stop a server already opened. */
@@ -53,6 +54,8 @@ public final class SuccessorLauncher {
         private final net.peercraft.network.handoff.HandoffLaunchGuard guard =
                 new net.peercraft.network.handoff.HandoffLaunchGuard();
         private final Done callback;
+        private volatile net.peercraft.network.handoff.HandoffLaunchContext nativeContext;
+        public boolean ownsServer(Object server, Path path) { return nativeContext != null && nativeContext.belongs(server, path); }
         private Launch(Done callback) { this.callback = callback; }
         public boolean active() { return guard.active() && callback.active(); }
         public void cancel() { guard.finish(); }
@@ -86,7 +89,7 @@ public final class SuccessorLauncher {
                 Path root = savesDirectory(); Files.createDirectories(root);
                 net.peercraft.network.handoff.WorldInstall.recoverAll(root);
                 java.util.List<Path> copies = WorldTargetPlan.candidates(root, offer.worldId());
-                if (copies.isEmpty()) {
+                if (true) { // Timestamp-based legacy locks cannot prove exclusivity; retain old copies.
                     WorldTargetPlan plan = WorldTargetPlan.fresh(root, offer.worldLabel(), offer.worldId());
                     plan.requireSpace(offer.estArchiveBytes()); result.complete(plan);
                 } else {
@@ -119,6 +122,11 @@ public final class SuccessorLauncher {
         if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
         return staging;
     }
+    public static Launch restoreClosed(Path path, HandoffProtocol.Offer offer, java.util.UUID sessionId, Done callback) {
+        Launch done = new Launch(callback);
+        background(() -> finish(savesDirectory().toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize()).toString(), offer, done, sessionId));
+        return done;
+    }
     public static Launch startPlaced(WorldTargetPlan plan, HandoffProtocol.Offer offer,
             net.peercraft.network.handoff.HandoffOperation operation, java.util.UUID sessionId, Done callback) {
         Launch done = new Launch(callback);
@@ -147,16 +155,7 @@ public final class SuccessorLauncher {
                 String incomingId = readWorldId(staging);
                 Path existing = incomingId.isEmpty() ? null : findWorldById(savesDir, incomingId, staging);
 
-                if (existing != null) {
-                    String existingName = savesDir.relativize(existing).toString();
-                    String backupName = existingName + " (до возврата " + timestamp() + ")";
-                    Path st = staging;
-                    mc.func_152344_a(() -> PeerCraftUi.setScreen(mc, new HandoffReclaimConfirmScreen(existingName, backupName,
-                            () -> background(() -> finish(reclaimInPlace(savesDir, existing, st, backupName), offer, done)),
-                            () -> background(() -> finish(overwriteInPlace(savesDir, existing, st), offer, done)))));
-                } else {
-                    finish(freshFolder(savesDir, staging, offer.worldLabel()), offer, done);
-                }
+                finish(freshFolder(savesDir, staging, offer.worldLabel()), offer, done);
             } catch (IOException | RuntimeException e) {
                 LOGGER.warn("[Handoff] Не удалось запустить мир как новый хост: {}", e.toString());
                 if (staging != null && !Files.exists(staging.resolveSibling(staging.getFileName().toString() + ".install"))) {
@@ -185,9 +184,12 @@ public final class SuccessorLauncher {
             LOGGER.debug("[Handoff] markBecameHost: {}", e.toString());
         }
         net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(sessionId, offer.offerId());
+        final net.peercraft.network.handoff.HandoffLaunchContext context = net.peercraft.network.handoff.HandoffLaunchContext.begin(savesDirectory().resolve(levelId), done::active);
+        if (done instanceof Launch) ((Launch) done).nativeContext = context;
         mc.func_152344_a(() -> openThenPublish(mc, levelId, new Done() {
             private final java.util.concurrent.atomic.AtomicBoolean terminal = new java.util.concurrent.atomic.AtomicBoolean();
             public boolean active() { return !terminal.get() && done.active(); }
+            public net.peercraft.network.handoff.HandoffLaunchContext context() { return context; }
             public void serverPublished() {
                 net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(sessionId, offer.offerId(),
                         () -> { if (terminal.compareAndSet(false, true)) done.serverPublished(); },
@@ -226,7 +228,6 @@ public final class SuccessorLauncher {
         try {
             net.peercraft.network.handoff.WorldInstall.replace(staging, existing, backup,
                     savesDir.resolve(staging.getFileName().toString() + ".install"), keep);
-            if (keep) Files.write(backup.resolve(".peercraft-backup"), new byte[0]);
             return savesDir.relativize(existing).toString();
         } catch (IOException e) {
             LOGGER.warn("[Handoff] Placement failed; retaining journal and world copies: {}", e.toString());
@@ -311,13 +312,13 @@ public final class SuccessorLauncher {
 
     private static void openThenPublish(Minecraft mc, String levelId, Done done) {
         if (!done.active()) return;
-        mc.launchIntegratedServer(levelId, levelId, null);
+        net.peercraft.network.handoff.HandoffLaunchContext.enter(done.context(), () -> mc.launchIntegratedServer(levelId, levelId, null));
 
         Thread wait = new Thread(() -> {
             long deadline = System.currentTimeMillis() + 180_000L;
             while (System.currentTimeMillis() < deadline && done.active()) {
                 IntegratedServer server = mc.getIntegratedServer();
-                if (server != null && server.isServerRunning() && mc.thePlayer != null) {
+                if (server != null && server.isServerRunning() && mc.thePlayer != null && done.context() != null && done.context().owns(server, WorldArchiver.worldDir(server))) {
                     mc.func_152344_a(() -> publish(server, done));
                     return;
                 }
@@ -335,7 +336,7 @@ public final class SuccessorLauncher {
     }
 
     private static void publish(IntegratedServer server, Done done) {
-        if (!done.active()) return;
+        if (!done.active() || done.context() == null || !done.context().owns(server, WorldArchiver.worldDir(server))) return;
         try {
             WorldSettings.GameType gameType = server.getGameType();
             String returned = server.shareToLAN(gameType, false);

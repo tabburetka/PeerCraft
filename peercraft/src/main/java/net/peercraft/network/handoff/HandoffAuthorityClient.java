@@ -34,9 +34,13 @@ public final class HandoffAuthorityClient {
         if (closed) result.completeExceptionally(new IOException("Handoff authority client is closed"));
         try {
             byte[] bytes = HandoffAuthorityProtocol.encode(m);
-            for (int i = 0; i < 10; i++) {
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            for (int i = 0; i < 10 && System.nanoTime() < deadline; i++) {
                 sender.send(address, port, bytes);
-                try { return result.get(500, TimeUnit.MILLISECONDS); }
+                long remaining = deadline - System.nanoTime();
+                long wait = Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(Math.min(800, 250L << Math.min(i, 2)) + ThreadLocalRandom.current().nextInt(100)));
+                if (wait <= 0) break;
+                try { return result.get(wait, TimeUnit.NANOSECONDS); }
                 catch (TimeoutException retry) { }
             }
             throw new IOException("Handoff authority did not answer");

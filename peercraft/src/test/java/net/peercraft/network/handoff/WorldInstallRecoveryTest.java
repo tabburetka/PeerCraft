@@ -16,7 +16,7 @@ class WorldInstallRecoveryTest {
         Files.writeString(staging.resolve(".peercraft-handoff-install"), "id");
         Path backup = Files.createDirectory(root.resolve("backup")); Files.writeString(backup.resolve("level.dat"), "old");
         Properties p = new Properties(); p.setProperty("target", "world"); p.setProperty("staging", staging.getFileName().toString());
-        p.setProperty("backup", "backup"); p.setProperty("keep", "true"); p.setProperty("installation", "id");
+        p.setProperty("backup", "backup"); p.setProperty("lock", "filelock"); p.setProperty("keep", "true"); p.setProperty("installation", "id");
         try (OutputStream out = Files.newOutputStream(root.resolve(".peercraft-handoff-staging-test.install"))) { p.store(out, ""); }
         CompletableFuture<Void> first = WorldInstallRecovery.start(root);
         assertSame(first, WorldInstallRecovery.start(root.resolve(".")));

@@ -8,7 +8,7 @@ import static net.peercraft.network.handoff.HandoffAuthorityProtocol.*;
 
 /** Successor reads COMMIT itself; delivery of START to/from the source is not a launch permission. */
 public final class HandoffSuccessorFlow {
-    public enum Outcome { READY, ABORTED, UNKNOWN, FAILED_AFTER_COMMIT }
+    public enum Outcome { READY, ABORTED, UNKNOWN, FAILED_AFTER_COMMIT, STOP_FAILED }
     public static final class Staged {
         public final byte[] digest;
         public Staged(byte[] digest) {
@@ -38,6 +38,7 @@ public final class HandoffSuccessorFlow {
         CompletableFuture<RegisteredRoom> startAndRegister();
         /** Stop a failed/late start and await actual server thread termination. */
         CompletableFuture<Void> stopNewServer();
+        default void invalidateLaunch() { }
         CompletableFuture<Void> stopAttemptWorkers();
         CompletableFuture<Void> cleanupConfirmedAbort();
         void terminal(Outcome outcome, String room);
@@ -56,12 +57,22 @@ public final class HandoffSuccessorFlow {
         }
         return completion;
     }
-    public void cancel() { cancelled.set(true); }
+    private boolean readyDecided;
+    private final Object launchDecision = new Object();
+    public void cancel() {
+        synchronized (launchDecision) {
+            if (ended.get() || readyDecided) return;
+            if (cancelled.compareAndSet(false, true)) steps.invalidateLaunch();
+        }
+    }
     private static long deadline(long millis) { return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis); }
     private <T> T await(CompletableFuture<T> task, long end, boolean beforeCommit) throws IOException {
+        return await(task, end, beforeCommit, beforeCommit);
+    }
+    private <T> T await(CompletableFuture<T> task, long end, boolean beforeCommit, boolean localCancel) throws IOException {
         try {
             while (true) {
-                if (beforeCommit && (cancelled.get() || !steps.sourceAlive())) throw new IOException("Source unavailable or attempt cancelled");
+                if ((localCancel && cancelled.get()) || (beforeCommit && !steps.sourceAlive())) throw new IOException("Source unavailable or attempt cancelled");
                 long remaining = end - System.nanoTime(); if (remaining <= 0) throw new IOException("Handoff phase timed out");
                 try { return task.get(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(100)), TimeUnit.NANOSECONDS); }
                 catch (TimeoutException retry) { }
@@ -70,8 +81,20 @@ public final class HandoffSuccessorFlow {
             Thread.currentThread().interrupt(); throw new IOException(interrupted);
         } catch (ExecutionException | CancellationException failed) { throw new IOException("Handoff step failed", failed); }
     }
+    private final AtomicBoolean workersStopped = new AtomicBoolean();
+    private void stopWorkers() throws IOException {
+        if (workersStopped.compareAndSet(false, true)) {
+            try { await(steps.stopAttemptWorkers(), deadline(limits.preparation), false); }
+            catch (IOException failed) { workersStopped.set(false); throw failed; }
+        }
+    }
     private void finish(Outcome outcome, String room) {
         if (!ended.compareAndSet(false, true)) return;
+        try { stopWorkers(); }
+        catch (IOException failure) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
+            outcome = Outcome.STOP_FAILED;
+        }
         try { steps.terminal(outcome, room); }
         catch (RuntimeException callbackFailure) { org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure); }
         finally { completion.complete(outcome); }
@@ -104,8 +127,12 @@ public final class HandoffSuccessorFlow {
             await(steps.installCommittedWorld(), deadline(limits.preparation), false); operation.installed(); steps.installationRecorded();
             if (cancelled.get()) throw new IOException("Committed handoff launch cancelled");
             startRequested = true;
-            RegisteredRoom room = await(steps.startAndRegister(), deadline(limits.startup), false);
-            operation.ready(room.code, room.proof); steps.readyRecorded(room); finish(Outcome.READY, room.code);
+            RegisteredRoom room = await(steps.startAndRegister(), deadline(limits.startup), false, true);
+            synchronized (launchDecision) {
+                if (cancelled.get()) throw new IOException("Committed launch cancelled");
+                operation.ready(room.code, room.proof); steps.readyRecorded(room); readyDecided = true;
+            }
+            finish(Outcome.READY, room.code);
         } catch (IOException | RuntimeException | InterruptedException failed) {
             if (failed instanceof InterruptedException) Thread.currentThread().interrupt();
             try {
@@ -115,14 +142,18 @@ public final class HandoffSuccessorFlow {
                         committed = answer.state == COMMITTED || answer.state == ROOM_READY;
                         if (!committed) { finish(Outcome.UNKNOWN, ""); return; }
                     } else {
-                        await(steps.stopAttemptWorkers(), deadline(limits.preparation), false);
+                        stopWorkers();
                         await(steps.cleanupConfirmedAbort(), deadline(limits.preparation), false);
                         finish(Outcome.ABORTED, ""); return;
                     }
                 }
                 // A failed new host retains ownership and the world. Never restore the source here.
-                if (startRequested) await(steps.stopNewServer(), deadline(limits.startup), false);
-                await(steps.stopAttemptWorkers(), deadline(limits.preparation), false);
+                if (startRequested) {
+                    steps.invalidateLaunch();
+                    try { await(steps.stopNewServer(), deadline(limits.startup), false); }
+                    catch (IOException stopFailure) { finish(Outcome.STOP_FAILED, ""); return; }
+                }
+                stopWorkers();
                 finish(Outcome.FAILED_AFTER_COMMIT, "");
             } catch (IOException | RuntimeException unresolved) { finish(committed ? Outcome.FAILED_AFTER_COMMIT : Outcome.UNKNOWN, ""); }
         }

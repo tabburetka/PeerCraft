@@ -12,8 +12,8 @@ class HandoffObserverFlowTest {
     @Test void lookupDoesNotBeginDuringTransferAndStartsOnlyAfterReady() throws Exception {
         AtomicInteger queries = new AtomicInteger(), reconnects = new AtomicInteger();
         HandoffOperation operation = new HandoffOperation(m -> {
-            Message result = new Message(REPLY);
-            result.state = queries.incrementAndGet() == 1 ? STAGED : ROOM_READY; result.room = "NEXT"; result.ownsCurrentEpoch = true; return result;
+            Message result = new Message(REPLY); result.isCurrentAttempt = true;
+            result.state = queries.incrementAndGet() == 1 ? STAGED : ROOM_READY; result.room = "NEXT"; result.ownsCurrentEpoch = false; return result;
         }, new HandoffJournal(dir.resolve("observer"), UUID.randomUUID(), 1, 0, new byte[32]));
         HandoffObserverFlow flow = new HandoffObserverFlow(operation, new HandoffObserverFlow.Steps() {
             public void waiting() { assertEquals(0, reconnects.get()); }
@@ -25,7 +25,7 @@ class HandoffObserverFlowTest {
         assertEquals(HandoffObserverFlow.Outcome.RECONNECTED, flow.start().get(5, TimeUnit.SECONDS)); assertEquals(1, reconnects.get());
     }
     @Test void unknownResultNeverLooksUpOrReconnectsToARoom() throws Exception {
-        HandoffOperation operation = new HandoffOperation(m -> { Message result = new Message(REPLY); result.state = UNKNOWN; return result; },
+        HandoffOperation operation = new HandoffOperation(m -> { Message result = new Message(REPLY); result.isCurrentAttempt = true; result.state = UNKNOWN; return result; },
                 new HandoffJournal(dir.resolve("observer"), UUID.randomUUID(), 1, 0, new byte[32]));
         HandoffObserverFlow flow = new HandoffObserverFlow(operation, new HandoffObserverFlow.Steps() {
             public void waiting() { }
@@ -38,8 +38,8 @@ class HandoffObserverFlowTest {
     @Test void historicalReadyCannotReconnectToASupersededSession() throws Exception {
         AtomicInteger stopped = new AtomicInteger();
         HandoffOperation operation = new HandoffOperation(m -> {
-            Message result = new Message(REPLY); result.state = ROOM_READY; result.room = "OLD";
-            result.epoch = 1; result.currentEpoch = 2; result.ownsCurrentEpoch = false; return result;
+            Message result = new Message(REPLY); result.isCurrentAttempt = true; result.state = ROOM_READY; result.room = "OLD";
+            result.isCurrentAttempt = false; result.epoch = 1; result.currentEpoch = 2; result.ownsCurrentEpoch = false; return result;
         }, new HandoffJournal(dir.resolve("observer"), UUID.randomUUID(), 1, 0, new byte[32]));
         HandoffObserverFlow flow = new HandoffObserverFlow(operation, new HandoffObserverFlow.Steps() {
             public void waiting() { }
@@ -54,8 +54,8 @@ class HandoffObserverFlowTest {
         CountDownLatch connecting = new CountDownLatch(1); CompletableFuture<Void> connection = new CompletableFuture<>();
         AtomicInteger stopped = new AtomicInteger();
         HandoffOperation operation = new HandoffOperation(m -> {
-            Message result = new Message(REPLY); result.state = ROOM_READY; result.room = "NEXT";
-            result.ownsCurrentEpoch = true; return result;
+            Message result = new Message(REPLY); result.isCurrentAttempt = true; result.state = ROOM_READY; result.room = "NEXT";
+            result.ownsCurrentEpoch = false; return result;
         }, new HandoffJournal(dir.resolve("observer"), UUID.randomUUID(), 1, 0, new byte[32]));
         HandoffObserverFlow flow = new HandoffObserverFlow(operation, new HandoffObserverFlow.Steps() {
             public void waiting() { }

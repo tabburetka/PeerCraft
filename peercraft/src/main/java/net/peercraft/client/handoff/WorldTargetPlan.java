@@ -97,10 +97,11 @@ public final class WorldTargetPlan {
                 || !java.security.MessageDigest.isEqual(levelDigest, HostExecutionManifest.hash(target.resolve("level.dat"))))
             throw new IOException("Selected return world changed since preflight");
     }
-    public void install(Path staging, HandoffOperation operation) throws IOException {
-        revalidate(); operation.requireCommitted();
+    public void install(Path staging, HandoffOperation operation) throws IOException { install(staging, operation, true); }
+    public void install(Path staging, HandoffOperation operation, boolean modernLock) throws IOException {
         WorldInstall.replace(staging, target, backup,
-                root.resolve(staging.getFileName().toString() + ".install"), keepBackup);
-        if (keepBackup) Files.write(backup.resolve(".peercraft-backup"), new byte[0], StandardOpenOption.CREATE_NEW);
+                root.resolve(staging.getFileName().toString() + ".install"), keepBackup, modernLock, () -> {
+                    revalidate(); operation.requireCommitted(); revalidate();
+                });
     }
 }

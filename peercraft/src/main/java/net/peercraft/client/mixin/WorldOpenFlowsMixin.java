@@ -31,6 +31,11 @@ public abstract class WorldOpenFlowsMixin {
     @Inject(method = "openWorld(Ljava/lang/String;Ljava/lang/Runnable;)V", at = @At("HEAD"), cancellable = true)
     private void peercraft$warnStaleHandoff(String levelId, Runnable onFail, CallbackInfo ci) {
         Minecraft peercraft$client = Minecraft.getInstance();
+        if (net.peercraft.client.handoff.HandoffNetworkRecovery.deferOpen(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(levelId), peercraft$client::execute,
+                () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail), failure -> {
+                    net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.error("peercraft.handoff.abort.recovery_failed");
+                })) { ci.cancel(); return; }
         if (net.peercraft.network.handoff.WorldInstallRecovery.deferOpen(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory(), peercraft$client::execute,
                 () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail), failure -> {
@@ -63,9 +68,36 @@ public abstract class WorldOpenFlowsMixin {
         ci.cancel();
         PeerCraftUi.setScreen(mc, new HandoffStaleWorldWarningScreen(meta,
                 () -> {
+                    try { net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.forkStaleWorld(
+                            net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(levelId)); }
+                    catch (java.io.IOException failure) { net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.error("peercraft.handoff.abort.recovery_failed"); return; }
                     peercraft$bypass.set(Boolean.TRUE);
                     mc.createWorldOpenFlows().openWorld(levelId, onFail);
                 },
                 () -> PeerCraftUi.setScreen(mc, new SelectWorldScreen(new TitleScreen()))));
+    }
+    @Inject(method = "openWorldLoadLevelData", at = @At("HEAD"))
+    private void peercraft$captureNativeLoad(net.minecraft.world.level.storage.LevelStorageSource.LevelStorageAccess access,
+            Runnable onFail, CallbackInfo ci) {
+        net.peercraft.network.handoff.HandoffLaunchContext.capture(access,
+                access.getLevelPath(net.minecraft.world.level.storage.LevelResource.ROOT));
+    }
+
+    @Inject(method = "openWorldDoLoad", at = @At("HEAD"), cancellable = true)
+    private void peercraft$rejectCancelledNativeLoad(net.minecraft.world.level.storage.LevelStorageSource.LevelStorageAccess access,
+            net.minecraft.server.WorldStem stem, net.minecraft.server.packs.repository.PackRepository packs, CallbackInfo ci) {
+        if (!net.peercraft.network.handoff.HandoffLaunchContext.permits(access)) {
+            try { access.close(); } catch (java.io.IOException failure) {
+                org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Cancelled native access failed to close", failure);
+            }
+            stem.close(); ci.cancel();
+        }
+    }
+    @Inject(method = "openWorldDoLoad", at = @At("RETURN"))
+    private void peercraft$bindCreatedServer(net.minecraft.world.level.storage.LevelStorageSource.LevelStorageAccess access,
+            net.minecraft.server.WorldStem stem, net.minecraft.server.packs.repository.PackRepository packs, CallbackInfo ci) {
+        net.minecraft.server.MinecraftServer server = Minecraft.getInstance().getSingleplayerServer();
+        if (server != null && !net.peercraft.network.handoff.HandoffLaunchContext.bind(access, server,
+                net.peercraft.client.handoff.WorldArchiver.worldDir(server))) server.halt(false);
     }
 }

@@ -40,6 +40,7 @@ public final class HandoffSourceFlow {
         CompletableFuture<Void> cleanupConfirmedAbort();
         /** Must check old thread termination before reopening; returns registered source room. */
         CompletableFuture<HandoffSuccessorFlow.RegisteredRoom> restoreSource();
+        default CompletableFuture<Void> stopFailedRestore() { return CompletableFuture.completedFuture(null); }
         void terminal(Outcome outcome, String room);
     }
     public static final class Limits {
@@ -84,15 +85,27 @@ public final class HandoffSourceFlow {
             Thread.currentThread().interrupt(); throw new IOException(interrupted);
         } catch (ExecutionException | CancellationException failed) { throw new IOException("Handoff step failed", failed); }
     }
+    private final AtomicBoolean workersStopped = new AtomicBoolean();
+    private void stopWorkers() throws IOException {
+        if (workersStopped.compareAndSet(false, true)) {
+            try { await(steps.stopAttemptWorkers(), deadline(limits.preparation), false); }
+            catch (IOException failed) { workersStopped.set(false); throw failed; }
+        }
+    }
     private void finish(Outcome outcome, String room) {
         if (!ended.compareAndSet(false, true)) return;
+        try { stopWorkers(); }
+        catch (IOException failure) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
+            outcome = Outcome.RECOVERY_FAILED;
+        }
         try { steps.terminal(outcome, room); }
         catch (RuntimeException callbackFailure) {
             org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure);
         } finally { completion.complete(outcome); }
     }
     private void run() {
-        boolean stopRequested = false, committed = false, declined = false;
+        boolean prepareRequested = false, stopRequested = false, committed = false, declined = false;
         try {
             await(steps.capabilities(), deadline(limits.offer), true);
             advance(HandoffPhases.Phase.OFFER);
@@ -100,7 +113,7 @@ public final class HandoffSourceFlow {
             advance(HandoffPhases.Phase.PREFLIGHT);
             await(steps.preflight(), deadline(limits.preparation), true);
             long preparation = deadline(limits.preparation);
-            advance(HandoffPhases.Phase.PREPARE);
+            advance(HandoffPhases.Phase.PREPARE); prepareRequested = true;
             await(steps.prepareParticipants(), preparation, true);
             advance(HandoffPhases.Phase.SAVE_AND_STOP); stopRequested = true;
             await(steps.saveAndStop(), preparation, true); operation.stopped();
@@ -123,7 +136,7 @@ public final class HandoffSourceFlow {
             try { await(steps.installedSuccessor(), deadline(limits.preparation), false); }
             catch (IOException lostInstallConfirmation) {
                 Message result = operation.query();
-                if (!result.ownsCurrentEpoch || result.currentEpoch != result.epoch || !result.installed || (result.state != COMMITTED && result.state != ROOM_READY)
+                if (!result.isCurrentAttempt || result.currentEpoch != result.epoch || !result.installed || (result.state != COMMITTED && result.state != ROOM_READY)
                         || result.epoch != answer.epoch) throw lostInstallConfirmation;
             }
             long startup = deadline(limits.startup);
@@ -132,12 +145,12 @@ public final class HandoffSourceFlow {
             try { room = await(steps.registeredSuccessorRoom(), startup, false); }
             catch (IOException unavailable) {
                 Message result = operation.query();
-                if (!result.ownsCurrentEpoch || result.currentEpoch != result.epoch || result.state != ROOM_READY || result.epoch != answer.epoch || result.room.isEmpty()) throw unavailable;
+                if (!result.isCurrentAttempt || result.currentEpoch != result.epoch || result.state != ROOM_READY || result.epoch != answer.epoch || result.room.isEmpty()) throw unavailable;
                 room = result.room;
             }
             // The control packet is a hint; registration is proved by the authority itself.
             Message ready = operation.query();
-            if (!ready.ownsCurrentEpoch || ready.currentEpoch != ready.epoch || ready.state != ROOM_READY || ready.epoch != answer.epoch || !room.equals(ready.room))
+            if (!ready.isCurrentAttempt || ready.currentEpoch != ready.epoch || ready.state != ROOM_READY || ready.epoch != answer.epoch || !room.equals(ready.room))
                 throw new IOException("Successor room is not registered for this attempt");
             advance(HandoffPhases.Phase.ROOM_REGISTERED); advance(HandoffPhases.Phase.READY);
             finish(Outcome.READY, room);
@@ -151,12 +164,16 @@ public final class HandoffSourceFlow {
                     return;
                 }
                 phases.confirmedAbort();
-                await(steps.stopAttemptWorkers(), deadline(limits.preparation), false);
+                stopWorkers();
                 await(steps.cleanupConfirmedAbort(), deadline(limits.preparation), false);
                 String room = "";
-                if (stopRequested) {
-                    HandoffSuccessorFlow.RegisteredRoom restored = await(steps.restoreSource(), deadline(limits.startup), false);
-                    operation.sourceRestored(restored.code, restored.proof); room = restored.code;
+                if (prepareRequested) {
+                    try {
+                        HandoffSuccessorFlow.RegisteredRoom restored = await(steps.restoreSource(), deadline(limits.startup), false);
+                        operation.sourceRestored(restored.code, restored.proof); room = restored.code;
+                    } catch (IOException failedRestore) {
+                        await(steps.stopFailedRestore(), deadline(limits.startup), false); throw failedRestore;
+                    }
                 }
                 finish(declined ? Outcome.DECLINED : Outcome.ABORTED, room);
             } catch (IOException | RuntimeException unresolved) {

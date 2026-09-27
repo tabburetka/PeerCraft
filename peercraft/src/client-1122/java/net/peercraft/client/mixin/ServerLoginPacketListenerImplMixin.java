@@ -54,4 +54,12 @@ public abstract class ServerLoginPacketListenerImplMixin {
     private UUID resolveAccountIdForThisConnection() {
         return PlayerIdentityRegistry.INSTANCE.get(this.networkManager.getRemoteAddress());
     }
+
+    @org.spongepowered.asm.mixin.injection.Inject(method = "processLoginStart", at = @At("HEAD"), cancellable = true)
+    private void peercraft$handoffAdmission(net.minecraft.network.login.client.CPacketLoginStart packet,
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        if (net.peercraft.network.p2p.P2PBridge.INSTANCE.handoffAdmissionClosed()) {
+            this.networkManager.closeChannel(new net.minecraft.util.text.TextComponentString("PeerCraft: host handoff in progress")); ci.cancel();
+        }
+    }
 }

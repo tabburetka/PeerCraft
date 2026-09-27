@@ -37,6 +37,15 @@ public class HostMigrationScreen extends GuiScreen {
     private LookupHostClient lookup;
     private volatile boolean started;
 
+    private String safeRoom;
+    private java.util.concurrent.CompletableFuture<Void> safeJoin;
+    public HostMigrationScreen(String room, java.util.concurrent.CompletableFuture<Void> join) {
+        this(new UUID(0, 0), false); safeRoom = room; safeJoin = join;
+    }
+    public void cancelSafeReconnect() {
+        exited = true; failed = true; if (lookup != null) lookup.stop();
+        if (safeJoin != null) safeJoin.cancel(false);
+    }
     public HostMigrationScreen(UUID successorAccountId, boolean amSuccessor) {
         this.successorAccountId = successorAccountId;
         this.amSuccessor = amSuccessor;
@@ -103,6 +112,7 @@ public class HostMigrationScreen extends GuiScreen {
     }
 
     private void startReconnect() {
+        if (safeRoom != null) { connectTo(safeRoom); return; }
         this.statusKey = "peercraft.handoff.migrating.waiting_for_host";
         this.lookup = new LookupHostClient();
         lookup.start(successorAccountId, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
@@ -151,12 +161,19 @@ public class HostMigrationScreen extends GuiScreen {
         this.mc.displayGuiScreen(new GuiConnecting(new GuiMainMenu(), this.mc, "127.0.0.1", port));
     }
 
+    private void leaveAttemptWorld() {
+        net.minecraft.server.MinecraftServer server = this.mc.getIntegratedServer();
+        if (server != null && successorLaunch != null && successorLaunch.ownsServer(server,
+                net.peercraft.client.handoff.WorldArchiver.worldDir(server))) leaveCurrentWorld();
+    }
+
     private void fail(String key) {
         if (failed || exited) return;
         this.failed = true;
+        if (safeJoin != null) safeJoin.completeExceptionally(new java.io.IOException(key));
         if (successorLaunch != null) successorLaunch.cancel();
         if (lookup != null) lookup.stop();
-        if (amSuccessor) leaveCurrentWorld();
+        if (amSuccessor) leaveAttemptWorld();
         this.statusKey = key;
         this.initGui();
     }

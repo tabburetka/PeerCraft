@@ -17,12 +17,13 @@ import java.util.concurrent.TimeoutException;
 /** A distinct packet family: v1 clients cannot interpret these probes as an offer. */
 public final class HandoffCapabilities {
     public static final byte MAGIC = (byte) 0xE7;
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
     public static final long SAFE_HANDOFF = 1L;
     public interface Sender { void send(InetSocketAddress peer, byte[] packet); }
     private static final int SIZE = 19;
     private final Sender sender;
-    private final long supported;
+    private volatile long supported;
+    public void enable(long features) { supported |= features; }
     private final Map<Long, Probe> pending = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
     private static final class Probe {

@@ -23,12 +23,7 @@ public final class NeoForgePlatform implements PeercraftPlatform {
         return FMLPaths.MODSDIR.get();
     }
 
-    /**
-     * Best-effort — mod-sync's runtime is Fabric-only for now (see the plan). NeoForge's
-     * {@link IModInfo} carries no reliable per-mod environment, so everything is reported as
-     * {@code "both"} and {@code nested} is left false; this is enough to keep the shared code
-     * compiling and to not crash if it's ever exercised.
-     */
+    /** Execution inventory includes loader-reported jar-in-jar parentage. */
     @Override
     public List<PlatformMod> getInstalledMods() {
         List<PlatformMod> out = new ArrayList<>();
@@ -36,6 +31,9 @@ public final class NeoForgePlatform implements PeercraftPlatform {
             // The mod's real jar on disk (a Connector-relocated top-level mod still has one).
             // A null / non-regular-file path means jar-in-jar'd or synthetic -> not shippable.
             Path jar = null;
+            var parent = info.getOwningFile().getFile().getDiscoveryAttributes().parent();
+            String parentId = parent == null ? "" : parent.getModInfos().stream()
+                    .map(IModInfo::getModId).sorted().findFirst().orElse("");
             try {
                 Path p = info.getOwningFile().getFile().getFilePath();
                 if (p != null && Files.isRegularFile(p) && p.getFileName().toString().endsWith(".jar")) {
@@ -51,7 +49,7 @@ public final class NeoForgePlatform implements PeercraftPlatform {
                     "both",
                     info.getModURL().map(Object::toString).orElse(""),
                     "",
-                    jar == null));
+                    parent != null || jar == null, parentId));
         }
         return out;
     }

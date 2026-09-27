@@ -50,6 +50,13 @@ public final class WorldArchiver {
         }
     }
 
+    private static final java.util.Map<MinecraftServer, Thread> closingThreads =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<MinecraftServer, Thread>());
+    public static void awaitClosed(MinecraftServer server, long timeoutMillis) throws IOException {
+        Thread thread = closingThreads.get(server);
+        if (thread == null) throw new IOException("Source server thread termination is not established");
+        net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(thread, timeoutMillis);
+    }
     private WorldArchiver() {
     }
 
@@ -86,7 +93,7 @@ public final class WorldArchiver {
         flush(server);
         java.util.concurrent.atomic.AtomicReference<Thread> serverThread = new java.util.concurrent.atomic.AtomicReference<>();
         net.peercraft.network.handoff.ServerThreadTasks.executeOn(server::execute, () -> {
-            serverThread.set(Thread.currentThread());
+            serverThread.set(Thread.currentThread()); closingThreads.put(server, Thread.currentThread());
             server.halt(false);
         });
         net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(serverThread.get(), stopTimeoutMillis);

@@ -141,6 +141,12 @@ public class P2PBridge {
             new net.peercraft.network.handoff.HandoffCapabilities(
                     (peer, packet) -> sendRawDatagram(peer.getAddress(), peer.getPort(), packet), 0L);
 
+    private volatile boolean handoffAdmissionClosed;
+    public void setHandoffAdmissionClosed(boolean closed) { handoffAdmissionClosed = closed; }
+    public boolean handoffAdmissionClosed() { return handoffAdmissionClosed; }
+    public void enableSafeHandoff() { handoffCapabilities.enable(net.peercraft.network.handoff.HandoffCapabilities.SAFE_HANDOFF); }
+    public String handoffAuthorityHost() throws IOException { return resolveRendezvousAddress().getHostAddress(); }
+
     public void requireHandoffCapabilities(java.util.Set<java.net.InetSocketAddress> participants) throws IOException {
         handoffCapabilities.require(participants, net.peercraft.network.handoff.HandoffCapabilities.SAFE_HANDOFF, 5_000);
     }
@@ -1419,6 +1425,7 @@ public class P2PBridge {
     }
 
     private HostConnection startNewHostConnection(long sessionId, PeerAddress peerAddress) {
+        if (handoffAdmissionClosed) return null;
         try {
             LOGGER.info("[P2PBridge] Подключаемся к локальному MC серверу 127.0.0.1:{} (сессия {}, пир {}:{})...", localMinecraftPort, sessionId, peerAddress.ip(), peerAddress.port());
             Socket mcSocket = new Socket("127.0.0.1", localMinecraftPort);

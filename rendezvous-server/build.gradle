@@ -16,6 +16,7 @@ application {
 dependencies {
 	implementation 'com.google.code.gson:gson:2.11.0'
 
+	testImplementation 'org.slf4j:slf4j-api:2.0.17'
 	testImplementation platform('org.junit:junit-bom:5.10.2')
 	testImplementation 'org.junit.jupiter:junit-jupiter'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -44,3 +45,12 @@ jar {
 		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
 	}
 }
+
+// Compile the production client codec in contract tests; never copy its wire logic.
+sourceSets.test.java.srcDir('../peercraft/src/main/java')
+sourceSets.test.java.include('net/peercraft/rendezvous/**', 'net/peercraft/network/handoff/HandoffAuthorityProtocol.java',
+    'net/peercraft/network/handoff/HandoffSourceFlow.java', 'net/peercraft/network/handoff/HandoffSuccessorFlow.java',
+    'net/peercraft/network/handoff/HandoffObserverFlow.java', 'net/peercraft/network/handoff/HandoffOperation.java',
+    'net/peercraft/network/handoff/HandoffJournal.java', 'net/peercraft/network/handoff/HandoffFiles.java',
+    'net/peercraft/network/handoff/HandoffPhases.java',
+    'net/peercraft/network/handoff/HandoffControlProtocol.java', 'net/peercraft/network/handoff/HandoffParticipant.java')

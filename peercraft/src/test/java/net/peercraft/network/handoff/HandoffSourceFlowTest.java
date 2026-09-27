@@ -22,7 +22,7 @@ class HandoffSourceFlowTest {
                 assertEquals(STAGED, authorityState); authorityState = COMMITTED;
             }
             if (m.type == ABORT && authorityState != UNKNOWN && authorityState != COMMITTED && authorityState != ROOM_READY) authorityState = ABORTED;
-            Message answer = new Message(REPLY); answer.ownsCurrentEpoch = true; answer.state = authorityState; answer.epoch = 1; answer.currentEpoch = 1;
+            Message answer = new Message(REPLY); answer.isCurrentAttempt = true; answer.ownsCurrentEpoch = authorityState != COMMITTED && authorityState != ROOM_READY; answer.state = authorityState; answer.epoch = 1; answer.currentEpoch = 1;
             answer.room = authorityState == ROOM_READY ? "NEXT" : m.type == RECOVERED ? "SOURCE" : "";
             if (m.type == RECOVERED) { answer.sourceRestored = true; answer.epoch = 0; answer.currentEpoch = 0; answer.ownsCurrentEpoch = true; }
             return answer;
@@ -58,7 +58,7 @@ class HandoffSourceFlowTest {
     }
     @Test void fullSequenceStopsOldSimulationBeforeCommitAndStart() throws Exception {
         assertEquals(HandoffSourceFlow.Outcome.READY, flow(new Steps(), false).start().get(3, TimeUnit.SECONDS));
-        assertEquals(Arrays.asList("capabilities", "consent", "preflight", "prepare", "save/stop", "archive", "transfer", "staging", "commit", "start", "installed", "registered", "terminal:READY"), events);
+        assertEquals(Arrays.asList("capabilities", "consent", "preflight", "prepare", "save/stop", "archive", "transfer", "staging", "commit", "start", "installed", "registered", "close workers", "terminal:READY"), events);
     }
     @Test void declineDoesNotFreezeOrStopPlayers() throws Exception {
         Steps steps = new Steps(); steps.consent = false;
@@ -73,6 +73,16 @@ class HandoffSourceFlowTest {
     }
     @Test void unknownCommitCannotStartCleanOrRestoreEitherCopy() throws Exception {
         assertEquals(HandoffSourceFlow.Outcome.UNKNOWN, flow(new Steps(), true).start().get(3, TimeUnit.SECONDS));
-        assertFalse(sourceRunning); assertFalse(events.contains("start")); assertFalse(events.contains("cleanup")); assertFalse(events.contains("restore"));
+        assertFalse(sourceRunning); assertFalse(events.contains("start")); assertFalse(events.contains("cleanup")); assertFalse(events.contains("restore")); assertTrue(events.contains("close workers"));
+    }
+    @Test void preparationFailureRestoresRoomEvenWhenSaveNeverStarted() throws Exception {
+        Steps steps = new Steps() {
+            public CompletableFuture<Void> prepareParticipants() {
+                events.add("prepare"); CompletableFuture<Void> result = new CompletableFuture<>();
+                result.completeExceptionally(new IOException("Participant disappeared")); return result;
+            }
+        };
+        assertEquals(HandoffSourceFlow.Outcome.ABORTED, flow(steps, false).start().get(3, TimeUnit.SECONDS));
+        assertFalse(events.contains("save/stop")); assertTrue(events.contains("restore")); assertTrue(sourceRunning);
     }
 }

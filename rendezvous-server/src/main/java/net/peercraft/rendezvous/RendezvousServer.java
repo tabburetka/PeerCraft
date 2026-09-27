@@ -44,9 +44,7 @@ public final class RendezvousServer {
     private final int port;
     private final RoomRegistry registry;
     private final HandoffRegistry handoffs;
-    private final java.util.concurrent.ThreadPoolExecutor handoffIo = new java.util.concurrent.ThreadPoolExecutor(
-            1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1000),
-            r -> { Thread t = new Thread(r, "handoff-journal"); t.setDaemon(true); return t; });
+    private final HandoffDispatch handoffIo;
     private final AccountService accountService;
     private volatile DatagramSocket socket;
     // Anonymous, unauthenticated poll (Phase 7, TYPE_ROOM_LIST) — anyone can ask, so it needs
@@ -81,6 +79,7 @@ public final class RendezvousServer {
     RendezvousServer(int port, LongSupplier clock, Path dataDir, boolean fakeMojang) {
         this.port = port;
         this.registry = new RoomRegistry(clock);
+        this.handoffIo = new HandoffDispatch(clock);
         try { this.handoffs = new HandoffRegistry(dataDir.resolve("handoffs"), clock); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
         this.accountService = new AccountService(dataDir.resolve("accounts.json"), fakeMojang, clock);
@@ -115,7 +114,8 @@ public final class RendezvousServer {
             sweeper.scheduleAtFixedRate(() -> {
                 try { handoffIo.execute(() -> { try { handoffs.maintenance(); } catch (IOException e) { logErr("Handoff retention failed"); } }); }
                 catch (java.util.concurrent.RejectedExecutionException ignored) { }
-            }, 1, 1, TimeUnit.DAYS);
+            }, 0, 1, TimeUnit.SECONDS);
+            sweeper.scheduleAtFixedRate(() -> log("Handoff " + handoffIo.metrics() + " " + handoffs.metrics()), 60, 60, TimeUnit.SECONDS);
             sweeper.scheduleAtFixedRate(accountService::maintenance, SWEEP_INTERVAL_SECONDS, SWEEP_INTERVAL_SECONDS, TimeUnit.SECONDS);
 
             byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
@@ -141,9 +141,10 @@ public final class RendezvousServer {
         if (data.length > 0 && data[0] == HandoffAuthorityProtocol.MAGIC) {
             HandoffAuthorityProtocol.Message request = HandoffAuthorityProtocol.decode(data, data.length);
             RendezvousProtocol.Address from = new RendezvousProtocol.Address(fromAddr, fromPort);
-            if (!roomListRateLimiter.allow(fromAddr)) return;
+            boolean trusted = handoffs.recognizes(request);
+            if (!handoffIo.ingress(fromAddr, trusted, request.sessionId, request.key, request.type)) return;
             try {
-                handoffIo.execute(() -> {
+                handoffIo.execute(request, trusted, () -> {
                     try {
                         // Source address routes the challenge; only knowledge of its random
                         // secret proves control. Matching IP/port alone does not authorize BEGIN.
