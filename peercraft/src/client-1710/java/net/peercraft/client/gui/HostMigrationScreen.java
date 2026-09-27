@@ -32,6 +32,8 @@ public class HostMigrationScreen extends GuiScreen {
 
     private volatile String statusKey = "peercraft.handoff.migrating.body";
     private volatile boolean failed;
+    private volatile boolean exited;
+    private net.peercraft.client.handoff.SuccessorLauncher.Launch successorLaunch;
     private LookupHostClient lookup;
     private volatile boolean started;
 
@@ -78,8 +80,9 @@ public class HostMigrationScreen extends GuiScreen {
         }
         net.peercraft.network.handoff.HandoffClientAgent agent = P2PBridge.INSTANCE.handoffClientAgent();
         this.statusKey = "peercraft.handoff.migrating.body";
-        net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
+        successorLaunch = net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
                 new net.peercraft.client.handoff.SuccessorLauncher.Done() {
+                    public boolean active() { return !failed && !exited; }
                     @Override
                     public void serverPublished() {
                         if (agent != null) {
@@ -91,6 +94,7 @@ public class HostMigrationScreen extends GuiScreen {
                     @Override
                     public void failed(String reasonKey) {
                         Minecraft.getMinecraft().func_152344_a(() -> {
+                            if (failed || exited) return;
                             fail(reasonKey);
                             PeerCraftUi.setScreen(Minecraft.getMinecraft(), HostMigrationScreen.this);
                         });
@@ -116,6 +120,7 @@ public class HostMigrationScreen extends GuiScreen {
     }
 
     private void connectTo(String roomCode) {
+        if (failed || exited) return;
         this.statusKey = "peercraft.handoff.migrating.body";
         leaveCurrentWorld();
         P2PBridge.INSTANCE.prepareForHandoffReconnect();
@@ -141,18 +146,25 @@ public class HostMigrationScreen extends GuiScreen {
     }
 
     private void enterWorld() {
+        if (failed || exited) return;
         int port = P2PBridge.INSTANCE.getProxyPort();
         this.mc.displayGuiScreen(new GuiConnecting(new GuiMainMenu(), this.mc, "127.0.0.1", port));
     }
 
     private void fail(String key) {
+        if (failed || exited) return;
+        this.failed = true;
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
         if (amSuccessor) leaveCurrentWorld();
         this.statusKey = key;
-        this.failed = true;
         this.initGui();
     }
 
     private void toTitle() {
+        exited = true;
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
         leaveCurrentWorld();
         PeerCraftUi.setScreen(this.mc, new GuiMainMenu());
     }

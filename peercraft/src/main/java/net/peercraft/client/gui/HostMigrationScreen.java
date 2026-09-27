@@ -39,6 +39,8 @@ public class HostMigrationScreen extends Screen {
 
     private volatile String statusKey = "peercraft.handoff.migrating.body";
     private volatile boolean failed;
+    private volatile boolean exited;
+    private net.peercraft.client.handoff.SuccessorLauncher.Launch successorLaunch;
     private LookupHostClient lookup;
     private volatile boolean started;
 
@@ -78,8 +80,9 @@ public class HostMigrationScreen extends Screen {
         // MIGRATE_OK reply below; it just needs to be grabbed before the field goes null.
         net.peercraft.network.handoff.HandoffClientAgent agent = P2PBridge.INSTANCE.handoffClientAgent();
         this.statusKey = "peercraft.handoff.migrating.body";
-        net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
+        successorLaunch = net.peercraft.client.handoff.SuccessorLauncher.launch(offer, zip,
                 new net.peercraft.client.handoff.SuccessorLauncher.Done() {
+                    public boolean active() { return !failed && !exited; }
                     @Override
                     public void serverPublished() {
                         // OpenToLanMixin is now registering our room; nothing else to do here —
@@ -93,6 +96,7 @@ public class HostMigrationScreen extends Screen {
                     @Override
                     public void failed(String reasonKey) {
                         Minecraft.getInstance().execute(() -> {
+                            if (failed || exited) return;
                             fail(reasonKey);
                             PeerCraftUi.setScreen(Minecraft.getInstance(), HostMigrationScreen.this);
                         });
@@ -118,6 +122,7 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void connectTo(String roomCode) {
+        if (failed || exited) return;
         this.statusKey = "peercraft.handoff.migrating.body";
         // Still nominally connected to the OLD host at this point (we've only been shown this
         // screen, not disconnected) — leave it first, both at the vanilla network layer and in
@@ -171,6 +176,7 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void enterWorld() {
+        if (failed || exited) return;
         int port = P2PBridge.INSTANCE.getProxyPort();
         ServerAddress address = new ServerAddress("127.0.0.1", port);
         ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, ServerData.Type.OTHER);
@@ -178,14 +184,20 @@ public class HostMigrationScreen extends Screen {
     }
 
     private void fail(String key) {
+        if (failed || exited) return;
+        this.failed = true;
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
         if (amSuccessor) leaveCurrentWorld();
         this.statusKey = key;
-        this.failed = true;
         this.clearWidgets();
         this.init();
     }
 
     private void toTitle() {
+        exited = true;
+        if (successorLaunch != null) successorLaunch.cancel();
+        if (lookup != null) lookup.stop();
         leaveCurrentWorld();
         //? if <26.2
         this.minecraft.setScreen(new TitleScreen());

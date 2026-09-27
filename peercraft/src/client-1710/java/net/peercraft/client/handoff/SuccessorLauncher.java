@@ -44,6 +44,20 @@ public final class SuccessorLauncher {
         void serverPublished();
 
         void failed(String reasonKey);
+
+        default boolean active() { return true; }
+    }
+
+    /** Cancellation prevents queued open/publish actions; the caller must also stop a server already opened. */
+    public static final class Launch implements Done {
+        private final net.peercraft.network.handoff.HandoffLaunchGuard guard =
+                new net.peercraft.network.handoff.HandoffLaunchGuard();
+        private final Done callback;
+        private Launch(Done callback) { this.callback = callback; }
+        public boolean active() { return guard.active() && callback.active(); }
+        public void cancel() { guard.finish(); }
+        public void serverPublished() { if (callback.active() && guard.finish()) callback.serverPublished(); }
+        public void failed(String reason) { if (callback.active() && guard.finish()) callback.failed(reason); }
     }
 
     private SuccessorLauncher() {
@@ -105,15 +119,19 @@ public final class SuccessorLauncher {
         if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
         return staging;
     }
-    public static void startPlaced(WorldTargetPlan plan, HandoffProtocol.Offer offer,
-            net.peercraft.network.handoff.HandoffOperation operation, java.util.UUID sessionId, Done done) {
+    public static Launch startPlaced(WorldTargetPlan plan, HandoffProtocol.Offer offer,
+            net.peercraft.network.handoff.HandoffOperation operation, java.util.UUID sessionId, Done callback) {
+        Launch done = new Launch(callback);
         background(() -> {
+            if (!done.active()) return;
             try { operation.requireCommitted(); finish(plan.root.relativize(plan.target).toString(), offer, done, sessionId); }
             catch (IOException | RuntimeException e) { done.failed("peercraft.handoff.abort.transfer_failed"); }
         });
+        return done;
     }
 
-    public static void launch(HandoffProtocol.Offer offer, Path worldZip, Done done) {
+    public static Launch launch(HandoffProtocol.Offer offer, Path worldZip, Done callback) {
+        Launch done = new Launch(callback);
         Minecraft mc = Minecraft.getMinecraft();
         background(() -> {
             Path staging = null;
@@ -147,12 +165,14 @@ public final class SuccessorLauncher {
                 done.failed("peercraft.handoff.abort.transfer_failed");
             }
         });
+        return done;
     }
 
     private static void finish(String levelId, HandoffProtocol.Offer offer, Done done) {
         finish(levelId, offer, done, new java.util.UUID(0, 0));
     }
     private static void finish(String levelId, HandoffProtocol.Offer offer, Done done, java.util.UUID sessionId) {
+        if (!done.active()) return;
         if (levelId == null) {
             done.failed("peercraft.handoff.abort.transfer_failed");
             return;
@@ -167,6 +187,7 @@ public final class SuccessorLauncher {
         net.peercraft.network.p2p.P2PBridge.INSTANCE.prepareHandoffRoom(sessionId, offer.offerId());
         mc.func_152344_a(() -> openThenPublish(mc, levelId, new Done() {
             private final java.util.concurrent.atomic.AtomicBoolean terminal = new java.util.concurrent.atomic.AtomicBoolean();
+            public boolean active() { return !terminal.get() && done.active(); }
             public void serverPublished() {
                 net.peercraft.network.p2p.P2PBridge.INSTANCE.awaitHandoffRoom(sessionId, offer.offerId(),
                         () -> { if (terminal.compareAndSet(false, true)) done.serverPublished(); },
@@ -289,11 +310,12 @@ public final class SuccessorLauncher {
     // ---- world open + publish ----
 
     private static void openThenPublish(Minecraft mc, String levelId, Done done) {
+        if (!done.active()) return;
         mc.launchIntegratedServer(levelId, levelId, null);
 
         Thread wait = new Thread(() -> {
             long deadline = System.currentTimeMillis() + 180_000L;
-            while (System.currentTimeMillis() < deadline) {
+            while (System.currentTimeMillis() < deadline && done.active()) {
                 IntegratedServer server = mc.getIntegratedServer();
                 if (server != null && server.isServerRunning() && mc.thePlayer != null) {
                     mc.func_152344_a(() -> publish(server, done));
@@ -313,6 +335,7 @@ public final class SuccessorLauncher {
     }
 
     private static void publish(IntegratedServer server, Done done) {
+        if (!done.active()) return;
         try {
             WorldSettings.GameType gameType = server.getGameType();
             String returned = server.shareToLAN(gameType, false);
