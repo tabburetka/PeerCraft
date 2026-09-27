@@ -62,7 +62,15 @@ public final class SuccessorLauncher {
     private SuccessorLauncher() {
     }
 
-    public static Path savesDirectory() { return Minecraft.getInstance().getLevelSource().getBaseDir(); }
+    public static Path savesDirectory() {
+        Minecraft minecraft = Minecraft.getInstance();
+        // Fabric calls client entrypoints while Minecraft itself is still being constructed.
+        // The level source is initialized later, but the game directory already exists.
+        if (minecraft.getLevelSource() == null) {
+            return minecraft.gameDirectory.toPath().resolve("saves");
+        }
+        return minecraft.getLevelSource().getBaseDir();
+    }
     public static final class TargetChoice {
         public final Path directory;
         public final boolean keepBackup;
