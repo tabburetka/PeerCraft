@@ -5,6 +5,9 @@
   "peercraft.gui.common.unlicensed_badge": "(offline)",
 
   "peercraft.gui.account.title": "PeerCraft — Account",
+  "peercraft.gui.account.subtitle": "Account",
+  "peercraft.gui.account.licensed_status": "Licensed account",
+  "peercraft.gui.account.unlicensed_status": "Unlicensed account",
   "peercraft.gui.account.login_licensed": "Log in with Mojang (licensed)",
   "peercraft.gui.account.register": "Register",
   "peercraft.gui.account.login_by_code": "Log in with friend code",
@@ -55,6 +58,8 @@
   "peercraft.gui.friend_requests.empty": "No incoming requests",
 
   "peercraft.gui.join.title": "PeerCraft — Join by Code",
+  "peercraft.gui.join.subtitle": "Join by code",
+  "peercraft.gui.join.code_help": "Ask the host for their room code.",
   "peercraft.gui.join.room_code_field": "Room code",
   "peercraft.gui.join.room_code_hint": "Room code",
   "peercraft.gui.join.connect": "Connect",
@@ -302,5 +307,6 @@
   "peercraft.handoff.chat.accepted": "%s accepted — sending them the world…",
   "peercraft.handoff.chat.declined": "%s declined to take over.",
   "peercraft.handoff.chat.done": "Handoff to %s complete — you can leave now.",
-  "peercraft.handoff.chat.aborted": "Handoff to %s was cancelled."
+  "peercraft.handoff.chat.aborted": "Handoff to %s was cancelled.",
+  "peercraft.gui.progress_notice.open": "About your progress"
 }

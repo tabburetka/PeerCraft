@@ -5,6 +5,9 @@
   "peercraft.gui.common.unlicensed_badge": "(офлайн)",
 
   "peercraft.gui.account.title": "PeerCraft — аккаунт",
+  "peercraft.gui.account.subtitle": "Аккаунт",
+  "peercraft.gui.account.licensed_status": "Лицензионный аккаунт",
+  "peercraft.gui.account.unlicensed_status": "Без лицензии",
   "peercraft.gui.account.login_licensed": "Войти через Mojang (лицензия)",
   "peercraft.gui.account.register": "Зарегистрироваться",
   "peercraft.gui.account.login_by_code": "Войти по коду дружбы",
@@ -55,6 +58,8 @@
   "peercraft.gui.friend_requests.empty": "Нет входящих заявок",
 
   "peercraft.gui.join.title": "PeerCraft — присоединиться по коду",
+  "peercraft.gui.join.subtitle": "Присоединиться по коду",
+  "peercraft.gui.join.code_help": "Попросите код комнаты у хоста.",
   "peercraft.gui.join.room_code_field": "Код комнаты",
   "peercraft.gui.join.room_code_hint": "Код комнаты",
   "peercraft.gui.join.connect": "Подключиться",
@@ -302,5 +307,6 @@
   "peercraft.handoff.chat.accepted": "%s согласился — отправляем ему мир…",
   "peercraft.handoff.chat.declined": "%s отказался принять хостинг.",
   "peercraft.handoff.chat.done": "Передача игроку %s завершена — можно выходить.",
-  "peercraft.handoff.chat.aborted": "Передача игроку %s отменена."
+  "peercraft.handoff.chat.aborted": "Передача игроку %s отменена.",
+  "peercraft.gui.progress_notice.open": "О сохранности прогресса"
 }

@@ -95,12 +95,17 @@ final class SteampunkSettingsTheme {
 
     static Button action(int x, int y, int width, int height, Component message,
                          Button.OnPress onPress, boolean primary) {
-        return action(x, y, width, height, message, onPress, primary, message);
+        return action(x, y, width, height, message, onPress, primary, null);
     }
 
     static Button action(int x, int y, int width, int height, Component message,
                          Button.OnPress onPress, boolean primary, Component narrationLabel) {
         return new Action(x, y, width, height, message, onPress, primary, narrationLabel);
+    }
+
+    /** Reuses an existing button's callback and state, including asynchronous login updates. */
+    static Button decorate(Button original, int x, int y, int width, int height, boolean primary) {
+        return new DecoratedAction(original, x, y, width, height, primary);
     }
 
     private static int outline(Button button) {
@@ -144,7 +149,7 @@ final class SteampunkSettingsTheme {
         }
     }
 
-    private static final class Action extends Button {
+    private static class Action extends Button {
         private final boolean primary;
         private final Component narrationLabel;
 
@@ -157,7 +162,7 @@ final class SteampunkSettingsTheme {
 
         @Override
         protected MutableComponent createNarrationMessage() {
-            return wrapDefaultNarrationMessage(this.narrationLabel);
+            return wrapDefaultNarrationMessage(this.narrationLabel == null ? getMessage() : this.narrationLabel);
         }
 
         @Override
@@ -165,6 +170,67 @@ final class SteampunkSettingsTheme {
             buttonFrame(graphics, this, this.primary);
             centered(graphics, Minecraft.getInstance().font, getMessage(), getX() + 6, getY(),
                     getWidth() - 12, getHeight(), this.active ? this.primary ? CONTROL : TEXT : MUTED, false);
+        }
+    }
+
+    private static final class DecoratedAction extends Action {
+        private final Button original;
+        private final boolean copyIcon;
+
+        private DecoratedAction(Button original, int x, int y, int width, int height, boolean primary) {
+            super(x, y, width, height, original.getMessage(), button -> original.onPress(), primary, null);
+            this.original = original;
+            this.copyIcon = original.getWidth() == 14 && original.getHeight() == 14;
+            synchronizeState();
+        }
+
+        private void synchronizeState() {
+            this.active = this.original.active;
+            this.visible = this.original.visible;
+            setMessage(this.original.getMessage());
+            setTooltip(this.original.getTooltip());
+        }
+
+        @Override
+        public void onPress() {
+            synchronizeState();
+            if (this.active && this.visible) {
+                super.onPress();
+                synchronizeState();
+            }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            synchronizeState();
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        @Override
+        public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+            synchronizeState();
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            synchronizeState();
+            if (this.copyIcon) {
+                buttonFrame(graphics, this, false);
+                int x = getX() + (getWidth() - 9) / 2;
+                int y = getY() + (getHeight() - 10) / 2;
+                frame(graphics, x, y, 7, 8, CONTROL, this.active ? TEXT : MUTED);
+                frame(graphics, x + 2, y + 2, 7, 8, CONTROL, this.active ? TEXT : MUTED);
+            } else {
+                super.renderWidget(graphics, mouseX, mouseY, partialTick);
+            }
+        }
+
+        @Override
+        protected MutableComponent createNarrationMessage() {
+            return this.copyIcon
+                    ? wrapDefaultNarrationMessage(Component.translatable("peercraft.gui.account.copy_code_tooltip"))
+                    : super.createNarrationMessage();
         }
     }
 
