@@ -455,4 +455,20 @@ class RoomRegistryTest {
                 r.join(room.code(), addr("127.0.0.1", 2000), java.util.Optional.empty(), (a,b) -> false));
     }
 
+    @Test void readyUnlocksReturnedRoomWithoutUnlockingANewerAttempt() throws Exception {
+        RoomRegistry r = new RoomRegistry();
+        RoomRegistry.Registered original = (RoomRegistry.Registered) r.register(addr("127.0.0.1", 1000), 4, 0, java.util.Optional.empty(), false);
+        RoomRegistry.Registered successor = (RoomRegistry.Registered) r.register(addr("127.0.0.2", 1000), 4, 0, java.util.Optional.empty(), false);
+        r.suspendForHandoff(original.code(), "first");
+        r.resumeAfterHandoff("first");
+        r.suspendForHandoff(successor.code(), "return");
+        r.resumeAfterHandoff("return");
+        assertInstanceOf(RoomRegistry.Matched.class,
+                r.join(original.code(), addr("127.0.0.3", 2000), java.util.Optional.empty(), (a,b) -> false));
+        r.suspendForHandoff(original.code(), "new");
+        r.resumeAfterHandoff("first");
+        assertInstanceOf(RoomRegistry.JoinRejected.class,
+                r.join(original.code(), addr("127.0.0.4", 2001), java.util.Optional.empty(), (a,b) -> false));
+    }
+
 }

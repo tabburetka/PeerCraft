@@ -69,6 +69,10 @@ final class RoomRegistry {
     }
     void suspendForHandoff(String code, String attempt) { handoffSuspended.put(code, attempt); }
     void resumeAfterHandoff(String code, String attempt) { handoffSuspended.remove(code, attempt); }
+    void resumeAfterHandoff(String attempt) {
+        for (Map.Entry<String, String> entry : handoffSuspended.entrySet())
+            handoffSuspended.remove(entry.getKey(), attempt);
+    }
 
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
     private final LongSupplier clock;

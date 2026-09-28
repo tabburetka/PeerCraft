@@ -157,6 +157,9 @@ public final class RendezvousServer {
                                 && ownsRoom && request.room.equals(reply.room)) registry.suspendForHandoff(reply.room, request.sessionId + ":" + request.offerId);
                         if (request.type == HandoffAuthorityProtocol.ABORT && reply.state == HandoffAuthorityProtocol.ABORTED)
                             registry.resumeAfterHandoff(reply.room, request.sessionId + ":" + request.offerId);
+                        if (request.type == HandoffAuthorityProtocol.READY && reply.state == HandoffAuthorityProtocol.ROOM_READY
+                                && reply.isCurrentAttempt)
+                            registry.resumeAfterHandoff(request.sessionId + ":" + request.offerId);
                         send(socket, HandoffAuthorityProtocol.encode(reply), from);
                     } catch (IOException | RuntimeException e) { logErr("Handoff journal operation failed: " + e.getClass().getSimpleName()); }
                 });
