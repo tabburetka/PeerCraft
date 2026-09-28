@@ -62,7 +62,7 @@ public abstract class ServerLoginPacketListenerImplMixin {
     @org.spongepowered.asm.mixin.injection.Inject(method = "handleHello", at = @At("HEAD"), cancellable = true)
     private void peercraft$handoffAdmission(net.minecraft.network.protocol.login.ServerboundHelloPacket packet,
             org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
-        if (net.peercraft.network.p2p.P2PBridge.INSTANCE.handoffAdmissionClosed()) {
+        if (net.peercraft.network.p2p.P2PBridge.INSTANCE.handoffAdmissionClosed() && !this.connection.isMemoryConnection()) {
             this.connection.disconnect(new net.minecraft.network.chat.TextComponent("PeerCraft: host handoff in progress")); ci.cancel();
         }
     }
