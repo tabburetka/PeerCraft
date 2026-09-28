@@ -155,6 +155,7 @@ public final class HandoffSourceFlow {
             advance(HandoffPhases.Phase.ROOM_REGISTERED); advance(HandoffPhases.Phase.READY);
             finish(Outcome.READY, room);
         } catch (IOException | RuntimeException failed) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Source failed in phase {}", phases.phase(), failed);
             if (committed) { finish(Outcome.FAILED_AFTER_COMMIT, ""); return; }
             try {
                 if (!operation.abort()) {
