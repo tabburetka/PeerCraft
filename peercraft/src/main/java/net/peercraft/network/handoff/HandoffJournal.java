@@ -16,7 +16,7 @@ public final class HandoffJournal {
     public byte[] digest = new byte[64];
     public Phase phase;
     public String source = "", archive = "", staging = "", target = "";
-    public String role = "", authorityHost = "", backup = "";
+    public String role = "", authorityHost = "", backup = "", successorName = "";
     public int authorityPort;
     public boolean keepBackup;
     private final Path file;
@@ -49,12 +49,13 @@ public final class HandoffJournal {
         Files.createDirectories(file.toAbsolutePath().getParent());
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(bytes)) {
-            out.writeInt(0x50434834); out.writeLong(session.getMostSignificantBits()); out.writeLong(session.getLeastSignificantBits());
+            out.writeInt(0x50434835); out.writeLong(session.getMostSignificantBits()); out.writeLong(session.getLeastSignificantBits());
             out.writeLong(offer); out.writeLong(epoch); out.write(key); out.writeUTF(phase.name());
             out.writeUTF(source); out.writeUTF(archive); out.writeUTF(staging); out.writeUTF(target);
             if (digest == null || digest.length != 64) throw new IOException("Invalid snapshot digest");
             out.write(digest);
             out.writeUTF(role); out.writeUTF(authorityHost); out.writeInt(authorityPort); out.writeUTF(backup); out.writeBoolean(keepBackup);
+            out.writeUTF(successorName);
         }
         Path tmp = Files.createTempFile(file.toAbsolutePath().getParent(), ".handoff-journal-", ".tmp");
         try {
@@ -71,16 +72,17 @@ public final class HandoffJournal {
         HandoffFiles.forceDirectory(file.toAbsolutePath().getParent());
         try (DataInputStream in = new DataInputStream(Files.newInputStream(file))) {
             int format = in.readInt();
-            if (format != 0x50434832 && format != 0x50434833 && format != 0x50434834) throw new IOException("Unknown handoff journal");
+            if (format < 0x50434832 || format > 0x50434835) throw new IOException("Unknown handoff journal");
             UUID session = new UUID(in.readLong(), in.readLong()); long offer = in.readLong(), epoch = in.readLong();
             byte[] key = new byte[32]; in.readFully(key);
             HandoffJournal j = new HandoffJournal(file, session, offer, epoch, key);
             j.phase = Phase.valueOf(in.readUTF()); j.source = in.readUTF(); j.archive = in.readUTF();
             j.staging = in.readUTF(); j.target = in.readUTF();
             if (format >= 0x50434833) in.readFully(j.digest);
-            if (format == 0x50434834) {
+            if (format >= 0x50434834) {
                 j.role = in.readUTF(); j.authorityHost = in.readUTF(); j.authorityPort = in.readInt(); j.backup = in.readUTF(); j.keepBackup = in.readBoolean();
             }
+            if (format >= 0x50434835) j.successorName = in.readUTF();
             if (in.read() != -1) throw new IOException("Trailing handoff journal data"); return j;
         } catch (RuntimeException e) { throw new IOException("Corrupt handoff journal", e); }
     }

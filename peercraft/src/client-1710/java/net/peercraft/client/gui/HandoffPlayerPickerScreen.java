@@ -176,7 +176,7 @@ public class HandoffPlayerPickerScreen extends GuiScreen implements GuiYesNoCall
             @Override public void onStatus(String messageKey) { status.onStatus(messageKey); }
         };
 
-        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), offer, callbacks);
+        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), name, offer, callbacks);
         if (!session) {
             status.onAborted("peercraft.handoff.abort.unknown");
         }

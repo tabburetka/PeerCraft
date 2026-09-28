@@ -39,12 +39,20 @@ class HandoffNetworkRecoveryTest {
         public void close() throws Exception { socket.close(); reader.join(2000); assertFalse(reader.isAlive()); }
     }
     @Test void lostCommitReplyRestoresStaleWarningWithoutGivingSourceOwnership() throws Exception {
-        HandoffJournal j = journal("SOURCE"); j.advance(HandoffJournal.Phase.COMMIT_SENT);
+        HandoffJournal j = journal("SOURCE"); j.successorName = "zzz"; j.advance(HandoffJournal.Phase.COMMIT_SENT);
         try (Authority authority = new Authority(COMMITTED, false, j.digest)) {
             j.authorityPort = authority.socket.getLocalPort(); j.save();
             HandoffNetworkRecovery.recover(j, root.resolve("saves"), (path, sid, epoch, key) -> fail("Source cannot receive a grant"), true);
             assertEquals(HandoffJournal.Phase.COMMITTED, HandoffJournal.read(j.path()).phase);
-            assertTrue(PeercraftWorldMeta.loadOrNull(Paths.get(j.source)).isStaleAfterHandoff());
+            PeercraftWorldMeta marked = PeercraftWorldMeta.loadOrNull(Paths.get(j.source));
+            assertTrue(marked.isStaleAfterHandoff());
+            assertEquals("zzz", marked.handedOffTo());
+            long transferredAt = marked.handedOffAt();
+            HandoffNetworkRecovery.recover(HandoffJournal.read(j.path()), root.resolve("saves"),
+                    (path, sid, epoch, key) -> fail("Source cannot receive a grant"), true);
+            PeercraftWorldMeta again = PeercraftWorldMeta.loadOrNull(Paths.get(j.source));
+            assertEquals("zzz", again.handedOffTo());
+            assertEquals(transferredAt, again.handedOffAt());
         }
     }
     @Test void unknownOutcomeRetainsSnapshotAndExistingWorld() throws Exception {
@@ -59,6 +67,16 @@ class HandoffNetworkRecoveryTest {
             assertEquals(HandoffJournal.Phase.VERIFIED, HandoffJournal.read(j.path()).phase);
         }
     }
+    @Test void legacyRecoveryDoesNotEraseKnownRecipientOrTransferTime() throws Exception {
+        HandoffJournal j = journal("SOURCE");
+        Path world = Paths.get(j.source);
+        Files.writeString(world.resolve(PeercraftWorldMeta.FILE_NAME),
+                "{\"worldId\":\"fixture\",\"handedOffAt\":200,\"handedOffTo\":\"zzz\",\"lastBecameHostAt\":100}");
+        PeercraftWorldMeta.markHandedOff(world, "");
+        PeercraftWorldMeta meta = PeercraftWorldMeta.loadOrNull(world);
+        assertEquals("zzz", meta.handedOffTo());
+        assertEquals(200, meta.handedOffAt());
+    }
     @Test void confirmedAbortDeletesOnlyThisAttemptsScratch() throws Exception {
         HandoffJournal j = journal("SUCCESSOR"); String attempt = j.session + "-" + Long.toHexString(j.offer);
         Path staging = Files.createDirectories(root.resolve("saves/.peercraft-handoff-staging-" + attempt));
@@ -72,8 +90,26 @@ class HandoffNetworkRecoveryTest {
         }
     }
     @Test void journalPersistsNativeRecoveryParameters() throws Exception {
-        HandoffJournal j = journal("SUCCESSOR"); j.authorityPort = 1234; j.backup = "backup"; j.keepBackup = true; j.save();
+        HandoffJournal j = journal("SUCCESSOR"); j.authorityPort = 1234; j.backup = "backup"; j.keepBackup = true;
+        j.successorName = "zzz"; j.save();
         HandoffJournal read = HandoffJournal.read(j.path()); assertEquals(j.role, read.role); assertEquals(j.authorityHost, read.authorityHost);
-        assertEquals(1234, read.authorityPort); assertEquals("backup", read.backup); assertTrue(read.keepBackup); assertArrayEquals(j.digest, read.digest);
+        assertEquals(1234, read.authorityPort); assertEquals("backup", read.backup); assertTrue(read.keepBackup);
+        assertEquals("zzz", read.successorName); assertArrayEquals(j.digest, read.digest);
+    }
+    @Test void olderJournalWithoutRecipientRemainsReadable() throws Exception {
+        HandoffJournal j = journal("SOURCE");
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(Files.newOutputStream(j.path()))) {
+            out.writeInt(0x50434834);
+            out.writeLong(j.session.getMostSignificantBits()); out.writeLong(j.session.getLeastSignificantBits());
+            out.writeLong(j.offer); out.writeLong(j.epoch); out.write(j.key); out.writeUTF(j.phase.name());
+            out.writeUTF(j.source); out.writeUTF(j.archive); out.writeUTF(j.staging); out.writeUTF(j.target);
+            out.write(j.digest); out.writeUTF(j.role); out.writeUTF(j.authorityHost);
+            out.writeInt(j.authorityPort); out.writeUTF(j.backup); out.writeBoolean(j.keepBackup);
+        }
+        HandoffJournal old = HandoffJournal.read(j.path());
+        assertEquals("SOURCE", old.role);
+        assertEquals("", old.successorName);
+        old.save();
+        assertEquals("", HandoffJournal.read(j.path()).successorName);
     }
 }

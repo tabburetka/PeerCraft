@@ -120,7 +120,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
         }
     }
     /** Called by the actual player picker instead of starting the legacy coordinator. */
-    public synchronized boolean begin(Object server, PeerAddress chosen, HandoffProtocol.Offer offer, HandoffCoordinator.Callbacks callbacks) {
+    public synchronized boolean begin(Object server, PeerAddress chosen, String successorName, HandoffProtocol.Offer offer, HandoffCoordinator.Callbacks callbacks) {
         if (current != null || server == null || !bridge.isHostingViaRendezvous()) return false;
         try {
             Path source = SafeHandoffPlatform.INSTANCE.worldPath(server);
@@ -130,6 +130,9 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             long epoch = grant == null ? 0 : grant.epoch;
             HandoffJournal journal = new HandoffJournal(journalPath(sid, offer.offerId()), sid, offer.offerId(), epoch, hostKey);
             journal.role = "SOURCE"; journal.source = source.toString(); journal.authorityHost = bridge.handoffAuthorityHost();
+            if (successorName == null || successorName.trim().isEmpty() || successorName.length() > 128)
+                throw new IOException("Successor display name is unavailable");
+            journal.successorName = successorName;
             journal.authorityPort = net.peercraft.config.PeerCraftConfig.rendezvousPort();
             Context c = new Context(offer, journal, true, false); c.initialEpoch = epoch;
             c.callbacks = callbacks; c.sourceServer = server; c.sourcePath = source;
@@ -226,7 +229,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 }
                 public CompletableFuture<byte[]> verifiedStaging() { return poll(c, HandoffAuthorityProtocol.STAGED).thenApply(m -> m.digest); }
                 public void committed(long epoch) {
-                    PeercraftWorldMeta.markHandedOff(c.sourcePath, c.offer.worldLabel());
+                    PeercraftWorldMeta.markHandedOff(c.sourcePath, c.journal.successorName);
                     c.send(successor, START, new byte[0]);
                 }
                 public CompletableFuture<Void> installedSuccessor() { return poll(c, HandoffAuthorityProtocol.INSTALLED).thenApply(m -> null); }

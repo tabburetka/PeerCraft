@@ -52,7 +52,7 @@ public final class PeerCraftUi {
     }
 
     /** "12.3 MB" / "512 KB" / "900 B" — matches ModSyncProgressScreen's humanSize. */
-    static String humanSize(long b) {
+    public static String humanSize(long b) {
         if (b < 1024) return b + " B";
         double kb = b / 1024.0;
         if (kb < 1024) return String.format("%.0f KB", kb);
