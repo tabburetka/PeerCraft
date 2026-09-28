@@ -202,10 +202,16 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                         if (answer.state != HandoffAuthorityProtocol.PENDING || !answer.isCurrentAttempt) throw new IOException("Room quiesce failed");
                         bridge.setHandoffAdmissionClosed(true); requireSameParticipants(c); bridge.prepareSourceStop(c.offer.offerId()); c.frozen = true;
                         for (Peer p : c.peers.values()) c.send(p, PREPARE, new byte[0]);
-                        for (Peer p : c.peers.values()) p.prepared.get(30, TimeUnit.SECONDS); return null;
+                        return null;
                     });
                 }
-                public CompletableFuture<Void> saveAndStop() { return c.io.submit(() -> { SafeHandoffPlatform.INSTANCE.saveAndStop(c.sourceServer); return null; }); }
+                public CompletableFuture<Void> saveAndStop() { return c.io.submit(() -> {
+                    SafeHandoffPlatform.INSTANCE.saveAndStop(c.sourceServer);
+                    // The server must be stopped before waiting for a client that may still
+                    // be on a death screen. Otherwise it keeps ticking for up to 30 seconds.
+                    for (Peer p : c.peers.values()) p.prepared.get(30, TimeUnit.SECONDS);
+                    return null;
+                }); }
                 public CompletableFuture<HandoffSourceFlow.Snapshot> archiveClosedWorld() {
                     return c.io.submit(() -> {
                         c.identity.prepare(c.sourcePath);
