@@ -18,7 +18,8 @@ public final class WorldArchiveFiles {
         String rel = root.relativize(path).toString().replace('\\', '/');
         String first = rel.split("/", 2)[0];
         return rel.equals("session.lock") || first.equals(".peercraft-handoff-install") || first.equals(".peercraft-backup") || first.equals(".peercraft-player-migration")
-                || first.equals(".peercraft-handoff-tmp") || first.startsWith(".peercraft-handoff-staging-");
+                || first.equals(".peercraft-handoff-tmp") || first.startsWith(".peercraft-handoff-staging-")
+                || first.startsWith(".peercraft-owner-");
     }
 
     public static void write(final Path root, final ZipOutputStream zip) throws IOException {

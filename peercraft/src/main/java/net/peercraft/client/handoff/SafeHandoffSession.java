@@ -66,6 +66,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
         volatile Boolean consentDecision;
         Object sourceServer;
         Path sourcePath;
+        UUID originalOwner;
         LocalPlayerIdentity.ArchiveIdentity identity;
         HandoffCoordinator.Callbacks callbacks;
         Context(HandoffProtocol.Offer offer, HandoffJournal journal, boolean source, boolean successor) throws IOException {
@@ -133,6 +134,9 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             Context c = new Context(offer, journal, true, false); c.initialEpoch = epoch;
             c.callbacks = callbacks; c.sourceServer = server; c.sourcePath = source;
             c.identity = LocalPlayerIdentity.captureForArchive(source);
+            c.originalOwner = HandoffOwnerPolicy.read(source);
+            if (c.originalOwner == null) c.originalOwner = LocalPlayerIdentity.current();
+            if (c.originalOwner == null) throw new IOException("Source owner UUID is unavailable");
             byte[] successorKey = HandoffAuthorityClient.newKey(), observerKey = HandoffAuthorityClient.newKey();
             for (P2PBridge.HandoffCandidate player : bridge.connectedJoiners()) {
                 boolean successor = player.peer().equals(chosen);
@@ -202,6 +206,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 public CompletableFuture<HandoffSourceFlow.Snapshot> archiveClosedWorld() {
                     return c.io.submit(() -> {
                         c.identity.prepare(c.sourcePath);
+                        HandoffOwnerPolicy.write(c.sourcePath, c.originalOwner);
                         WorldArchiver.Result archive = WorldArchiver.archiveClosed(c.sourcePath, journals(), c.journal.session + "-" + Long.toHexString(c.offer.offerId()));
                         c.archive = archive.zip(); c.journal.archive = c.archive.toString(); c.journal.digest = archive.sha512(); c.journal.save();
                         return new HandoffSourceFlow.Snapshot(archive.zip(), archive.sha512());

@@ -14,6 +14,9 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
+import net.peercraft.client.handoff.HandoffOwnerPolicy;
+import net.peercraft.client.handoff.WorldArchiver;
+import java.io.IOException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
@@ -55,6 +58,10 @@ public abstract class OpenToLanMixin {
         }
 
         IntegratedServer server = (IntegratedServer) (Object) this;
+        try {
+            if (HandoffOwnerPolicy.read(WorldArchiver.worldDir(server)) != null)
+                server.getPlayerList().setGameType(null);
+        } catch (IOException invalid) { throw new IllegalStateException("Invalid handoff owner record", invalid); }
         LOGGER.info("[PeerCraft P2P] Мир открыт для сети на порту {}", lanPort);
 
         server.setOnlineMode(!PeerCraftHostOptions.allowUnlicensedPlayers);

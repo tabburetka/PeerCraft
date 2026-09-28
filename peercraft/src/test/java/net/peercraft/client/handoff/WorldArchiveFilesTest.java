@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -52,6 +53,17 @@ class WorldArchiveFilesTest {
         } finally {
             Files.deleteIfExists(external);
         }
+    }
+
+    @Test void keepsOriginalOwnerInTheTransferredSnapshot() throws Exception {
+        UUID original = UUID.randomUUID();
+        HandoffOwnerPolicy.write(world, original);
+        assertEquals(original, HandoffOwnerPolicy.read(world));
+        assertEquals(original, HandoffOwnerPolicy.read(world));
+        assertTrue(archive().containsKey("peercraft-handoff-owner.txt"));
+        assertThrows(IOException.class, () -> HandoffOwnerPolicy.write(world, UUID.randomUUID()));
+        Files.writeString(world.resolve("peercraft-handoff-owner.txt"), "invalid");
+        assertThrows(IOException.class, () -> HandoffOwnerPolicy.read(world));
     }
 
     private void put(String name) throws IOException {

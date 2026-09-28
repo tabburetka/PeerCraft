@@ -125,6 +125,7 @@ public final class SuccessorLauncher {
         Path staging = plan.root.resolve(".peercraft-handoff-staging-" + attemptId);
         net.peercraft.network.handoff.WorldInstall.unpack(archive, staging, WorldTargetPlan.UNPACK_LIMIT);
         net.peercraft.network.handoff.SnapshotValidation.validate(staging);
+        if (HandoffOwnerPolicy.read(staging) == null) throw new IOException("Snapshot has no handoff owner");
         PeercraftWorldMeta meta = PeercraftWorldMeta.loadOrNull(staging);
         if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
         return staging;
