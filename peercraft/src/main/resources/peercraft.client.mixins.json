@@ -5,6 +5,8 @@
 	"client": [
       "ExampleClientMixin",
 		"OpenToLanMixin",
+		"HandoffPlayerListPermissionsMixin",
+		"HandoffServerPermissionsMixin",
 		"PauseScreenMixin",
 		"ServerLoginPacketListenerImplMixin",
 		"PlayerDataLoadMixin",

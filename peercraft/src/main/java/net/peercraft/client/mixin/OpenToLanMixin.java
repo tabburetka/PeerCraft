@@ -10,13 +10,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.level.GameType;
-import com.mojang.authlib.GameProfile;
-//? if >=1.21.9
-/*import net.minecraft.server.players.NameAndId;*/
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -28,52 +24,17 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
-import net.peercraft.client.handoff.HandoffOwnerPolicy;
-import net.peercraft.client.handoff.WorldArchiver;
-import java.io.IOException;
-import java.util.UUID;
+import net.peercraft.client.handoff.HandoffCommandOwner;
 
 @Mixin(IntegratedServer.class)
 public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
-    @Unique private boolean peercraft$ownerLoaded;
-    @Unique private UUID peercraft$originalOwner;
-
-    @Unique
-    private UUID peercraft$handoffOwner() {
-        if (!peercraft$ownerLoaded) {
-            try {
-                peercraft$originalOwner = HandoffOwnerPolicy.read(WorldArchiver.worldDir((IntegratedServer) (Object) this));
-            } catch (IOException invalid) {
-                throw new IllegalStateException("Invalid handoff owner record", invalid);
-            }
-            peercraft$ownerLoaded = true;
-        }
-        return peercraft$originalOwner;
-    }
-
-    // A transferred world belongs to its original command owner, not to whoever now runs
-    // the integrated server. Vanilla otherwise promotes the successor when cheats are enabled.
-    //? if <1.21.9 {
-    @Inject(method = "isSingleplayerOwner", at = @At("HEAD"), cancellable = true)
-    private void peercraft$preserveOwner(GameProfile profile, CallbackInfoReturnable<Boolean> cir) {
-        UUID owner = peercraft$handoffOwner();
-        if (owner != null) cir.setReturnValue(owner.equals(profile.getId()));
-    }
-    //?} else {
-    /*@Inject(method = "isSingleplayerOwner", at = @At("HEAD"), cancellable = true)
-    private void peercraft$preserveOwner(NameAndId profile, CallbackInfoReturnable<Boolean> cir) {
-        UUID owner = peercraft$handoffOwner();
-        if (owner != null) cir.setReturnValue(owner.equals(profile.id()));
-    }*/
-    //?}
-
     // publishServer supplies the world's default mode as a forced mode. After handoff that
     // would overwrite each returning player's independently saved creative/survival mode.
     @Inject(method = "getForcedGameType", at = @At("HEAD"), cancellable = true)
     private void peercraft$preservePlayerGameType(CallbackInfoReturnable<GameType> cir) {
-        if (peercraft$handoffOwner() != null) cir.setReturnValue(null);
+        if (HandoffCommandOwner.originalOwner((IntegratedServer) (Object) this) != null) cir.setReturnValue(null);
     }
 
     // 26.2 reworked "Open to LAN": MultiplayerOptionsScreen -> changeMultiplayerScope -> publish()

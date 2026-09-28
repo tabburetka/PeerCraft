@@ -1,6 +1,5 @@
 package net.peercraft.client.mixin;
 
-import com.mojang.authlib.GameProfile;
 import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
@@ -16,7 +15,6 @@ import net.minecraft.world.level.GameType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -27,10 +25,7 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
-import net.peercraft.client.handoff.HandoffOwnerPolicy;
-import net.peercraft.client.handoff.WorldArchiver;
-import java.io.IOException;
-import java.util.UUID;
+import net.peercraft.client.handoff.HandoffCommandOwner;
 
 /**
  * Minecraft 1.16.5 backport of {@code src/main/.../OpenToLanMixin.java}. The hook target is
@@ -45,33 +40,11 @@ import java.util.UUID;
 public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
-    @Unique private boolean peercraft$ownerLoaded;
-    @Unique private UUID peercraft$originalOwner;
-
-    @Unique
-    private UUID peercraft$handoffOwner() {
-        if (!peercraft$ownerLoaded) {
-            try {
-                peercraft$originalOwner = HandoffOwnerPolicy.read(WorldArchiver.worldDir((IntegratedServer) (Object) this));
-            } catch (IOException invalid) {
-                throw new IllegalStateException("Invalid handoff owner record", invalid);
-            }
-            peercraft$ownerLoaded = true;
-        }
-        return peercraft$originalOwner;
-    }
-
-    @Inject(method = "isSingleplayerOwner", at = @At("HEAD"), cancellable = true)
-    private void peercraft$preserveOwner(GameProfile profile, CallbackInfoReturnable<Boolean> cir) {
-        UUID owner = peercraft$handoffOwner();
-        if (owner != null) cir.setReturnValue(owner.equals(profile.getId()));
-    }
-
     @Inject(method = "publishServer", at = @At("RETURN"))
     private void onOpenToLan(GameType gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
 
         if (cir.getReturnValue()) {
-            if (peercraft$handoffOwner() != null)
+            if (HandoffCommandOwner.originalOwner((IntegratedServer) (Object) this) != null)
                 ((IntegratedServer) (Object) this).getPlayerList().setOverrideGameMode(null);
             if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || PeerCraftConfig.MODE_CLIENT.equals(PeerCraftConfig.mode())) {
                 LOGGER.info("[PeerCraft P2P] Хост-мост не запускается в режиме {}", PeerCraftConfig.mode());
