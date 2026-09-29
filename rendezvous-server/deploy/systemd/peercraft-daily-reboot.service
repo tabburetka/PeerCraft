@@ -1,0 +1,6 @@
+[Unit]
+Description=Daily reboot of the PeerCraft rendezvous host
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl reboot

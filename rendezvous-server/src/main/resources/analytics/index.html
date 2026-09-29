@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>PeerCraft · Статистика сервера</title>
+<style>
+:root{--bg:#0b1220;--card:#172238;--card2:#1d2b43;--line:#34445d;--text:#f3f7fb;--muted:#aebdd1;--green:#65dfa5;--blue:#79b8ff;--violet:#bb9bff;--amber:#f8ca80;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse 75% 50% at 0% 0%,#15344a 0,transparent 65%),var(--bg);color:var(--text)}button{font:inherit}main{max-width:1480px;margin:auto;padding:32px clamp(16px,4vw,56px) 64px}header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:14px}.mark{width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--blue));color:#102035;font-weight:900;font-size:24px;box-shadow:0 12px 32px #3bdca535}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:800;color:var(--green)}h1{font-size:clamp(25px,3vw,38px);line-height:1.15;letter-spacing:-.035em;margin:2px 0 5px}h2{font-size:18px;letter-spacing:-.015em;margin:0}p{margin:0;color:var(--muted)}.status{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:14px;white-space:nowrap;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:#18263a}.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px #65dfa52a}.dot.error{background:#ff8888;box-shadow:0 0 0 4px #ff88882a}.intro{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.intro p{font-size:14px}.switch{display:flex;gap:5px;padding:5px;background:#111b2d;border:1px solid var(--line);border-radius:13px}.switch button{border:0;background:transparent;color:var(--muted);padding:9px 15px;border-radius:9px;min-height:44px;cursor:pointer}.switch button:hover{color:var(--text)}.switch button[aria-pressed=true]{background:#2c405f;color:var(--text);box-shadow:0 3px 12px #0003}button:focus-visible{outline:3px solid var(--green);outline-offset:3px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card,.panel{background:linear-gradient(145deg,#1a2940ed,#142036f5);border:1px solid #39516a;border-radius:20px;box-shadow:0 12px 34px #0002}.card{padding:20px 22px;min-height:142px;position:relative;overflow:hidden}.card:after{content:"";position:absolute;width:110px;height:110px;right:-40px;top:-45px;background:var(--tint);filter:blur(55px);opacity:.38}.card-label{color:var(--muted);font-size:14px}.card-value{font-size:clamp(27px,3vw,40px);line-height:1.1;font-weight:780;letter-spacing:-.04em;margin:14px 0 5px;font-variant-numeric:tabular-nums}.card-note{font-size:12px;color:var(--muted)}.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-top:14px}.panel{padding:22px 24px;min-width:0}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:start;margin-bottom:20px}.panel-head p{font-size:13px;margin-top:3px}.legend{display:flex;flex-wrap:wrap;gap:15px;color:var(--muted);font-size:12px}.legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;background:var(--swatch)}.chart{width:100%;height:auto;min-height:240px;display:block}.axis{fill:var(--muted);font-size:11px}.gridline{stroke:#34465e;stroke-width:1;stroke-dasharray:3 6}.chart-line{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:3}.bars{display:flex;align-items:end;gap:5px;height:180px;border-bottom:1px solid var(--line);padding:0 2px}.bar-group{display:flex;align-items:end;justify-content:center;gap:1px;flex:1;height:100%;min-width:3px}.bar{flex:1;min-width:1px;border-radius:5px 5px 0 0}.bar-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:10px}.feature{display:flex;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px solid #ffffff16}.feature:last-child{border:0;padding-bottom:0}.feature b{font-size:14px;font-weight:550}.feature span{font-variant-numeric:tabular-nums;font-weight:750}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.version-row{display:grid;grid-template-columns:minmax(70px,130px) 1fr 42px;align-items:center;gap:12px;margin:12px 0;font-size:14px}.version-track{height:8px;background:#31415a;border-radius:99px;overflow:hidden}.version-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--violet));border-radius:99px}.empty{color:var(--muted);padding:48px 12px;text-align:center}.footnote{font-size:13px;color:var(--muted);margin-top:20px;padding:16px 18px;border:1px solid #35475e;border-radius:14px;background:#101c2e}.footnote strong{color:var(--text)}.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1050px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}@media(max-width:650px){main{padding-top:20px}header,.intro{align-items:flex-start;flex-direction:column}.status{white-space:normal}.cards,.split{grid-template-columns:1fr}.panel{padding:18px}.panel-head{flex-direction:column}.chart{min-height:180px}.card{min-height:118px}.card-value{margin-top:9px}}
+.header-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px}.language-switch button{padding:9px 12px;min-width:44px}
+@media(max-width:650px){.header-actions{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><div class="mark" aria-hidden="true">P</div><div><div class="eyebrow">PeerCraft / rendezvous</div><h1 data-i18n="title">Статистика сервера</h1><p data-i18n="subtitle">Обзор активности и игровых комнат</p></div></div>
+    <div class="header-actions"><div class="switch language-switch" role="group" aria-label="Язык страницы" data-i18n-aria="languageLabel"><button type="button" data-language="ru" aria-pressed="true" aria-label="Русский">RU</button><button type="button" data-language="en" aria-pressed="false" aria-label="English">EN</button></div><div class="status" id="status" role="status"><span class="dot" id="statusDot"></span><span id="updated">Загрузка данных…</span></div></div>
+  </header>
+  <div class="intro"><div><h2 data-i18n="overview">Обзор</h2><p data-i18n="coverage">Данные собираются с момента запуска этой версии сервера · время по UTC</p></div><div class="switch" role="group" aria-label="Период графиков" data-i18n-aria="periodLabel"><button type="button" data-period="30" aria-pressed="true" data-i18n="days30">30 дней</button><button type="button" data-period="90" aria-pressed="false" data-i18n="days90">90 дней</button><button type="button" data-period="month" aria-pressed="false" data-i18n="byMonth">По месяцам</button></div></div>
+  <section class="cards" aria-label="Основные показатели" data-i18n-aria="metricsLabel">
+    <div class="card" style="--tint:var(--green)"><div class="card-label" data-i18n="visitorsToday">Посетители сегодня</div><div class="card-value" id="todayVisitors">—</div><div class="card-note" data-i18n="uniqueAddresses">Уникальные сетевые адреса</div></div>
+    <div class="card" style="--tint:var(--blue)"><div class="card-label" data-i18n="visitorsMonth">Посетители за месяц</div><div class="card-value" id="monthVisitors">—</div><div class="card-note" data-i18n="calendarMonth">Уникальные за календарный месяц</div></div>
+    <div class="card" style="--tint:var(--violet)"><div class="card-label" data-i18n="accountsMonth">Аккаунты за месяц</div><div class="card-value" id="monthAccounts">—</div><div class="card-note" data-i18n="verifiedAccounts">Подтверждённые аккаунты</div></div>
+    <div class="card" style="--tint:var(--amber)"><div class="card-label" data-i18n="roomsNow">Комнаты сейчас</div><div class="card-value" id="liveRooms">—</div><div class="card-note" id="liveRoomsNote" data-i18n="liveSnapshot">Текущий снимок</div></div>
+  </section>
+  <section class="grid">
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="activeAudience">Активная аудитория</h2><p data-i18n="uniqueVisitorsAccounts">Уникальные посетители и аккаунты</p></div><div class="legend"><span style="--swatch:var(--green)" data-i18n="visitors">Посетители</span><span style="--swatch:var(--blue)" data-i18n="accounts">Аккаунты</span></div></div><svg class="chart" id="audienceChart" viewBox="0 0 700 260" role="img" aria-label="График аудитории" data-i18n-aria="audienceChartLabel"></svg><div class="sr" id="audienceTable"></div></div>
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="roomsConnections">Комнаты и подключения</h2><p id="activityPeriod" data-i18n="roomsMatches">Созданные комнаты и успешные подборы</p></div><div class="legend"><span style="--swatch:var(--violet)" data-i18n="rooms">Комнаты</span><span style="--swatch:var(--amber)" data-i18n="matches">Подборы</span></div></div><div id="activityBars" class="bars" role="img" aria-label="График комнат и подключений" data-i18n-aria="activityChartLabel"></div><div class="bar-labels"><span id="activityFirst">—</span><span id="activityLast">—</span></div><div class="sr" id="activityTable"></div></div>
+  </section>
+  <section class="split">
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="eventsTitle">Что происходит</h2><p id="eventPeriod" data-i18n="todayPeriod">За сегодня</p></div></div><div id="events"></div></div>
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="versionsTitle">Версии Minecraft</h2><p data-i18n="versionsPeriod">По новым комнатам за последние 30 дней</p></div></div><div id="versions"></div></div>
+  </section>
+  <div class="footnote"><strong data-i18n="howToRead">Как читать данные.</strong> <span data-i18n="footnote">Посетитель — уникальный сетевой адрес; несколько людей за одним роутером считаются одним, а один человек с разными адресами может считаться несколько раз. Аккаунты учитываются только при подтверждённой сессии. Подбор означает ответ сервера с адресами игроков, а не доказанное успешное подключение к миру. Повторные сетевые попытки могут увеличить число подборов. Исторические данные до установки этой версии недоступны.</span></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const translations = {
+  ru: {
+    pageTitle: 'PeerCraft · Статистика сервера', title: 'Статистика сервера', subtitle: 'Обзор активности и игровых комнат',
+    languageLabel: 'Язык страницы', overview: 'Обзор', coverage: 'Данные собираются с момента запуска этой версии сервера · время по UTC',
+    periodLabel: 'Период графиков', days30: '30 дней', days90: '90 дней', byMonth: 'По месяцам', metricsLabel: 'Основные показатели',
+    visitorsToday: 'Посетители сегодня', uniqueAddresses: 'Уникальные сетевые адреса', visitorsMonth: 'Посетители за месяц',
+    calendarMonth: 'Уникальные за календарный месяц', accountsMonth: 'Аккаунты за месяц', verifiedAccounts: 'Подтверждённые аккаунты',
+    roomsNow: 'Комнаты сейчас', liveSnapshot: 'Текущий снимок', activeAudience: 'Активная аудитория',
+    uniqueVisitorsAccounts: 'Уникальные посетители и аккаунты', visitors: 'Посетители', accounts: 'Аккаунты',
+    audienceChartLabel: 'График аудитории', roomsConnections: 'Комнаты и подключения',
+    roomsMatches: 'Созданные комнаты и успешные подборы', roomsMatchesWeekly: 'Сумма по неделям · созданные комнаты и подборы',
+    rooms: 'Комнаты', matches: 'Подборы', activityChartLabel: 'График комнат и подключений',
+    eventsTitle: 'Что происходит', todayPeriod: 'За сегодня', versionsTitle: 'Версии Minecraft',
+    versionsPeriod: 'По новым комнатам за последние 30 дней', howToRead: 'Как читать данные.',
+    footnote: 'Посетитель — уникальный сетевой адрес; несколько людей за одним роутером считаются одним, а один человек с разными адресами может считаться несколько раз. Аккаунты учитываются только при подтверждённой сессии. Подбор означает ответ сервера с адресами игроков, а не доказанное успешное подключение к миру. Повторные сетевые попытки могут увеличить число подборов. Исторические данные до установки этой версии недоступны.',
+    loading: 'Загрузка данных…', updated: 'Обновлено', noConnection: 'Нет связи с сервером статистики',
+    publicRooms: 'публичных', friendsOnlyRooms: 'для друзей', noAudience: 'Данные появятся после первых запросов',
+    noEvents: 'Пока нет событий', noVersions: 'Версии появятся после создания комнат',
+    eventRequests: 'Запросы к серверу', eventAuthOk: 'Успешные входы', eventAuthLicensed: 'Входы с лицензией',
+    eventAuthUnlicensed: 'Входы без лицензии', eventAuthFail: 'Неудачные входы', eventRoomCreated: 'Созданные комнаты',
+    eventRoomPublic: 'Публичные комнаты', eventRoomFriends: 'Комнаты для друзей', eventJoinMatched: 'Успешные подборы',
+    eventJoinRejected: 'Отклонённые входы в комнаты', eventFriendSent: 'Заявки в друзья', eventFriendAccepted: 'Принятые заявки',
+    eventRoomList: 'Запросы списка игр', eventFriendsList: 'Запросы списка друзей', eventSearch: 'Запросы поиска игроков',
+    eventHandoff: 'Сообщения передачи мира'
+  },
+  en: {
+    pageTitle: 'PeerCraft · Server statistics', title: 'Server statistics', subtitle: 'Activity and game room overview',
+    languageLabel: 'Page language', overview: 'Overview', coverage: 'Data has been collected since this server version was installed · times are in UTC',
+    periodLabel: 'Chart period', days30: '30 days', days90: '90 days', byMonth: 'Monthly', metricsLabel: 'Key metrics',
+    visitorsToday: 'Visitors today', uniqueAddresses: 'Unique network addresses', visitorsMonth: 'Visitors this month',
+    calendarMonth: 'Unique this calendar month', accountsMonth: 'Accounts this month', verifiedAccounts: 'Verified accounts',
+    roomsNow: 'Rooms now', liveSnapshot: 'Current snapshot', activeAudience: 'Active audience',
+    uniqueVisitorsAccounts: 'Unique visitors and accounts', visitors: 'Visitors', accounts: 'Accounts',
+    audienceChartLabel: 'Audience chart', roomsConnections: 'Rooms and connections',
+    roomsMatches: 'Rooms created and successful matches', roomsMatchesWeekly: 'Weekly totals · rooms created and matches',
+    rooms: 'Rooms', matches: 'Matches', activityChartLabel: 'Rooms and connections chart',
+    eventsTitle: 'What is happening', todayPeriod: 'Today', versionsTitle: 'Minecraft versions',
+    versionsPeriod: 'New rooms in the last 30 days', howToRead: 'How to read the data.',
+    footnote: 'A visitor is a unique network address. People behind the same router count as one, and one person using different addresses may count more than once. Accounts count only after a verified session. A match means the server returned player addresses; it does not prove a successful connection to a world. Network retries can increase the match count. Historical data from before this version was installed is unavailable.',
+    loading: 'Loading data…', updated: 'Updated', noConnection: 'Cannot connect to the statistics server',
+    publicRooms: 'public', friendsOnlyRooms: 'friends-only', noAudience: 'Data will appear after the first requests',
+    noEvents: 'No events yet', noVersions: 'Versions will appear after rooms are created',
+    eventRequests: 'Server requests', eventAuthOk: 'Successful sign-ins', eventAuthLicensed: 'Licensed sign-ins',
+    eventAuthUnlicensed: 'Unlicensed sign-ins', eventAuthFail: 'Failed sign-ins', eventRoomCreated: 'Rooms created',
+    eventRoomPublic: 'Public rooms', eventRoomFriends: 'Friends-only rooms', eventJoinMatched: 'Successful matches',
+    eventJoinRejected: 'Rejected room joins', eventFriendSent: 'Friend requests', eventFriendAccepted: 'Accepted requests',
+    eventRoomList: 'Game list requests', eventFriendsList: 'Friends list requests', eventSearch: 'Player searches',
+    eventHandoff: 'World handoff messages'
+  }
+};
+const eventKeys = [
+  ['eventRequests', 'requests'], ['eventAuthOk', 'auth.ok'], ['eventAuthLicensed', 'auth.licensed'],
+  ['eventAuthUnlicensed', 'auth.unlicensed'], ['eventAuthFail', 'auth.fail'], ['eventRoomCreated', 'room.created'],
+  ['eventRoomPublic', 'room.public'], ['eventRoomFriends', 'room.friends_only'], ['eventJoinMatched', 'join.matched'],
+  ['eventJoinRejected', null], ['eventFriendSent', 'friend_request.sent'],
+  ['eventFriendAccepted', 'friend_request.accepted'], ['eventRoomList', 'request.room_list'],
+  ['eventFriendsList', 'request.friends_list'], ['eventSearch', 'request.search'], ['eventHandoff', 'request.handoff']
+];
+const languageKey = 'peercraft.analytics.language';
+let language = 'ru';
+try { if (localStorage.getItem(languageKey) === 'en') language = 'en'; } catch (_) {}
+let source = null, period = '30', connectionError = false;
+const t = key => translations[language][key];
+const locale = () => language === 'ru' ? 'ru-RU' : 'en-US';
+const fmt = n => new Intl.NumberFormat(locale()).format(n || 0);
+const metric = (row, key) => row?.counts?.[key] || 0;
+const audienceSummary = row => `${row.date || row.month}: ${fmt(row.visitors)} ${t('visitors').toLowerCase()}, ${fmt(row.accounts)} ${t('accounts').toLowerCase()}`;
+const activitySummary = row => `${row.date || row.month}: ${fmt(metric(row, 'room.created'))} ${t('rooms').toLowerCase()}, ${fmt(metric(row, 'join.matched'))} ${t('matches').toLowerCase()}`;
+
+function setLanguage(value) {
+  language = value === 'en' ? 'en' : 'ru';
+  try { localStorage.setItem(languageKey, language); } catch (_) {}
+  document.documentElement.lang = language;
+  document.title = t('pageTitle');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  document.querySelectorAll('[data-language]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === language)));
+  if (source) render(source);
+  if (connectionError || !source) $('updated').textContent = t(connectionError ? 'noConnection' : 'loading');
+}
+
+document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => setLanguage(button.dataset.language)));
+document.querySelectorAll('[data-period]').forEach(button => button.addEventListener('click', () => {
+  period = button.dataset.period;
+  document.querySelectorAll('[data-period]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+  if (source) render(source);
+}));
+
+function chart(rows) {
+  const el = $('audienceChart');
+  $('audienceTable').textContent = rows.map(audienceSummary).join('; ');
+  if (!rows.length) {
+    el.replaceChildren();
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', '350'); label.setAttribute('y', '130');
+    label.setAttribute('text-anchor', 'middle'); label.setAttribute('class', 'axis');
+    label.textContent = t('noAudience'); el.append(label);
+    return;
+  }
+  const w = 700, h = 260, left = 38, right = 14, top = 18, bottom = 30;
+  const max = Math.max(1, ...rows.flatMap(row => [row.visitors || 0, row.accounts || 0]));
+  let svg = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = top + (h - top - bottom) * i / 4;
+    svg += `<line class="gridline" x1="${left}" y1="${y}" x2="${w-right}" y2="${y}"/><text class="axis" x="${left-7}" y="${y+4}" text-anchor="end">${fmt(Math.round(max*(4-i)/4))}</text>`;
+  }
+  const point = (value, index) => `${left+(w-left-right)*(rows.length===1?.5:index/(rows.length-1))},${top+(h-top-bottom)*(1-value/max)}`;
+  for (const [key, color] of [['visitors', '#65dfa5'], ['accounts', '#79b8ff']]) {
+    const path = rows.map((row, index) => (index ? 'L' : 'M') + point(row[key] || 0, index)).join(' ');
+    svg += `<path class="chart-line" stroke="${color}" d="${path}"/>`;
+    if (rows.length === 1) {
+      const [x, y] = point(rows[0][key] || 0, 0).split(',');
+      svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}"/>`;
+    }
+  }
+  svg += `<text class="axis" x="${left}" y="${h-5}">${rows[0].date || rows[0].month}</text><text class="axis" x="${w-right}" y="${h-5}" text-anchor="end">${rows.at(-1).date || rows.at(-1).month}</text>`;
+  el.innerHTML = svg;
+}
+
+function bars(input) {
+  const el = $('activityBars');
+  el.replaceChildren();
+  $('activityTable').textContent = '';
+  $('activityFirst').textContent = '—'; $('activityLast').textContent = '—';
+  $('activityPeriod').textContent = t(input.length > 35 ? 'roomsMatchesWeekly' : 'roomsMatches');
+  if (!input.length) {
+    const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = t('noEvents'); el.append(empty);
+    return;
+  }
+  let rows = input;
+  if (input.length > 35) {
+    rows = [];
+    for (let i = 0; i < input.length; i += 7) {
+      const slice = input.slice(i, i + 7);
+      rows.push({date: slice[0].date, counts: {
+        'room.created': slice.reduce((sum, row) => sum + metric(row, 'room.created'), 0),
+        'join.matched': slice.reduce((sum, row) => sum + metric(row, 'join.matched'), 0)
+      }});
+    }
+  }
+  const max = Math.max(1, ...rows.flatMap(row => [metric(row, 'room.created'), metric(row, 'join.matched')]));
+  for (const row of rows) {
+    const group = document.createElement('div'); group.className = 'bar-group'; group.title = activitySummary(row);
+    for (const [key, color] of [['room.created', 'var(--violet)'], ['join.matched', 'var(--amber)']]) {
+      const value = metric(row, key), bar = document.createElement('div'); bar.className = 'bar';
+      bar.style.height = `${value ? Math.max(2, 100 * value / max) : 0}%`; bar.style.background = color; group.append(bar);
+    }
+    el.append(group);
+  }
+  $('activityFirst').textContent = rows[0].date || rows[0].month;
+  $('activityLast').textContent = rows.at(-1).date || rows.at(-1).month;
+  $('activityTable').textContent = rows.map(activitySummary).join('; ');
+}
+
+function fillDays(days, today, count) {
+  if (!days.length) return [];
+  const byDate = new Map(days.map(row => [row.date, row]));
+  const start = new Date(today + 'T00:00:00Z'), first = days[0].date, rows = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const date = new Date(start.getTime() - i * 86400000).toISOString().slice(0, 10);
+    if (date >= first) rows.push(byDate.get(date) || {date, visitors: 0, accounts: 0, counts: {}, versions: {}});
+  }
+  return rows;
+}
+function fillMonths(months, today) {
+  if (!months.length) return [];
+  const byMonth = new Map(months.map(row => [row.month, row]));
+  const [year, month] = today.slice(0, 7).split('-').map(Number), first = months[0].month, rows = [];
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(Date.UTC(year, month - 1 - i, 1)).toISOString().slice(0, 7);
+    if (date >= first) rows.push(byMonth.get(date) || {month: date, visitors: 0, accounts: 0, counts: {}});
+  }
+  return rows;
+}
+
+function render(data) {
+  const today = data.generatedAt.slice(0, 10), month = today.slice(0, 7);
+  const days = data.days || [], months = data.months || [];
+  const day = days.find(row => row.date === today), mo = months.find(row => row.month === month), live = data.live || {};
+  $('todayVisitors').textContent = fmt(day?.visitors);
+  $('monthVisitors').textContent = fmt(mo?.visitors);
+  $('monthAccounts').textContent = fmt(mo?.accounts);
+  $('liveRooms').textContent = fmt(live.rooms);
+  $('liveRoomsNote').textContent = `${fmt(live.publicRooms)} ${t('publicRooms')} · ${fmt(live.friendsOnlyRooms)} ${t('friendsOnlyRooms')}`;
+  $('updated').textContent = `${t('updated')} ${new Date(data.generatedAt).toLocaleString(locale())}`;
+  const rows = period === 'month' ? fillMonths(months, today) : fillDays(days, today, Number(period));
+  chart(rows); bars(rows);
+  $('eventPeriod').textContent = day ? `${t('todayPeriod')} · ${today}` : t('todayPeriod');
+  const events = $('events'); events.replaceChildren();
+  for (const [labelKey, key] of eventKeys) {
+    const count = key ? metric(day, key) : Object.entries(day?.counts || {}).filter(([name]) => name.startsWith('join.rejected.')).reduce((sum, [, value]) => sum + value, 0);
+    const row = document.createElement('div'); row.className = 'feature';
+    const label = document.createElement('b'); label.textContent = t(labelKey);
+    const value = document.createElement('span'); value.textContent = fmt(count);
+    row.append(label, value); events.append(row);
+  }
+  const versions = {};
+  const since = new Date(Date.parse(today + 'T00:00:00Z') - 29 * 86400000).toISOString().slice(0, 10);
+  for (const row of days.filter(item => item.date >= since)) {
+    for (const [name, count] of Object.entries(row.versions || {})) versions[name] = (versions[name] || 0) + count;
+  }
+  const sorted = Object.entries(versions).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const vmax = sorted[0]?.[1] || 1, list = $('versions'); list.replaceChildren();
+  if (!sorted.length) {
+    const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = t('noVersions'); list.append(empty);
+  } else for (const [name, count] of sorted) {
+    const row = document.createElement('div'); row.className = 'version-row';
+    const label = document.createElement('span'); label.textContent = name;
+    const track = document.createElement('div'); track.className = 'version-track';
+    const fill = document.createElement('div'); fill.className = 'version-fill'; fill.style.width = `${100 * count / vmax}%`; track.append(fill);
+    const value = document.createElement('strong'); value.textContent = fmt(count);
+    row.append(label, track, value); list.append(row);
+  }
+}
+
+async function refresh() {
+  try {
+    const response = await fetch('/api/analytics', {cache: 'no-store'});
+    if (!response.ok) throw Error(`HTTP ${response.status}`);
+    source = await response.json(); connectionError = false;
+    render(source); $('statusDot').classList.remove('error');
+  } catch (_) {
+    connectionError = true; $('updated').textContent = t('noConnection'); $('statusDot').classList.add('error');
+  }
+}
+setLanguage(language);
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

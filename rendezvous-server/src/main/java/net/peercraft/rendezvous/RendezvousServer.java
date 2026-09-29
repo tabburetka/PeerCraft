@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +47,8 @@ public final class RendezvousServer {
     private final HandoffRegistry handoffs;
     private final HandoffDispatch handoffIo;
     private final AccountService accountService;
+    private final AnalyticsStore analytics;
+    private final Path dataDir;
     private volatile DatagramSocket socket;
     // Anonymous, unauthenticated poll (Phase 7, TYPE_ROOM_LIST) — anyone can ask, so it needs
     // its own throttle independent of the account/friends rate limiters (which all key off a
@@ -78,12 +81,20 @@ public final class RendezvousServer {
     /** Package-private seam so tests can point at a real data dir and/or the real Mojang verifier. */
     RendezvousServer(int port, LongSupplier clock, Path dataDir, boolean fakeMojang) {
         this.port = port;
+        this.dataDir = dataDir;
         this.registry = new RoomRegistry(clock);
         this.handoffIo = new HandoffDispatch(clock);
         try { this.handoffs = new HandoffRegistry(dataDir.resolve("handoffs"), clock); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
         this.accountService = new AccountService(dataDir.resolve("accounts.json"), fakeMojang, clock);
         this.roomListRateLimiter = new RateLimiter<>(ROOM_LIST_RATE_LIMIT, ROOM_LIST_RATE_WINDOW_MILLIS, clock);
+        AnalyticsStore opened;
+        try { opened = new AnalyticsStore(dataDir.resolve("analytics"), clock); }
+        catch (Exception e) {
+            logErr("Analytics unavailable; existing data was preserved: " + e);
+            opened = null;
+        }
+        this.analytics = opened;
     }
 
     private static Path tempDataDir() {
@@ -104,6 +115,23 @@ public final class RendezvousServer {
         try (DatagramSocket socket = new DatagramSocket(port)) {
             this.socket = socket;
             log("Listening on UDP port " + socket.getLocalPort());
+            AnalyticsDashboard dashboard = null;
+            if (port != 0 && analytics != null) {
+                try {
+                    Properties config = new Properties();
+                    Path configFile = dataDir.resolve("analytics.properties");
+                    if (Files.exists(configFile)) {
+                        try (var reader = Files.newBufferedReader(configFile)) { config.load(reader); }
+                    }
+                    String host = System.getProperty("peercraft.analytics.host", config.getProperty("host", "127.0.0.1"));
+                    int httpPort = Integer.parseInt(System.getProperty("peercraft.analytics.httpPort", config.getProperty("httpPort", "51080")));
+                    if (httpPort > 0) {
+                        dashboard = new AnalyticsDashboard(analytics, registry, host, httpPort);
+                        dashboard.start();
+                        log("Analytics dashboard on http://" + host + ":" + httpPort);
+                    }
+                } catch (IOException | IllegalArgumentException e) { logErr("Analytics dashboard could not start: " + e); }
+            }
 
             ScheduledExecutorService sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "rendezvous-sweep");
@@ -117,6 +145,10 @@ public final class RendezvousServer {
             }, 0, 1, TimeUnit.SECONDS);
             sweeper.scheduleAtFixedRate(() -> log("Handoff " + handoffIo.metrics() + " " + handoffs.metrics()), 60, 60, TimeUnit.SECONDS);
             sweeper.scheduleAtFixedRate(accountService::maintenance, SWEEP_INTERVAL_SECONDS, SWEEP_INTERVAL_SECONDS, TimeUnit.SECONDS);
+            if (analytics != null) {
+                sweeper.scheduleAtFixedRate(analytics::flush, SWEEP_INTERVAL_SECONDS, SWEEP_INTERVAL_SECONDS, TimeUnit.SECONDS);
+                Runtime.getRuntime().addShutdownHook(new Thread(analytics::flush, "peercraft-analytics-save"));
+            }
 
             byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -140,6 +172,7 @@ public final class RendezvousServer {
     private void handle(DatagramSocket socket, byte[] data, InetAddress fromAddr, int fromPort) throws IOException {
         if (data.length > 0 && data[0] == HandoffAuthorityProtocol.MAGIC) {
             HandoffAuthorityProtocol.Message request = HandoffAuthorityProtocol.decode(data, data.length);
+            if (analytics != null) analytics.request("handoff", fromAddr, data.length);
             RendezvousProtocol.Address from = new RendezvousProtocol.Address(fromAddr, fromPort);
             boolean trusted = handoffs.recognizes(request);
             if (!handoffIo.ingress(fromAddr, trusted, request.sessionId, request.key, request.type)) return;
@@ -171,6 +204,8 @@ public final class RendezvousServer {
             return; // not our magic byte, or too short — silently ignore
         }
 
+        if (analytics != null) analytics.request(requestKind(type), fromAddr, data.length);
+
         RendezvousProtocol.Address from = new RendezvousProtocol.Address(fromAddr, fromPort);
 
         switch (type) {
@@ -198,6 +233,32 @@ public final class RendezvousServer {
         }
     }
 
+    private static String requestKind(int type) {
+        return switch (type) {
+            case RendezvousProtocol.TYPE_REGISTER -> "register";
+            case RendezvousProtocol.TYPE_JOIN -> "join";
+            case RendezvousProtocol.TYPE_ROOM_LIST -> "room_list";
+            case RendezvousProtocol.TYPE_LOOKUP_HOST -> "lookup_host";
+            case AccountProtocol.TYPE_AUTH_LICENSED_BEGIN -> "licensed_begin";
+            case AccountProtocol.TYPE_AUTH_LICENSED_CONFIRM -> "licensed_confirm";
+            case AccountProtocol.TYPE_ACCOUNT_REGISTER -> "account_register";
+            case AccountProtocol.TYPE_ACCOUNT_LOGIN_BEGIN -> "login_begin";
+            case AccountProtocol.TYPE_ACCOUNT_LOGIN_RESPONSE -> "login_response";
+            case AccountProtocol.TYPE_ACCOUNT_LOGIN_REMEMBER -> "login_remember";
+            case AccountProtocol.TYPE_ACCOUNT_RENAME -> "rename";
+            case AccountProtocol.TYPE_FRIEND_CODE_LOOKUP -> "friend_lookup";
+            case AccountProtocol.TYPE_FRIEND_REQUEST_SEND -> "friend_request";
+            case AccountProtocol.TYPE_FRIEND_REQUEST_LIST -> "friend_requests_list";
+            case AccountProtocol.TYPE_FRIEND_REQUEST_RESPOND -> "friend_response";
+            case AccountProtocol.TYPE_FRIEND_REMOVE -> "friend_remove";
+            case AccountProtocol.TYPE_FRIEND_LIST -> "friends_list";
+            case AccountProtocol.TYPE_SEARCH_ACCOUNTS -> "search";
+            case AccountProtocol.TYPE_PRESENCE_HEARTBEAT -> "heartbeat";
+            case AccountProtocol.TYPE_PRESENCE_STOP -> "presence_stop";
+            default -> "other";
+        };
+    }
+
     private void handleRegister(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         RendezvousProtocol.Register register = RendezvousProtocol.decodeRegister(data, data.length);
         // A REGISTER's self-reported accountId is never trusted unchecked — only linked to
@@ -211,6 +272,14 @@ public final class RendezvousServer {
         RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(),
                 verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion());
         if (result instanceof RoomRegistry.Registered registered) {
+            if (analytics != null) {
+                analytics.event(registered.reused() ? "room.keepalive" : "room.created");
+                if (!registered.reused()) {
+                    analytics.event(friendsOnly ? "room.friends_only" : register.publicRoom() ? "room.public" : "room.private");
+                    analytics.version(register.mcVersion());
+                }
+                verifiedAccountId.ifPresent(analytics::account);
+            }
             send(socket, RendezvousProtocol.encodeRoomCreated(registered.code(), from), from);
             if (registered.reused()) {
                 log("REGISTER from " + describe(from) + " -> existing room " + registered.code() + " (idempotent resend/keepalive)");
@@ -220,6 +289,7 @@ public final class RendezvousServer {
             verifiedAccountId.ifPresent(accountId -> accountService.setHosting(accountId, registered.code()));
         } else {
             RoomRegistry.RegisterRejected rejected = (RoomRegistry.RegisterRejected) result;
+            if (analytics != null) analytics.event("room.rejected");
             send(socket, RendezvousProtocol.encodeJoinFail(rejected.reason()), from);
             log("REGISTER from " + describe(from) + " -> rejected (reason=" + rejected.reason() + ")");
         }
@@ -234,6 +304,10 @@ public final class RendezvousServer {
         java.util.Optional<java.util.UUID> joinerAccountId = join.sessionToken().flatMap(accountService::resolveSession);
         RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend);
         if (result instanceof RoomRegistry.Matched matched) {
+            if (analytics != null) {
+                analytics.event("join.matched");
+                joinerAccountId.ifPresent(analytics::account);
+            }
             byte[] hostPayload = joinerAccountId
                     .map(id -> RendezvousProtocol.encodePeerFoundWithAccount(matched.joinerAddress(), matched.token(), id))
                     .orElseGet(() -> RendezvousProtocol.encodePeerFound(matched.joinerAddress(), matched.token()));
@@ -242,6 +316,7 @@ public final class RendezvousServer {
             log("Room " + join.code() + " matched: " + describe(matched.hostAddress()) + " <-> " + describe(matched.joinerAddress()));
         } else {
             RoomRegistry.JoinRejected rejected = (RoomRegistry.JoinRejected) result;
+            if (analytics != null) analytics.event("join.rejected." + rejected.reason());
             send(socket, RendezvousProtocol.encodeJoinFail(rejected.reason()), from);
             log("JOIN " + join.code() + " from " + describe(from) + " -> rejected (reason=" + rejected.reason() + ")");
             if (rejected.reason() == RendezvousProtocol.REASON_INVALID_CODE) {
@@ -262,9 +337,11 @@ public final class RendezvousServer {
      */
     private void handleRoomList(DatagramSocket socket, RendezvousProtocol.Address from) throws IOException {
         if (!roomListRateLimiter.allow(from.host())) {
+            if (analytics != null) analytics.event("room_list.rate_limited");
             return; // silently drop — matches this being a low-stakes poll endpoint, same as friend list/search
         }
         java.util.List<RoomRegistry.PublicRoomInfo> rooms = registry.listPublicRooms();
+        if (analytics != null) analytics.event("room_list.served");
         java.util.List<RendezvousProtocol.PublicRoom> wire = new java.util.ArrayList<>();
         for (RoomRegistry.PublicRoomInfo room : rooms) {
             String hostDisplayName = room.hostAccountId().flatMap(accountService::displayNameOf).orElse("");
@@ -280,10 +357,12 @@ public final class RendezvousServer {
      */
     private void handleLookupHost(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         if (!roomListRateLimiter.allow(from.host())) {
+            if (analytics != null) analytics.event("lookup_host.rate_limited");
             return;
         }
         java.util.UUID accountId = RendezvousProtocol.decodeLookupHost(data, data.length);
         String roomCode = accountService.hostingRoomCodeOf(accountId).orElse("");
+        if (analytics != null) analytics.event(roomCode.isEmpty() ? "lookup_host.miss" : "lookup_host.hit");
         send(socket, RendezvousProtocol.encodeLookupHostReply(roomCode), from);
     }
 
@@ -291,8 +370,10 @@ public final class RendezvousServer {
         AccountProtocol.LicensedBegin msg = AccountProtocol.decodeLicensedBegin(data, data.length);
         AccountService.Result<AccountService.ServerIdChallengeInfo> result = accountService.beginLicensedAuth(msg.username(), from.host());
         if (result instanceof AccountService.Result.Ok<AccountService.ServerIdChallengeInfo> ok) {
+            if (analytics != null) analytics.event("auth.challenge");
             send(socket, AccountProtocol.encodeServerIdChallenge(ok.value().requestId(), ok.value().serverId()), from);
         } else {
+            if (analytics != null) analytics.event("auth.fail");
             sendAuthFail(socket, 0L, ((AccountService.Result.Fail<?>) result).reason(), from);
         }
     }
@@ -315,8 +396,10 @@ public final class RendezvousServer {
         AccountService.Result<AccountService.LoginChallengeInfo> result =
                 accountService.beginPasswordLogin(msg.byFriendCode(), msg.accountId(), msg.friendCode(), from.host());
         if (result instanceof AccountService.Result.Ok<AccountService.LoginChallengeInfo> ok) {
+            if (analytics != null) analytics.event("auth.challenge");
             send(socket, AccountProtocol.encodeLoginChallenge(ok.value().requestId(), ok.value().salt(), ok.value().challenge()), from);
         } else {
+            if (analytics != null) analytics.event("auth.fail");
             sendAuthFail(socket, 0L, ((AccountService.Result.Fail<?>) result).reason(), from);
         }
     }
@@ -337,8 +420,10 @@ public final class RendezvousServer {
         AccountProtocol.AccountRename msg = AccountProtocol.decodeAccountRename(data, data.length);
         AccountService.Result<AccountService.RenameOutcomeInfo> result = accountService.rename(msg.sessionToken(), msg.newName());
         if (result instanceof AccountService.Result.Ok<AccountService.RenameOutcomeInfo> ok) {
+            if (analytics != null) analytics.event("rename.ok");
             send(socket, AccountProtocol.encodeRenameAck(true, (byte) 0, ok.value().appliedName()), from);
         } else {
+            if (analytics != null) analytics.event("rename.fail");
             send(socket, AccountProtocol.encodeRenameAck(false, ((AccountService.Result.Fail<?>) result).reason(), ""), from);
         }
     }
@@ -348,8 +433,10 @@ public final class RendezvousServer {
         AccountService.Result<AccountService.FriendCodeLookupInfo> result = accountService.lookupFriendCode(msg.sessionToken(), msg.friendCode());
         if (result instanceof AccountService.Result.Ok<AccountService.FriendCodeLookupInfo> ok) {
             AccountService.FriendCodeLookupInfo info = ok.value();
+            if (analytics != null) analytics.event(info.found() ? "friend_lookup.hit" : "friend_lookup.miss");
             send(socket, AccountProtocol.encodeFriendCodeLookupReply(info.found(), info.accountId(), info.licensed(), info.displayName()), from);
         } else {
+            if (analytics != null) analytics.event("friend_lookup.invalid_session");
             // Invalid session — reply "not found" rather than adding a new failure path to
             // this query endpoint (see AccountService.lookupFriendCode's doc comment).
             send(socket, AccountProtocol.encodeFriendCodeLookupReply(false, new java.util.UUID(0, 0), false, ""), from);
@@ -358,7 +445,9 @@ public final class RendezvousServer {
 
     private void handleFriendRequestSend(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         AccountProtocol.FriendRequestSend msg = AccountProtocol.decodeFriendRequestSend(data, data.length);
-        respondFriendAck(socket, accountService.sendFriendRequest(msg.sessionToken(), msg.targetAccountId()), from);
+        AccountService.Result<AccountService.AckInfo> result = accountService.sendFriendRequest(msg.sessionToken(), msg.targetAccountId());
+        if (analytics != null) analytics.event(result instanceof AccountService.Result.Ok<?> ? "friend_request.sent" : "friend_request.rejected");
+        respondFriendAck(socket, result, from);
     }
 
     private void handleFriendRequestList(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
@@ -373,12 +462,16 @@ public final class RendezvousServer {
 
     private void handleFriendRequestRespond(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         AccountProtocol.FriendRequestRespond msg = AccountProtocol.decodeFriendRequestRespond(data, data.length);
-        respondFriendAck(socket, accountService.respondToRequest(msg.sessionToken(), msg.fromAccountId(), msg.accept()), from);
+        AccountService.Result<AccountService.AckInfo> result = accountService.respondToRequest(msg.sessionToken(), msg.fromAccountId(), msg.accept());
+        if (analytics != null) analytics.event(result instanceof AccountService.Result.Ok<?> ? (msg.accept() ? "friend_request.accepted" : "friend_request.declined") : "friend_response.rejected");
+        respondFriendAck(socket, result, from);
     }
 
     private void handleFriendRemove(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
         AccountProtocol.FriendRemove msg = AccountProtocol.decodeFriendRemove(data, data.length);
-        respondFriendAck(socket, accountService.removeFriend(msg.sessionToken(), msg.friendAccountId()), from);
+        AccountService.Result<AccountService.AckInfo> result = accountService.removeFriend(msg.sessionToken(), msg.friendAccountId());
+        if (analytics != null) analytics.event(result instanceof AccountService.Result.Ok<?> ? "friend.removed" : "friend_remove.rejected");
+        respondFriendAck(socket, result, from);
     }
 
     private void handleFriendList(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
@@ -395,12 +488,14 @@ public final class RendezvousServer {
         AccountProtocol.SearchAccounts msg = AccountProtocol.decodeSearchAccounts(data, data.length);
         AccountService.Result<java.util.List<AccountService.SearchResultInfo>> result = accountService.search(msg.sessionToken(), msg.query());
         if (result instanceof AccountService.Result.Ok<java.util.List<AccountService.SearchResultInfo>> ok) {
+            if (analytics != null) analytics.event(ok.value().isEmpty() ? "search.empty" : "search.results");
             java.util.List<AccountProtocol.SearchResult> wire = new java.util.ArrayList<>();
             for (AccountService.SearchResultInfo r : ok.value()) {
                 wire.add(new AccountProtocol.SearchResult(r.accountId(), r.licensed(), r.displayName()));
             }
             send(socket, AccountProtocol.encodeSearchAccountsReply(wire), from);
         } else {
+            if (analytics != null) analytics.event("search.rejected");
             // Invalid session/rate-limited — empty list rather than a new failure path, same
             // reasoning as handleFriendList (poll-style endpoint).
             send(socket, AccountProtocol.encodeSearchAccountsReply(java.util.List.of()), from);
@@ -409,6 +504,7 @@ public final class RendezvousServer {
 
     private void handlePresenceHeartbeat(byte[] data) {
         AccountProtocol.PresenceHeartbeat msg = AccountProtocol.decodePresenceHeartbeat(data, data.length);
+        if (analytics != null) accountService.resolveSession(msg.sessionToken()).ifPresent(analytics::account);
         accountService.heartbeat(msg.sessionToken());
     }
 
@@ -418,6 +514,7 @@ public final class RendezvousServer {
     }
 
     private void respondFriendAck(DatagramSocket socket, AccountService.Result<AccountService.AckInfo> result, RendezvousProtocol.Address to) throws IOException {
+        if (analytics != null) analytics.event(result instanceof AccountService.Result.Ok<?> ? "friend.ack_ok" : "friend.ack_fail");
         if (result instanceof AccountService.Result.Ok<AccountService.AckInfo>) {
             send(socket, AccountProtocol.encodeFriendRequestAck(true, (byte) 0), to);
         } else {
@@ -428,9 +525,15 @@ public final class RendezvousServer {
     private void respondAuthOutcome(DatagramSocket socket, AccountService.Result<AccountService.AuthOkInfo> result, long requestId, RendezvousProtocol.Address to) throws IOException {
         if (result instanceof AccountService.Result.Ok<AccountService.AuthOkInfo> ok) {
             AccountService.AuthOkInfo info = ok.value();
+            if (analytics != null) {
+                analytics.event("auth.ok");
+                analytics.event(info.licensed() ? "auth.licensed" : "auth.unlicensed");
+                analytics.account(info.accountId());
+            }
             send(socket, AccountProtocol.encodeAuthOk(info.accountId(), info.sessionToken(), info.rememberToken(),
                     info.licensed(), info.friendCode(), info.displayName()), to);
         } else {
+            if (analytics != null) analytics.event("auth.fail");
             sendAuthFail(socket, requestId, ((AccountService.Result.Fail<?>) result).reason(), to);
         }
     }
