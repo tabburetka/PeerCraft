@@ -32,6 +32,9 @@ public class HandoffStaleWorldWarningScreen extends PeerCraftDialogScreen {
     @Override
     protected void init() {
         super.init();
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, bodyLines().size()) * 12
+                + 22 + dialog.buttonHeight() + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title, dialog.width);
         int cx = this.width / 2;
         dialogAction(new TranslatableComponent("peercraft.handoff.stale.proceed"), b -> choose(onProceed), true, 0, 2);
         dialogAction(new TranslatableComponent("peercraft.handoff.stale.back"), b -> choose(onBack), false, 1, 2);

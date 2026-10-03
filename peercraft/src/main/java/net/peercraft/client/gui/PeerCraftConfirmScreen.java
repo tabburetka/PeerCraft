@@ -19,6 +19,9 @@ final class PeerCraftConfirmScreen extends PeerCraftDialogScreen {
     }
     @Override protected void init() {
         super.init();
+        int lines = Math.max(1, font.split(message, Math.max(1, dialog.contentWidth() - 8)).size());
+        int desiredHeight = dialog.headerHeight + 6 + lines * 12 + 22 + dialog.buttonHeight() + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.addRenderableWidget(dialogAction(this.yes, b -> finish(true), true, 0, 2));
         this.addRenderableWidget(dialogAction(this.no, b -> finish(false), false, 1, 2));
     }
