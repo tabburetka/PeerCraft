@@ -14,7 +14,7 @@ import net.minecraft.network.chat.Component;
  * acknowledges the risk (a flag in {@code settings.json} is set and this screen never returns)
  * or cancels the join. A short red reminder stays on the preparing/confirm screens after that.
  */
-public class ModSyncSecurityNoticeScreen extends Screen {
+public class ModSyncSecurityNoticeScreen extends PeerCraftDialogScreen {
 
     private final Runnable onAccept;
     private final Runnable onCancel;
@@ -27,12 +27,15 @@ public class ModSyncSecurityNoticeScreen extends Screen {
 
     @Override
     protected void init() {
-        int cx = this.width / 2;
-        int y = this.height - 52;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.notice.accept"), b -> onAccept.run())
-                .bounds(cx - 204, y, 200, 20).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.notice.decline"), b -> onCancel.run())
-                .bounds(cx + 4, y, 200, 20).build());
+        super.init();
+        int lines = 0;
+        for (String paragraph : noticeParagraphs()) {
+            lines += paragraph.isEmpty() ? 1 : font.split(Component.literal(paragraph), Math.max(1, dialog.contentWidth() - 8)).size();
+        }
+        this.dialog = new SteampunkDialog(width, height,
+                dialog.headerHeight + 6 + lines * 12 + 18 + 2 * dialog.buttonPitch() + 10, title);
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.modsync.notice.accept"), b -> onAccept.run(), true, 0, 2));
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.modsync.notice.decline"), b -> onCancel.run(), false, 1, 2));
     }
 
     @Override
@@ -46,33 +49,23 @@ public class ModSyncSecurityNoticeScreen extends Screen {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = 48;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 24;
-        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.notice.body1"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.notice.body2"), cx, y, 0xFFFF5555);
-        y += 16;
-        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.notice.body3"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.notice.body4"), cx, y, 0xFFAAAAAA);
+        drawBody(graphics, noticeParagraphs(), SteampunkSettingsTheme.TEXT);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = 48;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 24;
-        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.notice.body1"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.notice.body2"), cx, y, 0xFFFF5555);
-        y += 16;
-        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.notice.body3"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.notice.body4"), cx, y, 0xFFAAAAAA);
+        drawBody(graphics, noticeParagraphs(), SteampunkSettingsTheme.TEXT);
     }*/
     //?}
+    private java.util.List<String> noticeParagraphs() {
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        for (int i = 1; i <= 4; i++) {
+            if (i > 1) paragraphs.add("");
+            paragraphs.add(Component.translatable("peercraft.modsync.notice.body" + i).getString());
+        }
+        return paragraphs;
+    }
+
 }

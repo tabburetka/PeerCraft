@@ -35,11 +35,21 @@ public class HandoffPlayerPickerScreen extends Screen {
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
 
     private final Screen lastScreen;
+    private List<P2PBridge.HandoffCandidate> candidates = java.util.Collections.emptyList();
+    private int scroll;
 
     private int panelHeight() {
-        return Math.min(this.height - 24, 174 + P2PBridge.INSTANCE.connectedJoiners().size() * 24);
+        return Math.max(1, Math.min(this.height - 24, Math.max(240, Math.min(440, 174 + candidates.size() * 24))));
     }
     private int panelTop() { return (this.height - panelHeight()) / 2; }
+
+    private int panelWidth() { return Math.max(1, Math.min(360, width - 24)); }
+    private int contentWidth() { return Math.max(1, panelWidth() - 24); }
+    private int contentLeft() { return (width - contentWidth()) / 2; }
+    private int rowsTop() { return panelTop() + 46 + introLines().size() * 11; }
+    private int backTop() { return panelTop() + panelHeight() - 32; }
+    private int visibleRows() { return Math.max(0, (backTop() - 8 - rowsTop()) / 24); }
+    private int maxScroll() { return Math.max(0, candidates.size() - visibleRows()); }
 
     public HandoffPlayerPickerScreen(Screen lastScreen) {
         super(Component.translatable("peercraft.handoff.picker.title"));
@@ -48,31 +58,59 @@ public class HandoffPlayerPickerScreen extends Screen {
 
     @Override
     protected void init() {
-        int cx = this.width / 2;
-        List<P2PBridge.HandoffCandidate> candidates = P2PBridge.INSTANCE.connectedJoiners();
+        clearWidgets();
+        candidates = P2PBridge.INSTANCE.connectedJoiners();
+        scroll = Math.max(0, Math.min(scroll, maxScroll()));
         IntegratedServer server = this.minecraft.getSingleplayerServer();
 
-        int y = panelTop() + 102;
-        for (int i = 0; i < candidates.size(); i++) {
-            P2PBridge.HandoffCandidate c = candidates.get(i);
-            String name = displayName(server, c, i);
+        int y = rowsTop();
+        for (int i = 0; i < Math.min(visibleRows(), candidates.size() - scroll); i++) {
+            P2PBridge.HandoffCandidate c = candidates.get(scroll + i);
+            String name = displayName(server, c, scroll + i);
             boolean eligible = c.signedIn() && !c.declinedSuccessor();
             Component label = !c.signedIn()
                     ? Component.translatable("peercraft.handoff.picker.row_not_signed_in", name)
                     : c.declinedSuccessor()
                             ? Component.translatable("peercraft.handoff.picker.row_declined_successor", name)
                             : Component.translatable("peercraft.handoff.picker.hand_off", name);
-            Button b = SteampunkSettingsTheme.action(cx - 155, y, 310, 20,
+            Button b = SteampunkSettingsTheme.action(contentLeft(), y, contentWidth(), 20,
                     label, btn -> confirmAndChoose(c, name), true);
+            b.setTooltip(net.minecraft.client.gui.components.Tooltip.create(label));
             b.active = eligible;
             this.addRenderableWidget(b);
             y += 24;
         }
 
-        this.addRenderableWidget(SteampunkSettingsTheme.action(cx - 155, panelTop() + panelHeight() - 32, 310, 20,
+        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), backTop(), contentWidth(), 20,
                 Component.translatable("peercraft.handoff.picker.cancel"),
                 btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen), false));
     }
+
+    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        if (vertical != 0 && x >= contentLeft() && x < contentLeft() + contentWidth()
+                && y >= rowsTop() && y < backTop() - 8 && maxScroll() > 0) {
+            scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) Math.signum(vertical) * 3));
+            init(); return true;
+        }
+        return super.mouseScrolled(x, y, horizontal, vertical);
+    }
+    private boolean pageScroll(int key) {
+        if ((key != 266 && key != 267) || maxScroll() == 0) return false;
+        scroll = Math.max(0, Math.min(maxScroll(), scroll + (key == 266 ? -1 : 1) * Math.max(1, visibleRows())));
+        init();
+        return true;
+    }
+    //? if <1.21.9 {
+    @Override public boolean keyPressed(int key, int scan, int modifiers) {
+        return pageScroll(key) || super.keyPressed(key, scan, modifiers);
+    }
+    //?} else {
+    /*@Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        return pageScroll(event.key()) || super.keyPressed(event);
+    }*/
+    //?}
+
+    @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
 
     /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
     private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
@@ -81,7 +119,7 @@ public class HandoffPlayerPickerScreen extends Screen {
             return;
         }
         Screen self = this;
-        PeerCraftUi.setScreen(this.minecraft, new net.minecraft.client.gui.screens.ConfirmScreen(
+        PeerCraftUi.setScreen(this.minecraft, new PeerCraftConfirmScreen(
                 confirmed -> {
                     if (confirmed) {
                         choose(c, name);
@@ -234,32 +272,66 @@ public class HandoffPlayerPickerScreen extends Screen {
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.font,
                 Component.translatable("peercraft.handoff.picker.intro").getString(),
-                Math.min(this.width - 60, 310));
+                contentWidth());
     }
 
     private boolean noneConnected() {
-        return P2PBridge.INSTANCE.connectedJoiners().isEmpty();
+        return candidates.isEmpty();
     }
+
+    private final long animationStart = System.nanoTime();
+
+    //? if <26.1 {
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (minecraft.level != null) {
+            super.renderBackground(graphics, mouseX, mouseY, partialTick);
+            SteampunkSettingsTheme.frame(graphics, (width - panelWidth()) / 2, panelTop(), panelWidth(), panelHeight(),
+                    SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
+        } else {
+            SteampunkSettingsTheme.screenBackground(graphics, width, height, (width - panelWidth()) / 2,
+                    panelTop(), panelWidth(), panelHeight(), (System.nanoTime() - animationStart) / 1_000_000L);
+        }
+    }
+    //?} else {
+    /*@Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        if (minecraft.level != null) {
+            super.extractBackground(graphics, mouseX, mouseY, partialTick);
+            SteampunkSettingsTheme.frame(graphics, (width - panelWidth()) / 2, panelTop(), panelWidth(), panelHeight(),
+                    SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
+        } else {
+            SteampunkSettingsTheme.screenBackground(graphics, width, height, (width - panelWidth()) / 2,
+                    panelTop(), panelWidth(), panelHeight(), (System.nanoTime() - animationStart) / 1_000_000L);
+        }
+    }*/
+    //?}
 
     //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
-        SteampunkSettingsTheme.frame(graphics, this.width / 2 - 180, panelTop(), 360, panelHeight(),
-                SteampunkSettingsTheme.PANEL, SteampunkSettingsTheme.BORDER);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
         graphics.drawCenteredString(this.font, this.title, cx, panelTop() + 14, SteampunkSettingsTheme.ACCENT);
+        if (maxScroll() > 0 && visibleRows() > 0) {
+            int top = rowsTop(), track = visibleRows() * 24 - 4;
+            int thumb = Math.min(track, Math.max(12, track * visibleRows() / candidates.size()));
+            int thumbY = top + (track - thumb) * scroll / maxScroll();
+            int x = contentLeft() + contentWidth() + 4;
+            graphics.fill(x, top, x + 2, top + track, SteampunkSettingsTheme.BORDER);
+            graphics.fill(x, thumbY, x + 2, thumbY + thumb, SteampunkSettingsTheme.ACCENT);
+        }
         int y = panelTop() + 38;
         for (String line : introLines()) {
             graphics.drawCenteredString(this.font, line, cx, y, 0xFFAAAAAA);
             y += 11;
         }
         if (noneConnected()) {
-            int emptyY = panelTop() + 96;
+            int emptyY = rowsTop();
             for (String line : PeerCraftUi.wrap(this.font,
-                    Component.translatable("peercraft.handoff.picker.no_candidates").getString(), 310)) {
+                    Component.translatable("peercraft.handoff.picker.no_candidates").getString(), contentWidth())) {
                 graphics.drawCenteredString(this.font, line, cx, emptyY, 0xFFFF5555);
                 emptyY += 11;
             }
@@ -268,18 +340,30 @@ public class HandoffPlayerPickerScreen extends Screen {
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        graphics.centeredText(this.font, this.title, cx, 24, 0xFFFFFFFF);
-        int y = 44;
+        graphics.centeredText(this.font, this.title, cx, panelTop() + 14, SteampunkSettingsTheme.ACCENT);
+        if (maxScroll() > 0 && visibleRows() > 0) {
+            int top = rowsTop(), track = visibleRows() * 24 - 4;
+            int thumb = Math.min(track, Math.max(12, track * visibleRows() / candidates.size()));
+            int thumbY = top + (track - thumb) * scroll / maxScroll();
+            int x = contentLeft() + contentWidth() + 4;
+            graphics.fill(x, top, x + 2, top + track, SteampunkSettingsTheme.BORDER);
+            graphics.fill(x, thumbY, x + 2, thumbY + thumb, SteampunkSettingsTheme.ACCENT);
+        }
+        int y = panelTop() + 38;
         for (String line : introLines()) {
             graphics.centeredText(this.font, line, cx, y, 0xFFAAAAAA);
             y += 11;
         }
         if (noneConnected()) {
-            graphics.centeredText(this.font,
-                    Component.translatable("peercraft.handoff.picker.no_candidates"),
-                    cx, this.height / 2 - 40, 0xFFFF5555);
+            int emptyY = rowsTop();
+            for (String line : PeerCraftUi.wrap(this.font,
+                    Component.translatable("peercraft.handoff.picker.no_candidates").getString(), contentWidth())) {
+                graphics.centeredText(this.font, line, cx, emptyY, 0xFFFF5555);
+                emptyY += 11;
+            }
         }
     }*/
     //?}

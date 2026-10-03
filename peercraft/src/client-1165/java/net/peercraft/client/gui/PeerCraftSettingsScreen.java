@@ -26,13 +26,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /** In-game PeerCraft settings (1.16.5). See the src/main original for behaviour notes. */
-public class PeerCraftSettingsScreen extends Screen {
+public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
 
-    private static final int LIST_TOP = 40;
-    private static final int ROWS_TOP = LIST_TOP + 38;
-    private static final int ROW_PITCH = 26;
-    private static final int CONTROL_W = 150;
-    private static final int LABEL_X = 20;
+    private int listTop;
+    private int rowsTop;
+    private int listBottom;
+    private int rowPitch;
+    private int controlWidth;
+    private int labelX;
+    private boolean draggingScrollbar;
 
     private static final int KIND_BOOL = 0;
     private static final int KIND_INT = 1;
@@ -52,7 +54,7 @@ public class PeerCraftSettingsScreen extends Screen {
     private int statusColor = PeerCraftUi.TEXT_MUTED;
 
     public PeerCraftSettingsScreen(Screen lastScreen) {
-        super(new TranslatableComponent("peercraft.gui.settings.title"));
+        super(new TranslatableComponent("peercraft.gui.settings.title"), 600);
         this.lastScreen = lastScreen;
     }
 
@@ -133,6 +135,16 @@ public class PeerCraftSettingsScreen extends Screen {
 
     @Override
     protected void init() {
+        // Keep edits through resizing rather than reloading the stored values.
+        for (Row row : rows) if (row.widget != null && settings != null) settings.set(row.key, readWidget(row));
+        super.init();
+        dialog = new SteampunkDialog(width, height, 600, title, 440);
+        labelX = dialog.contentX() + 4;
+        controlWidth = Math.max(70, Math.min(150, dialog.contentWidth() * 2 / 5));
+        listTop = dialog.contentTop();
+        rowsTop = listTop + 36;
+        rowPitch = dialog.compact ? 24 : 30;
+        listBottom = dialog.top + dialog.height - 64;
         if (this.settings == null) {
             this.settings = PeerCraftSettingsStore.load();
         }
@@ -168,7 +180,7 @@ public class PeerCraftSettingsScreen extends Screen {
             this.addButton(row.widget);
         }
 
-        this.developerToggle = new ModSyncCheckbox(LABEL_X, LIST_TOP, 20, 20,
+        this.developerToggle = new ModSyncCheckbox(labelX, listTop, 20, 20,
                 new TranslatableComponent("peercraft.gui.settings.developer_toggle"),
                 this.settings.showDeveloperSection,
                 value -> {
@@ -178,15 +190,14 @@ public class PeerCraftSettingsScreen extends Screen {
                 });
         this.addButton(this.developerToggle);
 
-        int by = this.height - 52;
-        int cx = this.width / 2;
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.save"), b -> onSave())
-                .bounds(cx - 154, by, 100, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.reset"), b -> onReset())
-                .bounds(cx - 50, by, 100, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.cancel"),
-                        b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(cx + 54, by, 100, 20).build());
+        int by = dialog.top + dialog.height - 12 - dialog.buttonHeight();
+        int actionWidth = (dialog.contentWidth() - 12) / 3;
+        addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.save"), b -> onSave())
+                .bounds(dialog.contentX(), by, actionWidth, dialog.buttonHeight()).primary().build());
+        addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.reset"), b -> onReset())
+                .bounds(dialog.contentX() + actionWidth + 6, by, actionWidth, dialog.buttonHeight()).build());
+        addButton(Btn.builder(new TranslatableComponent("peercraft.gui.settings.cancel"), b -> onClose())
+                .bounds(dialog.contentX() + (actionWidth + 6) * 2, by, actionWidth, dialog.buttonHeight()).build());
 
         relayout();
     }
@@ -208,11 +219,11 @@ public class PeerCraftSettingsScreen extends Screen {
     }
 
     private int controlX() {
-        return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);
+        return dialog.contentX() + dialog.contentWidth() - controlWidth - 12;
     }
 
     private int labelMaxWidth() {
-        return Math.max(60, controlX() - 12 - LABEL_X);
+        return Math.max(1, controlX() - 10 - labelX);
     }
 
     private String clip(String text, int maxWidth) {
@@ -224,7 +235,7 @@ public class PeerCraftSettingsScreen extends Screen {
 
     private AbstractWidget buildWidget(Row row) {
         int x = controlX();
-        int y = ROWS_TOP;
+        int y = rowsTop;
         String current = seed(row.key);
         switch (row.kind) {
             case KIND_BOOL:
@@ -236,7 +247,7 @@ public class PeerCraftSettingsScreen extends Screen {
             case KIND_INT:
             case KIND_STRING:
             default:
-                EditBox box = new EditBox(this.font, x, y, CONTROL_W, 18, TextComponent.EMPTY);
+                EditBox box = new SteampunkField(this.font, x, y, controlWidth, 18, TextComponent.EMPTY);
                 box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
                 box.setValue(current);
                 return box;
@@ -249,7 +260,7 @@ public class PeerCraftSettingsScreen extends Screen {
         Button button = Btn.builder(cycleLabel(langPrefix, values.get(row.cycleIndex)), b -> {
             row.cycleIndex = (row.cycleIndex + 1) % values.size();
             b.setMessage(cycleLabel(langPrefix, values.get(row.cycleIndex)));
-        }).bounds(x, y, CONTROL_W, 18).build();
+        }).bounds(x, y, controlWidth, 18).build();
         return button;
     }
 
@@ -268,8 +279,8 @@ public class PeerCraftSettingsScreen extends Screen {
     }
 
     private int rowsShown() {
-        int band = (this.height - 66) - ROWS_TOP;
-        return Math.max(1, band / ROW_PITCH);
+        int band = listBottom - rowsTop;
+        return Math.max(1, band / rowPitch);
     }
 
     private void relayout() {
@@ -286,19 +297,20 @@ public class PeerCraftSettingsScreen extends Screen {
         }
         for (int i = 0; i < shown && this.scroll + i < visible.size(); i++) {
             Row row = visible.get(this.scroll + i);
-            int y = ROWS_TOP + i * ROW_PITCH;
+            int y = rowsTop + i * rowPitch;
             row.screenY = y;
             row.widget.visible = true;
-            row.widget.x = controlX();
+            row.widget.x = controlX() + (row.widget instanceof SteampunkField ? 5 : 0);
             row.widget.y = y;
         }
+        if (getFocused() instanceof AbstractWidget && !((AbstractWidget) getFocused()).visible) setFocused(null);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         int total = visibleRows().size();
         int shown = rowsShown();
-        if (delta != 0 && total > shown && mouseY >= ROWS_TOP && mouseY < ROWS_TOP + shown * ROW_PITCH) {
+        if (delta != 0 && total > shown && mouseX >= dialog.contentX() && mouseX < dialog.left + dialog.width && mouseY >= rowsTop && mouseY < rowsTop + shown * rowPitch) {
             int next = Math.max(0, Math.min(this.scroll - (int) Math.signum(delta), total - shown));
             if (next != this.scroll) {
                 this.scroll = next;
@@ -363,6 +375,11 @@ public class PeerCraftSettingsScreen extends Screen {
     }
 
     private void failValidation(Row row) {
+        if (row.developer && !settings.showDeveloperSection) developerToggle.onPress();
+        int index = visibleRows().indexOf(row);
+        scroll = Math.max(0, Math.min(index, visibleRows().size() - rowsShown()));
+        relayout();
+        setFocused(row.widget);
         this.statusMessage = new TranslatableComponent("peercraft.gui.settings.invalid_number",
                 new TranslatableComponent("peercraft.gui.settings." + row.labelKey));
         this.statusColor = PeerCraftUi.TEXT_ERROR;
@@ -387,22 +404,31 @@ public class PeerCraftSettingsScreen extends Screen {
         this.renderBackground(poseStack);
         super.render(poseStack, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, 16, PeerCraftUi.TEXT_TITLE);
+        GuiComponent.drawString(poseStack, font, clip(developerToggle.getMessage().getString(), dialog.contentWidth() - 24), labelX + 24, listTop + 5, PeerCraftUi.TEXT_MUTED);
         for (Row row : this.rows) {
             if (row.screenY < 0) {
                 continue;
             }
             int color = !row.widget.active ? PeerCraftUi.TEXT_MUTED
                     : (row.warnOverride != null ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
-            GuiComponent.drawString(poseStack, this.font, rowLabel(row), LABEL_X, row.screenY + 5, color);
+            GuiComponent.drawString(poseStack, this.font, rowLabel(row), labelX, row.screenY + 5, color);
         }
         if (this.settings != null && this.settings.showDeveloperSection) {
             String warn = clip(new TranslatableComponent("peercraft.gui.settings.developer_warning").getString(),
-                    this.width - LABEL_X - 20);
+                    dialog.contentWidth() - 24);
             GuiComponent.drawString(poseStack, this.font, new TextComponent(warn),
-                    LABEL_X, LIST_TOP + 16, PeerCraftUi.TEXT_ERROR);
+                    labelX, listTop + 16, PeerCraftUi.TEXT_ERROR);
         }
-        GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, cx, this.height - 68, this.statusColor);
+        dialog.status(poseStack, font, statusMessage, dialog.top + dialog.height - dialog.buttonHeight() - 27, 16, statusColor);
+        drawScrollbar(poseStack);
+        for (Row row : rows) {
+            if (row.screenY >= 0 && mouseX >= labelX && mouseX < controlX() && mouseY >= row.screenY && mouseY < row.screenY + rowPitch) {
+                String label = new TranslatableComponent("peercraft.gui.settings." + row.labelKey).getString();
+                if (row.restart) label += " " + new TranslatableComponent("peercraft.gui.settings.restart_hint").getString();
+                if (row.warnOverride != null) label += "\n" + new TranslatableComponent("peercraft.gui.settings." + row.warnOverride).getString();
+                renderTooltip(poseStack, new TextComponent(label), mouseX, mouseY);
+            }
+        }
     }
 
     private Component rowLabel(Row row) {
@@ -412,4 +438,37 @@ public class PeerCraftSettingsScreen extends Screen {
         }
         return new TextComponent(clip(base, labelMaxWidth()));
     }
+    private int scrollbarX() { return dialog.left + dialog.width - 10; }
+    private void drawScrollbar(PoseStack pose) {
+        int total = visibleRows().size(), shown = rowsShown();
+        if (total <= shown) return;
+        int track = listBottom - rowsTop;
+        int thumb = Math.max(12, track * shown / total);
+        int y = rowsTop + (track - thumb) * scroll / (total - shown);
+        GuiComponent.fill(pose, scrollbarX(), rowsTop, scrollbarX() + 3, listBottom, 0xFF49331F);
+        GuiComponent.fill(pose, scrollbarX(), y, scrollbarX() + 3, y + thumb, PeerCraftUi.TEXT_ACCENT);
+    }
+    private void scrollAt(double y) {
+        int total = visibleRows().size(), shown = rowsShown();
+        if (total <= shown) return;
+        int track = listBottom - rowsTop;
+        int thumb = Math.max(12, track * shown / total);
+        scroll = (int) Math.round(Math.max(0, Math.min(1, (y - rowsTop - thumb / 2.0) / Math.max(1, track - thumb))) * (total - shown));
+        relayout();
+    }
+    @Override public boolean mouseClicked(double x, double y, int button) {
+        if (button == 0 && x >= scrollbarX() - 3 && x < scrollbarX() + 7 && y >= rowsTop && y < listBottom) {
+            draggingScrollbar = true; scrollAt(y); return true;
+        }
+        return super.mouseClicked(x, y, button);
+    }
+    @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        if (draggingScrollbar && button == 0) { scrollAt(y); return true; }
+        return super.mouseDragged(x, y, button, dx, dy);
+    }
+    @Override public boolean mouseReleased(double x, double y, int button) {
+        if (button == 0 && draggingScrollbar) { draggingScrollbar = false; return true; }
+        return super.mouseReleased(x, y, button);
+    }
+
 }

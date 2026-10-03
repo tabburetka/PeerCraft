@@ -17,7 +17,7 @@ import java.util.List;
  * in place, backing up the old one first (safe, default on ESC/close); or overwrite it outright
  * with no backup, gated behind its own {@link ConfirmScreen} warning since it's irreversible.
  */
-public class HandoffReclaimConfirmScreen extends Screen {
+public class HandoffReclaimConfirmScreen extends PeerCraftDialogScreen {
 
     private final String existingName;
     private final String backupName;
@@ -35,16 +35,20 @@ public class HandoffReclaimConfirmScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int renderedLines = 0;
+        for (String line : bodyLines()) renderedLines += Math.max(1,
+                font.split(Component.literal(line), Math.max(1, dialog.contentWidth() - 8)).size());
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, renderedLines) * 12 + 22 + dialog.buttonHeight() + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         int cx = this.width / 2;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.reclaim.update"), b -> choose(onUpdate))
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.reclaim.overwrite"), b -> confirmOverwrite())
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.handoff.reclaim.update"), b -> choose(onUpdate), true, 0, 2));
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.handoff.reclaim.overwrite"), b -> confirmOverwrite(), false, 1, 2));
     }
 
     private void confirmOverwrite() {
         Screen self = this;
-        PeerCraftUi.setScreen(this.minecraft, new ConfirmScreen(
+        PeerCraftUi.setScreen(this.minecraft, new PeerCraftConfirmScreen(
                 confirmed -> {
                     if (confirmed) {
                         choose(onOverwrite);
@@ -79,7 +83,7 @@ public class HandoffReclaimConfirmScreen extends Screen {
 
     private List<String> bodyLines() {
         String body = Component.translatable("peercraft.handoff.reclaim.body", existingName, backupName).getString();
-        return PeerCraftUi.wrap(this.font, body, Math.min(this.width - 60, 380));
+        return PeerCraftUi.wrap(this.font, body, Math.max(1, this.dialog.contentWidth() - 8));
     }
 
     //? if <26.1 {
@@ -89,26 +93,17 @@ public class HandoffReclaimConfirmScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            graphics.drawCenteredString(this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
+        int y = this.dialog.contentTop();
+        drawBody(graphics, bodyLines(), 0xFFCCCCCC);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            graphics.centeredText(this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
+        int y = this.dialog.contentTop();
+        drawBody(graphics, bodyLines(), 0xFFCCCCCC);
     }*/
     //?}
 }

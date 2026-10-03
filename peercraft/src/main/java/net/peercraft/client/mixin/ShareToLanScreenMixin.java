@@ -26,19 +26,45 @@ import java.util.stream.IntStream;
 //? if >=26.2
 /*@Mixin(MultiplayerOptionsScreen.class)*/
 public abstract class ShareToLanScreenMixin extends Screen {
-    //? if =1.21.1 {
+    //? if >=1.21.1 && <26.1 {
     @org.spongepowered.asm.mixin.Unique
     private final long peercraft$animationStart = System.nanoTime();
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void peercraft$renderTheme(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY,
                                       float partialTick, CallbackInfo ci) {
+        //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         net.peercraft.client.gui.SteampunkSettingsTheme.renderLan(graphics, this.font, this.width, this.height,
                 this.children(), mouseX, mouseY, partialTick,
                 (System.nanoTime() - this.peercraft$animationStart) / 1_000_000L);
         ci.cancel();
     }
+    //?}
+
+    //? if >=26.1 && <26.2 {
+    /*@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    private void peercraft$extractTheme(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+                                      float partialTick, CallbackInfo ci) {
+        net.peercraft.client.gui.SteampunkSettingsTheme.renderLan(graphics, this.font, this.width, this.height,
+                this.children(), mouseX, mouseY, partialTick, 0L);
+        ci.cancel();
+    }*/
+    //?}
+
+    //? if >=26.2 {
+    /*@Override
+    public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        net.peercraft.client.gui.SteampunkSettingsTheme.renderLan(graphics, this.font, this.width, this.height,
+                this.children(), mouseX, mouseY, partialTick, 0L);
+    }
+
+    @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+    private void peercraft$worldBackground(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+                                          float partialTick, CallbackInfo ci) {
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
+        ci.cancel();
+    }*/
     //?}
 
     // Value list for the "Max players" stepper — the rendezvous server independently clamps

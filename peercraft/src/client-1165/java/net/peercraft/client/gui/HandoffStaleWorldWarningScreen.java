@@ -15,7 +15,7 @@ import java.util.Locale;
 /**
  * Minecraft 1.16.5 backport of {@code src/main/.../client/gui/HandoffStaleWorldWarningScreen.java}.
  */
-public class HandoffStaleWorldWarningScreen extends Screen {
+public class HandoffStaleWorldWarningScreen extends PeerCraftDialogScreen {
 
     private final PeercraftWorldMeta meta;
     private final Runnable onProceed;
@@ -23,7 +23,7 @@ public class HandoffStaleWorldWarningScreen extends Screen {
     private boolean chosen;
 
     public HandoffStaleWorldWarningScreen(PeercraftWorldMeta meta, Runnable onProceed, Runnable onBack) {
-        super(new TranslatableComponent("peercraft.handoff.stale.title"));
+        super(new TranslatableComponent("peercraft.handoff.stale.title"), 300);
         this.meta = meta;
         this.onProceed = onProceed;
         this.onBack = onBack;
@@ -31,11 +31,10 @@ public class HandoffStaleWorldWarningScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
         int cx = this.width / 2;
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.stale.proceed"), b -> choose(onProceed))
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.stale.back"), b -> choose(onBack))
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        dialogAction(new TranslatableComponent("peercraft.handoff.stale.proceed"), b -> choose(onProceed), true, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.handoff.stale.back"), b -> choose(onBack), false, 1, 2);
     }
 
     private void choose(Runnable action) {
@@ -59,20 +58,13 @@ public class HandoffStaleWorldWarningScreen extends Screen {
                 ? new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(new Date(meta.handedOffAt() * 1000L))
                 : "?";
         String body = new TranslatableComponent("peercraft.handoff.stale.body", to, when).getString();
-        return PeerCraftUi.wrap(this.font, body, Math.min(this.width - 60, 380));
+        return PeerCraftUi.wrap(this.font, body, dialog.contentWidth() - 10);
     }
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        drawBody(poseStack, bodyLines(), PeerCraftUi.TEXT_ERROR);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, y, 0xFFFF5555);
-        y += 22;
-        for (String line : bodyLines()) {
-            GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
     }
 }

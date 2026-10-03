@@ -29,7 +29,7 @@ public class PeerCraftJoinScreen extends Screen {
     private Button connectButton;
     private Button backButton;
     private Component statusMessage = Component.empty();
-    //? if =1.21.1 {
+    //? if >=1.21.1 {
     private final long animationStart = System.nanoTime();
     private SteampunkDialog dialog;
     private int codeLabelY;
@@ -62,15 +62,13 @@ public class PeerCraftJoinScreen extends Screen {
     @Override
     protected void init() {
         String previousCode = this.roomCodeBox == null ? null : this.roomCodeBox.getValue();
-        //? if =1.21.1
+        //? if >=1.21.1
         boolean wasConnecting = this.connectButton != null && !this.connectButton.active;
         int centerX = this.width / 2;
         int y = this.height / 2 - 70;
 
-        //? if =1.21.1
+        //? if >=1.21.1
         this.roomCodeBox = new SteampunkSettingsTheme.Field(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.join.room_code_field"));
-        //? if !=1.21.1
-        /*this.roomCodeBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.join.room_code_field"));*/
         this.roomCodeBox.setMaxLength(32);
         this.roomCodeBox.setHint(Component.translatable("peercraft.gui.join.room_code_hint"));
         String prefillCode = PeerCraftConfig.roomCode();
@@ -81,7 +79,7 @@ public class PeerCraftJoinScreen extends Screen {
         this.setInitialFocus(this.roomCodeBox);
 
         y += 26;
-        //? if =1.21.1 {
+        //? if >=1.21.1 {
         this.connectButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
                 Component.translatable("peercraft.gui.join.connect"), b -> onConnect(), true));
         //?} else {
@@ -91,7 +89,7 @@ public class PeerCraftJoinScreen extends Screen {
         //?}
 
         y += 30;
-        //? if =1.21.1 {
+        //? if >=1.21.1 {
         this.backButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 100, y, 200, 20,
                 Component.translatable("peercraft.gui.common.back"), b -> onClose(), false));
         //?} else {
@@ -100,7 +98,7 @@ public class PeerCraftJoinScreen extends Screen {
                 .build());*/
         //?}
         if (previousCode != null) this.roomCodeBox.setValue(previousCode);
-        //? if =1.21.1 {
+        //? if >=1.21.1 {
         this.connectButton.active = !wasConnecting;
         layoutThemedJoin();
         //?}
@@ -112,6 +110,7 @@ public class PeerCraftJoinScreen extends Screen {
     }
 
     private void onConnect() {
+        if (PeerCraftProgressNoticeScreen.beforeConnecting(this, this::onConnect)) return;
         String code = this.roomCodeBox.getValue().trim().toUpperCase(Locale.ROOT);
         if (code.isBlank()) {
             this.statusMessage = Component.translatable("peercraft.gui.join.enter_code_error");
@@ -166,7 +165,7 @@ public class PeerCraftJoinScreen extends Screen {
         ConnectScreen.startConnecting(this.lastScreen, this.minecraft, address, serverData, false, null);
     }
 
-    //? if =1.21.1 {
+    //? if >=1.21.1 {
     private void layoutThemedJoin() {
         boolean compact = this.height < 300;
         int header = compact ? 36 : 46;
@@ -194,6 +193,7 @@ public class PeerCraftJoinScreen extends Screen {
         this.backButton.setHeight(buttonHeight);
     }
 
+    //? if <26.1 {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.dialog.background(graphics, this.font, this.width, this.height,
@@ -202,7 +202,11 @@ public class PeerCraftJoinScreen extends Screen {
                 this.dialog.contentX(), this.codeLabelY, SteampunkSettingsTheme.TEXT, false);
         this.dialog.divider(graphics, this.dividerY);
     }
+    //?} else {
+    /* */
+    //?}
 
+    //? if <1.21.9 {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
@@ -212,6 +216,18 @@ public class PeerCraftJoinScreen extends Screen {
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
+    //?} else {
+    /*    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int keyCode = event.key();
+        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+                && getFocused() == this.roomCodeBox && this.connectButton.active) {
+            onConnect();
+            return true;
+        }
+        return super.keyPressed(event);
+    }*/
+    //?}
     //?}
 
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
@@ -219,18 +235,16 @@ public class PeerCraftJoinScreen extends Screen {
     //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        //? if !=1.21.1 && <1.21.6
+        //? if <1.21.1 && <1.21.6
         /*this.renderBackground(graphics, mouseX, mouseY, partialTick);*/
         super.render(graphics, mouseX, mouseY, partialTick);
-        //? if =1.21.1 {
+        //? if >=1.21.1 {
         boolean idle = this.statusMessage.getString().isEmpty();
         Component message = idle ? Component.translatable("peercraft.gui.join.code_help") : this.statusMessage;
         int color = idle ? SteampunkSettingsTheme.MUTED
                 : this.connectButton.active ? PeerCraftUi.TEXT_ERROR : SteampunkSettingsTheme.ACCENT;
         this.dialog.status(graphics, this.font, message, this.statusY, 27, color, mouseX, mouseY);
         //?} else {
-        // Fully opaque (0xFF alpha) — GuiGraphics.drawString() since 1.21.6 silently skips
-        // rendering entirely when a color's alpha byte is 0, which both of these were before.
         /*graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);*/
         //?}
@@ -238,9 +252,26 @@ public class PeerCraftJoinScreen extends Screen {
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        graphics.centeredText(this.font, this.title, this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
-        graphics.centeredText(this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);
+
+        boolean idle = this.statusMessage.getString().isEmpty();
+        Component message = idle ? Component.translatable("peercraft.gui.join.code_help") : this.statusMessage;
+        int color = idle ? SteampunkSettingsTheme.MUTED
+                : this.connectButton.active ? PeerCraftUi.TEXT_ERROR : SteampunkSettingsTheme.ACCENT;
+        this.dialog.status(graphics, this.font, message, this.statusY, 27, color, mouseX, mouseY);
+
     }*/
     //?}
+    //? if >=26.1 {
+    /*    @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        this.dialog.background(graphics, this.font, this.width, this.height,
+                (System.nanoTime() - this.animationStart) / 1_000_000L);
+        graphics.text(this.font, Component.translatable("peercraft.gui.join.room_code_field"),
+                this.dialog.contentX(), this.codeLabelY, SteampunkSettingsTheme.TEXT, false);
+        this.dialog.divider(graphics, this.dividerY);
+    }*/
+    //?}
+
 }

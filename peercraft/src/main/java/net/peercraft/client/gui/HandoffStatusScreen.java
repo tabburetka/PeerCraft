@@ -18,7 +18,7 @@ import java.util.List;
  * and updated from the {@code HandoffCoordinator} callbacks (which fire off-thread, so every
  * mutator marshals through {@code minecraft.execute}).
  */
-public class HandoffStatusScreen extends Screen {
+public class HandoffStatusScreen extends PeerCraftDialogScreen {
 
     private final Screen backScreen;
     private final String successorName;
@@ -37,18 +37,21 @@ public class HandoffStatusScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int renderedLines = 0;
+        for (String line : lines()) renderedLines += Math.max(1,
+                font.split(Component.literal(line), Math.max(1, dialog.contentWidth() - 8)).size());
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12 + 22 + (terminalKey == null ? 0 : dialog.buttonHeight());
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.clearWidgets();
         int cx = this.width / 2;
         if (terminalKey == null) {
             return; // in progress — no buttons
         }
         if (success) {
-            this.addRenderableWidget(Button.builder(Component.translatable("menu.returnToMenu"), b -> toTitle())
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
+            this.addRenderableWidget(dialogAction(Component.translatable("menu.returnToMenu"), b -> toTitle(), true, 0, 1));
         } else {
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.restart.back"),
-                            b -> PeerCraftUi.setScreen(this.minecraft, backScreen))
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
+            this.addRenderableWidget(dialogAction(Component.translatable("peercraft.modsync.restart.back"), b -> PeerCraftUi.setScreen(this.minecraft, backScreen), true, 0, 1));
         }
     }
 
@@ -91,6 +94,7 @@ public class HandoffStatusScreen extends Screen {
     }
 
     private void rebuild() {
+        if (this.minecraft == null || this.font == null) return;
         this.clearWidgets();
         this.init();
     }
@@ -130,7 +134,7 @@ public class HandoffStatusScreen extends Screen {
     private List<String> lines() {
         String key = terminalKey != null ? terminalKey : statusKey;
         String text = Component.translatable(key, successorName).getString();
-        List<String> out = PeerCraftUi.wrap(this.font, text, Math.min(this.width - 60, 360));
+        List<String> out = PeerCraftUi.wrap(this.font, text, Math.max(1, this.dialog.contentWidth() - 8));
         long total = this.totalBytes;
         if (terminalKey == null && total > 0) {
             long sent = Math.min(this.sentBytes, total);
@@ -147,28 +151,19 @@ public class HandoffStatusScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 24;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
+        int y = this.dialog.contentTop();
         int color = terminalKey == null ? 0xFFCCCCCC : (success ? 0xFF55FF55 : 0xFFFF5555);
-        for (String line : lines()) {
-            graphics.drawCenteredString(this.font, line, cx, y, color);
-            y += 12;
-        }
+        drawBody(graphics, lines(), color);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 24;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
+        int y = this.dialog.contentTop();
         int color = terminalKey == null ? 0xFFCCCCCC : (success ? 0xFF55FF55 : 0xFFFF5555);
-        for (String line : lines()) {
-            graphics.centeredText(this.font, line, cx, y, color);
-            y += 12;
-        }
+        drawBody(graphics, lines(), color);
     }*/
     //?}
 }

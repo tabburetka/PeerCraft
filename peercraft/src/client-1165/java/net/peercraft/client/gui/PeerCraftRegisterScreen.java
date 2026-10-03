@@ -21,7 +21,7 @@ import org.lwjgl.glfw.GLFW;
  * copy button, since asking a player to retype six characters correctly by hand is where a
  * lost-code support request starts.
  */
-public class PeerCraftRegisterScreen extends Screen {
+public class PeerCraftRegisterScreen extends PeerCraftDialogScreen {
 
     private final Screen lastScreen;
     /** null while the form is showing; set to the assigned code once registration succeeds. */
@@ -32,50 +32,69 @@ public class PeerCraftRegisterScreen extends Screen {
     private Button registerButton;
     private Component statusMessage = TextComponent.EMPTY;
     private int statusColor = PeerCraftUi.TEXT_MUTED;
+    private int successHintHeight;
+    private int successActionY;
 
     public PeerCraftRegisterScreen(Screen lastScreen) {
         this(lastScreen, null);
     }
 
     private PeerCraftRegisterScreen(Screen lastScreen, String registeredFriendCode) {
-        super(new TranslatableComponent("peercraft.gui.register.title"));
+        super(new TranslatableComponent("peercraft.gui.register.title"), 280);
         this.lastScreen = lastScreen;
         this.registeredFriendCode = registeredFriendCode;
     }
 
     @Override
     protected void init() {
+        super.init();
+        boolean compact = height < 300;
+        int desiredHeight = (compact ? 36 : 46) + 6 + 6 + 3 * (compact ? 22 : 30)
+                + (compact ? 18 : 24) + 8 + 26 + 12;
+        if (registeredFriendCode != null) {
+            successHintHeight = Math.max(1, PeerCraftUi.wrap(font,
+                    new TranslatableComponent("peercraft.gui.register.success_hint").getString(), dialog.contentWidth()).size()) * font.lineHeight;
+            desiredHeight = (compact ? 36 : 46) + 6 + 57 + successHintHeight + 8
+                    + (compact ? 22 : 30) + (compact ? 18 : 24) + 8 + 26 + 12;
+        }
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
+        String previousnicknameBox = nicknameBox == null ? null : nicknameBox.getValue();
+        String previouspasswordBox = passwordBox == null ? null : passwordBox.getValue();
+
         int centerX = this.width / 2;
-        int y = this.height / 2 - 50;
+        int y = dialog.contentTop() + 6;
 
         if (this.registeredFriendCode != null) {
+            successActionY = dialog.contentTop() + 57 + successHintHeight + 8;
             this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.register.copy_code"), b -> onCopyCode())
-                    .bounds(centerX - 100, this.height / 2 + 8, 200, 20).build());
+                    .bounds(dialog.contentX(), successActionY, dialog.contentWidth(), dialog.buttonHeight()).build());
             this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen)))
-                    .bounds(centerX - 100, this.height / 2 + 34, 200, 20).build());
+                    .bounds(dialog.contentX(), successActionY + dialog.buttonPitch(), dialog.contentWidth(), dialog.buttonHeight()).primary().build());
             return;
         }
 
-        this.nicknameBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.nickname_field"));
+        this.nicknameBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.register.nickname_field"));
         this.nicknameBox.setMaxLength(16);
         PeerCraftUi.placeholder(this.nicknameBox, new TranslatableComponent("peercraft.gui.register.nickname_hint").getString());
+        if (previousnicknameBox != null) this.nicknameBox.setValue(previousnicknameBox);
         this.addButton(this.nicknameBox);
         this.setFocused(this.nicknameBox);
 
-        y += 26;
-        this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.password_field"));
+        y += dialog.buttonPitch();
+        this.passwordBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.register.password_field"));
         this.passwordBox.setMaxLength(64);
         PeerCraftUi.placeholder(this.passwordBox, new TranslatableComponent("peercraft.gui.register.password_hint").getString());
         PeerCraftUi.maskAsPassword(this.passwordBox);
+        if (previouspasswordBox != null) this.passwordBox.setValue(previouspasswordBox);
         this.addButton(this.passwordBox);
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.registerButton = this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.register.submit"), b -> onRegister())
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).primary().build());
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).build());
     }
 
     // Screen.keyPressed switched from (int,int,int) to a KeyEvent record parameter in 1.21.9.
@@ -165,17 +184,18 @@ public class PeerCraftRegisterScreen extends Screen {
         super.render(poseStack, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         if (this.registeredFriendCode != null) {
-            GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_title"), centerX, this.height / 2 - 90, PeerCraftUi.TEXT_TITLE);
-            GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_code_label"), centerX, this.height / 2 - 55, PeerCraftUi.TEXT_TITLE);
+            GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_title"), centerX, dialog.contentTop(), PeerCraftUi.TEXT_TITLE);
+            GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_code_label"), centerX, dialog.contentTop() + 16, PeerCraftUi.TEXT_TITLE);
 
-            GuiComponent.fill(poseStack, centerX - 60, this.height / 2 - 42, centerX + 60, this.height / 2 - 20, 0x80000000);
-            GuiComponent.drawCenteredString(poseStack, this.font, new TextComponent(this.registeredFriendCode), centerX, this.height / 2 - 36, PeerCraftUi.TEXT_ACCENT);
+            GuiComponent.fill(poseStack, dialog.contentX(), dialog.contentTop() + 30, dialog.contentX() + dialog.contentWidth(), dialog.contentTop() + 52, 0x80000000);
+            GuiComponent.drawCenteredString(poseStack, this.font, new TextComponent(this.registeredFriendCode), centerX, dialog.contentTop() + 37, PeerCraftUi.TEXT_ACCENT);
 
-            GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_hint"), centerX, this.height / 2 - 8, PeerCraftUi.TEXT_MUTED);
-            GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+            dialog.status(poseStack, this.font, new TranslatableComponent("peercraft.gui.register.success_hint"), dialog.contentTop() + 57, successHintHeight, PeerCraftUi.TEXT_MUTED);
+            dialog.status(poseStack, this.font, this.statusMessage, dialog.top + dialog.height - 36, 26, this.statusColor);
         } else {
-            GuiComponent.drawCenteredString(poseStack, this.font, this.title, centerX, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
-            GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+                dialog.status(poseStack, this.font, this.statusMessage, dialog.top + dialog.height - 36, 26, this.statusColor);
         }
     }
+    @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
+
 }

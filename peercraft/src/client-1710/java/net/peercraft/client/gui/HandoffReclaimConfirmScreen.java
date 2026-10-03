@@ -2,8 +2,6 @@ package net.peercraft.client.gui;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiYesNo;
-import net.minecraft.client.gui.GuiYesNoCallback;
 
 import java.util.List;
 
@@ -12,7 +10,7 @@ import java.util.List;
  * (cf. the 1.12.2 twin). Delta: 1.7.10's {@code GuiScreen} does NOT implement
  * {@code GuiYesNoCallback} itself (unlike 1.12.2's) — declared explicitly here.
  */
-public class HandoffReclaimConfirmScreen extends GuiScreen implements GuiYesNoCallback {
+public class HandoffReclaimConfirmScreen extends PeerCraftDialogScreen {
 
     private final String existingName;
     private final String backupName;
@@ -21,6 +19,7 @@ public class HandoffReclaimConfirmScreen extends GuiScreen implements GuiYesNoCa
     private boolean chosen;
 
     public HandoffReclaimConfirmScreen(String existingName, String backupName, Runnable onUpdate, Runnable onOverwrite) {
+        super(PeerCraftLang.tr("peercraft.handoff.reclaim.title"), 320, 400);
         this.existingName = existingName;
         this.backupName = backupName;
         this.onUpdate = onUpdate;
@@ -34,14 +33,13 @@ public class HandoffReclaimConfirmScreen extends GuiScreen implements GuiYesNoCa
 
     @Override
     public void initGui() {
+        super.initGui();
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, bodyLines().size()) * 12
+                + 22 + dialog.buttonHeight() + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.reclaim.title"), 400);
         this.buttonList.clear();
-        int cx = this.width / 2;
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.handoff.reclaim.update"),
-                        () -> choose(onUpdate))
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite"),
-                        this::confirmOverwrite)
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.reclaim.update"), () -> choose(onUpdate), true, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite"), this::confirmOverwrite, false, 1, 2);
     }
 
     @Override
@@ -52,20 +50,12 @@ public class HandoffReclaimConfirmScreen extends GuiScreen implements GuiYesNoCa
     }
 
     private void confirmOverwrite() {
-        PeerCraftUi.setScreen(this.mc, new GuiYesNo(this,
-                PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.title"),
+        PeerCraftUi.setScreen(this.mc, new PeerCraftConfirmScreen(result -> {
+            if (result) choose(onOverwrite); else PeerCraftUi.setScreen(this.mc, this);
+        }, PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.title"),
                 PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.body", existingName),
                 PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.yes"),
-                PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.no"), 0));
-    }
-
-    @Override
-    public void confirmClicked(boolean result, int id) {
-        if (result) {
-            choose(onOverwrite);
-        } else {
-            PeerCraftUi.setScreen(this.mc, this);
-        }
+                PeerCraftLang.tr("peercraft.handoff.reclaim.overwrite_confirm.no")));
     }
 
     private void choose(Runnable action) {
@@ -88,20 +78,13 @@ public class HandoffReclaimConfirmScreen extends GuiScreen implements GuiYesNoCa
     private List<String> bodyLines() {
         return PeerCraftUi.wrap(this.fontRendererObj,
                 PeerCraftLang.tr("peercraft.handoff.reclaim.body", existingName, backupName),
-                Math.min(this.width - 60, 380));
+                dialog.contentWidth() - 8);
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        drawBody(bodyLines(), PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        this.drawCenteredString(this.fontRendererObj, PeerCraftLang.tr("peercraft.handoff.reclaim.title"), cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            this.drawCenteredString(this.fontRendererObj, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
     }
 }

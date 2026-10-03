@@ -37,6 +37,15 @@ public class PeerCraftScreenEvents {
     private final List<GuiButton> internetGated = new ArrayList<GuiButton>();
 
     @SubscribeEvent
+    public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        // Replace the native entry point; leave already themed and third-party subclasses intact.
+        if (!PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())
+                && event.getGui() != null && event.getGui().getClass() == GuiShareToLan.class) {
+            event.setGui(new PeerCraftLanScreen(Minecraft.getMinecraft().currentScreen));
+        }
+    }
+
+    @SubscribeEvent
     public void onActionPre(GuiScreenEvent.ActionPerformedEvent.Pre event) {
         GuiButton button = event.getButton();
 
@@ -49,6 +58,7 @@ public class PeerCraftScreenEvents {
             return;
         }
 
+        if (event.getGui() instanceof PeerCraftLanScreen) return;
         if (event.getGui() instanceof GuiShareToLan) {
             if (button instanceof ToggleButton) {
                 ((ToggleButton) button).fire();
@@ -60,6 +70,11 @@ public class PeerCraftScreenEvents {
             return;
         }
 
+        if (event.getGui() instanceof GuiIngameMenu && button.id == 7 && !PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) {
+            Minecraft.getMinecraft().displayGuiScreen(new PeerCraftLanScreen(event.getGui()));
+            event.setCanceled(true); return;
+        }
+
         if (event.getGui() instanceof GuiIngameMenu && button instanceof IdButton) {
             ((IdButton) button).onPress.run();
             event.setCanceled(true);
@@ -68,6 +83,7 @@ public class PeerCraftScreenEvents {
 
     @SubscribeEvent
     public void onInitPost(GuiScreenEvent.InitGuiEvent.Post event) {
+        if (event.getGui() instanceof PeerCraftLanScreen) return;
         if (event.getGui() instanceof GuiIngameMenu) {
             onPauseMenuInit(event);
             return;

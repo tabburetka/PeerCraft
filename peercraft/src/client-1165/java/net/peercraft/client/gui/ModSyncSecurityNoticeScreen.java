@@ -18,25 +18,28 @@ import net.minecraft.network.chat.TranslatableComponent;
  * acknowledges the risk (a flag in {@code settings.json} is set and this screen never returns)
  * or cancels the join. A short red reminder stays on the preparing/confirm screens after that.
  */
-public class ModSyncSecurityNoticeScreen extends Screen {
+public class ModSyncSecurityNoticeScreen extends PeerCraftDialogScreen {
 
     private final Runnable onAccept;
     private final Runnable onCancel;
 
     public ModSyncSecurityNoticeScreen(Runnable onAccept, Runnable onCancel) {
-        super(new TranslatableComponent("peercraft.modsync.notice.title"));
+        super(new TranslatableComponent("peercraft.modsync.notice.title"), 300);
         this.onAccept = onAccept;
         this.onCancel = onCancel;
     }
 
     @Override
     protected void init() {
-        int cx = this.width / 2;
-        int y = this.height - 52;
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.notice.accept"), (Button.OnPress) b -> onAccept.run())
-                .bounds(cx - 204, y, 200, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.notice.decline"), (Button.OnPress) b -> onCancel.run())
-                .bounds(cx + 4, y, 200, 20).build());
+        super.init();
+        int lines = 0;
+        for (int i = 1; i <= 4; i++) {
+            lines += PeerCraftUi.wrap(font, new TranslatableComponent("peercraft.modsync.notice.body" + i).getString(), Math.max(1, dialog.contentWidth() - 8)).size();
+        }
+        dialog = new SteampunkDialog(width, height,
+                dialog.headerHeight + 6 + (lines + 3) * 12 + 18 + 2 * dialog.buttonPitch() + 10, title);
+        dialogAction(new TranslatableComponent("peercraft.modsync.notice.accept"), (Button.OnPress) b -> onAccept.run(), true, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.modsync.notice.decline"), (Button.OnPress) b -> onCancel.run(), false, 1, 2);
     }
 
     @Override
@@ -46,18 +49,10 @@ public class ModSyncSecurityNoticeScreen extends Screen {
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (int i = 1; i <= 4; i++) { if (i > 1) lines.add(""); lines.add(new TranslatableComponent("peercraft.modsync.notice.body" + i).getString()); }
+        drawBody(poseStack, lines, PeerCraftUi.TEXT_TITLE);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = 48;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 24;
-        GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.modsync.notice.body1"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.modsync.notice.body2"), cx, y, 0xFFFF5555);
-        y += 16;
-        GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.modsync.notice.body3"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        GuiComponent.drawCenteredString(poseStack, this.font, new TranslatableComponent("peercraft.modsync.notice.body4"), cx, y, 0xFFAAAAAA);
     }
 }

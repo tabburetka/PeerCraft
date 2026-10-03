@@ -15,7 +15,7 @@ import java.util.List;
  * {@code loadWorld(null)}, no separate "saving level" screen on 1.12.2). {@code closeHandled}
  * guards {@link #onGuiClosed()} against firing twice — see {@code HandoffOfferScreen}'s class doc.
  */
-public class HandoffStatusScreen extends GuiScreen {
+public class HandoffStatusScreen extends PeerCraftDialogScreen {
 
     private final GuiScreen backScreen;
     private final String successorName;
@@ -28,24 +28,21 @@ public class HandoffStatusScreen extends GuiScreen {
     private boolean closeHandled;
 
     public HandoffStatusScreen(GuiScreen backScreen, String successorName) {
+        super(PeerCraftLang.tr("peercraft.handoff.picker.title"), 320, 400);
         this.backScreen = backScreen;
         this.successorName = successorName;
     }
 
     @Override
     public void initGui() {
+        super.initGui();
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, lines().size()) * 12
+                + 22 + (terminalKey == null ? 0 : dialog.buttonHeight());
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.picker.title"), 400);
         this.buttonList.clear();
-        int cx = this.width / 2;
-        if (terminalKey == null) {
-            return;
-        }
-        if (success) {
-            this.addButton(IdButton.builder(PeerCraftLang.tr("menu.returnToMenu"), this::toTitle)
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
-        } else {
-            this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::backToScreen)
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
-        }
+        if (terminalKey == null) return;
+        if (success) dialogAction(PeerCraftLang.tr("menu.returnToMenu"), this::toTitle, true, 0, 1);
+        else dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::backToScreen, false, 0, 1);
     }
 
     @Override
@@ -92,6 +89,7 @@ public class HandoffStatusScreen extends GuiScreen {
     }
 
     private void rebuild() {
+        if (this.mc == null || this.fontRenderer == null) return;
         this.initGui();
     }
 
@@ -131,7 +129,7 @@ public class HandoffStatusScreen extends GuiScreen {
     private List<String> lines() {
         String key = terminalKey != null ? terminalKey : statusKey;
         String text = PeerCraftLang.tr(key, successorName);
-        List<String> out = PeerCraftUi.wrap(this.fontRenderer, text, Math.min(this.width - 60, 360));
+        List<String> out = PeerCraftUi.wrap(this.fontRenderer, text, dialog.contentWidth() - 8);
         long total = this.totalBytes;
         if (terminalKey == null && total > 0) {
             long sent = Math.min(this.sentBytes, total);
@@ -144,15 +142,7 @@ public class HandoffStatusScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        drawBody(lines(), terminalKey == null ? PeerCraftUi.TEXT_TITLE : success ? PeerCraftUi.TEXT_SUCCESS : PeerCraftUi.TEXT_ERROR);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 24;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.title"), cx, y, 0xFFFFFFFF);
-        y += 22;
-        int color = terminalKey == null ? 0xFFCCCCCC : (success ? 0xFF55FF55 : 0xFFFF5555);
-        for (String line : lines()) {
-            this.drawCenteredString(this.fontRenderer, line, cx, y, color);
-            y += 12;
-        }
     }
 }

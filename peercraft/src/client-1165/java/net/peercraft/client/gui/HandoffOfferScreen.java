@@ -17,7 +17,7 @@ import java.util.List;
  * addRenderableWidget -&gt; addButton; Component.translatable -&gt; new TranslatableComponent;
  * String.isBlank() -&gt; trim().isEmpty(). Keep in sync with the original.
  */
-public class HandoffOfferScreen extends Screen {
+public class HandoffOfferScreen extends PeerCraftDialogScreen {
 
     private final HandoffProtocol.Offer offer;
     private final HandoffClientAgent agent;
@@ -30,7 +30,7 @@ public class HandoffOfferScreen extends Screen {
     private volatile long recvTotal;
 
     public HandoffOfferScreen(HandoffProtocol.Offer offer, HandoffClientAgent agent, Runnable onClosed, Runnable onAccept) {
-        super(new TranslatableComponent("peercraft.handoff.offer.title", hostLabel(offer)));
+        super(new TranslatableComponent("peercraft.handoff.offer.title", hostLabel(offer)), 300);
         this.offer = offer;
         this.agent = agent;
         this.onClosed = onClosed;
@@ -44,21 +44,24 @@ public class HandoffOfferScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int renderedLines = bodyLines().size();
+        int actions = (terminal ? 1 : statusKey == null ? 2 : 0);
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12
+                + 18 + actions * dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.buttons.clear();
         this.children.clear();
         int cx = this.width / 2;
         if (terminal) {
-            this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.restart.back"), b -> close())
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
+            dialogAction(new TranslatableComponent("peercraft.modsync.restart.back"), b -> close(), false, 0, 1);
             return;
         }
         if (statusKey != null) {
             return;
         }
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.offer.accept"), b -> accept())
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.offer.decline"), b -> decline())
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        dialogAction(new TranslatableComponent("peercraft.handoff.offer.accept"), b -> accept(), true, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.handoff.offer.decline"), b -> decline(), false, 1, 2);
     }
 
     private void accept() {
@@ -112,7 +115,7 @@ public class HandoffOfferScreen extends Screen {
                 ? new TranslatableComponent(statusKey).getString()
                 : new TranslatableComponent("peercraft.handoff.offer.body",
                         hostLabel(offer), PeerCraftUi.humanSize(offer.estArchiveBytes())).getString();
-        List<String> out = PeerCraftUi.wrap(this.font, body, Math.min(this.width - 60, 360));
+        List<String> out = PeerCraftUi.wrap(this.font, body, dialog.contentWidth() - 10);
         long total = this.recvTotal;
         if (statusKey != null && !terminal && total > 0) {
             long got = Math.min(this.recvBytes, total);
@@ -124,24 +127,10 @@ public class HandoffOfferScreen extends Screen {
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        java.util.List<String> lines = bodyLines();
+        if (offer.friendsOnly()) lines.add(new TranslatableComponent("peercraft.handoff.picker.friends_only_note").getString());
+        drawBody(poseStack, lines, terminal ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 50;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
-        if (offer.friendsOnly()) {
-            y += 8;
-            for (String line : PeerCraftUi.wrap(this.font,
-                    new TranslatableComponent("peercraft.handoff.picker.friends_only_note").getString(),
-                    Math.min(this.width - 60, 360))) {
-                GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, 0xFFAAAAAA);
-                y += 12;
-            }
-        }
     }
 }

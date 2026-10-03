@@ -50,7 +50,6 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private enum Tab { FAVORITES, FRIENDS, DISCOVER, GAMES }
 
     private static final int CONTENT_TOP = 58;
-    private static final int MAX_ROWS_SHOWN = 6;
     private static final int ROW_HEIGHT = 20;
 
     /** Opens the user's mail client with the recipient/subject pre-filled; no in-game form, no mail credentials shipped in the mod. */
@@ -61,7 +60,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     private final Screen lastScreen;
     private Tab currentTab;
-    //? if =1.21.1 {
+    //? if >=1.21.1 {
     private final long steampunkAnimationStart = System.nanoTime();
     //?}
 
@@ -124,9 +123,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private Component discoverStatusMessage = Component.empty();
     private int discoverStatusColor = PeerCraftUi.TEXT_MUTED;
     // Index of the first search result row currently shown. The result list can be longer than
-    // the MAX_ROWS_SHOWN rows that fit — the mouse wheel (see mouseScrolled) walks this offset
+    // all the rows that fit — the mouse wheel (see mouseScrolled) walks this offset
     // and a scrollbar drawn down the right edge of the results area shows where it sits.
     private int discoverScroll;
+    private int friendsScroll, gamesScroll;
+    private String gameFilterSnapshot = "";
 
     // ---- games (public game browser, Phase 7) tab ----
     private final List<AbstractWidget> gamesStaticWidgets = new ArrayList<>();
@@ -143,6 +144,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // versions. "" is the sentinel for "All" (no filter).
     private SteampunkSettingsTheme.Choice gameVersionFilterButton;
     private String selectedVersionFilter = "";
+    private String savedFriendCode = "", savedPlayerSearch = "", savedGameSearch = "";
     private Component gamesStatusMessage = Component.empty();
     private int gamesStatusColor = PeerCraftUi.TEXT_MUTED;
 
@@ -157,6 +159,23 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.currentTab = initialTab;
     }
 
+    private void captureInputs() {
+        if (addByCodeBox != null) savedFriendCode = addByCodeBox.getValue();
+        if (searchQueryBox != null) savedPlayerSearch = searchQueryBox.getValue();
+        if (gameSearchBox != null) savedGameSearch = gameSearchBox.getValue();
+    }
+
+    private void refreshScreen() {
+        captureInputs();
+        PeerCraftMultiplayerScreen next = new PeerCraftMultiplayerScreen(lastScreen, currentTab);
+        next.savedFriendCode = savedFriendCode;
+        next.savedPlayerSearch = savedPlayerSearch;
+        next.savedGameSearch = savedGameSearch;
+        next.selectedVersionFilter = selectedVersionFilter;
+        PeerCraftUi.setScreen(minecraft, next);
+        if (currentTab == Tab.DISCOVER && !savedPlayerSearch.isBlank()) next.onSearch();
+    }
+
     @Override
     protected <T extends GuiEventListener & Renderable & NarratableEntry> T addRenderableWidget(T widget) {
         T result = super.addRenderableWidget(widget);
@@ -168,6 +187,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     @Override
     protected void init() {
+        captureInputs();
         this.favoritesWidgets.clear();
         this.friendsStaticWidgets.clear();
         this.friendRowWidgets.clear();
@@ -196,37 +216,31 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
      */
     private void peercraft$addFooterButtons() {
         this.feedbackButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
-                Component.translatable("peercraft.gui.title.feedback_button"),
+                Component.literal("!"),
                 ConfirmLinkScreen.confirmLink(this, FEEDBACK_MAILTO), false));
         this.feedbackButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.feedback_tooltip")));
 
         this.donateButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
-                Component.translatable("peercraft.gui.title.donate_button"),
+                Component.literal("$"),
                 ConfirmLinkScreen.confirmLink(this, DONATE_URL), false));
         this.donateButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.donate_tooltip")));
 
         peercraft$layoutFooterButtons();
     }
 
-    /**
-     * Feedback/Donate stack in the bottom-left corner. Vanilla's two footer button rows
-     * (y = height-52 / height-28) reach left to width/2-154; when the window is wide enough to
-     * leave a clear gutter there, sit in it as before, otherwise lift the stack above both rows
-     * so it never lands on "Join Server" / "Edit". Split out of {@link #peercraft$addFooterButtons()}
-     * so it can also be re-run on a resize — see {@link #peercraft$repositionCustomWidgets()}.
-     */
+    /** Small support glyphs follow the native Join/Edit rows, including after resize. */
     private void peercraft$layoutFooterButtons() {
         if (this.feedbackButton == null || this.donateButton == null) {
             return;
         }
-        boolean gutterFits = this.width / 2 - 154 >= FOOTER_BUTTON_WIDTH + 6;
-        int donateY = gutterFits ? this.height - 4 - FOOTER_BUTTON_HEIGHT
-                                 : this.height - 52 - 6 - FOOTER_BUTTON_HEIGHT;
-        int feedbackY = donateY - FOOTER_BUTTON_HEIGHT - 4;
-        this.feedbackButton.setX(2);
-        this.feedbackButton.setY(feedbackY);
-        this.donateButton.setX(2);
-        this.donateButton.setY(donateY);
+        if (favoritesSelectButton == null || favoritesEditButton == null) return;
+        int size = favoritesSelectButton.getHeight();
+        feedbackButton.setWidth(size);
+        donateButton.setWidth(size);
+        feedbackButton.setX(favoritesSelectButton.getX() - size - 6);
+        feedbackButton.setY(favoritesSelectButton.getY());
+        donateButton.setX(favoritesEditButton.getX() - size - 6);
+        donateButton.setY(favoritesEditButton.getY());
     }
 
     /**
@@ -294,7 +308,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         //?}
 
         this.favoritesList = list;
-        list.setRectangle(this.width, this.height - 64 - CONTENT_TOP, 0, CONTENT_TOP);
+        list.setRectangle(this.width, Math.max(0, statusLineY() - 4 - CONTENT_TOP), 0, CONTENT_TOP);
 
         this.favoritesSelectButton = peercraft$decorateVanillaButton(this.favoritesSelectButton, true);
         this.favoritesDirectButton = peercraft$decorateVanillaButton(this.favoritesDirectButton, false);
@@ -320,7 +334,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         this.customRefreshButton = this.addRenderableWidget(SteampunkSettingsTheme.action(
                 vanillaRefresh.getX(), vanillaRefresh.getY(), vanillaRefresh.getWidth(), vanillaRefresh.getHeight(), vanillaRefresh.getMessage(),
-                b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftMultiplayerScreen(this.lastScreen, this.currentTab)), false));
+                b -> refreshScreen(), false));
 
         // Account button — used to be a full-width entry on the title screen; every PeerCraft
         // path already funnels through this screen (see TitleScreenMixin), so a small icon
@@ -368,7 +382,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int startX = this.width / 2 - barWidth / 2;
         int y = 30;
 
-        //? if =1.21.1 {
+        //? if >=1.21.1 {
         this.tabFavoritesButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX, y, tabWidth, 20,
                 Component.translatable("peercraft.gui.multiplayer.tab_favorites"), b -> switchTab(Tab.FAVORITES), false));
         this.tabFriendsButton = this.addRenderableWidget(SteampunkSettingsTheme.action(startX + tabWidth + 4, y, tabWidth, 20,
@@ -411,13 +425,18 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     // window size / high GUI scale — a fixed y=182 layout did (see the bug report).
 
     /** Y of the Friends "Add by code" row: just below a full friend list, pulled up on a short window. */
+    private int contentWidth() { return Math.max(1, Math.min(400, this.width - 48)); }
+    private int contentLeft() { return (this.width - contentWidth()) / 2; }
+    private int actionWidth() { return Math.min(120, Math.max(40, contentWidth() / 3)); }
+    private int removeWidth() { return Math.min(60, Math.max(32, contentWidth() / 6)); }
+
     private int friendsInputTop() {
         return CONTENT_TOP - 4;
     }
 
-    /** ROW_HEIGHT rows that fit in [rowsTop, rowsBottom], capped at MAX_ROWS_SHOWN. */
+    /** Rows fill the available body above the footer. */
     private int rowsFitting(int rowsTop, int rowsBottom) {
-        return Math.max(0, Math.min(MAX_ROWS_SHOWN, (rowsBottom - rowsTop) / ROW_HEIGHT));
+        return Math.max(0, (rowsBottom - rowsTop) / ROW_HEIGHT);
     }
 
     /** Y of the per-tab status line, just above the persistent footer row. */
@@ -455,13 +474,29 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 && mouseY < discoverResultsTop() + discoverVisibleRows() * ROW_HEIGHT;
     }
 
+    private int friendsVisibleRows() { return rowsFitting(CONTENT_TOP + 64, statusLineY() - 4); }
+    private int friendsMaxScroll() { return Math.max(0, (friends == null ? 0 : friends.size()) - friendsVisibleRows()); }
+    private int gamesMaxScroll() { return Math.max(0, filteredGames.size() - rowsFitting(CONTENT_TOP + 32, statusLineY() - 4)); }
+
     // mouseScrolled kept the (mouseX, mouseY, scrollX, scrollY) shape across every target here
     // (1.21.1 -> 26.2) — unlike keyPressed, it was not swept into the 1.21.9 input-event rewrite.
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (this.currentTab == Tab.DISCOVER && scrollY != 0 && discoverMaxScroll() > 0 && overDiscoverResults(mouseY)) {
-            setDiscoverScroll(this.discoverScroll - (int) Math.signum(scrollY));
-            return true;
+        int top = currentTab == Tab.FRIENDS ? CONTENT_TOP + 64 : discoverResultsTop();
+        if (scrollY != 0 && mouseX >= contentLeft() && mouseX < contentLeft() + contentWidth() + 8
+                && mouseY >= top && mouseY < statusLineY() - 4) {
+            int step = -(int) Math.signum(scrollY) * 3;
+            if (currentTab == Tab.DISCOVER && discoverMaxScroll() > 0) {
+                setDiscoverScroll(discoverScroll + step); return true;
+            }
+            if (currentTab == Tab.FRIENDS && friendsMaxScroll() > 0) {
+                friendsScroll = Math.max(0, Math.min(friendsMaxScroll(), friendsScroll + step));
+                rebuildFriendRows(); return true;
+            }
+            if (currentTab == Tab.GAMES && gamesMaxScroll() > 0) {
+                gamesScroll = Math.max(0, Math.min(gamesMaxScroll(), gamesScroll + step));
+                rebuildGameRows(); return true;
+            }
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
@@ -553,7 +588,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         // visible = true above doesn't stop the list from eating clicks — see the field comment.
         int listY = fav ? CONTENT_TOP : -30000;
-        this.favoritesList.setRectangle(this.width, this.height - 64 - CONTENT_TOP, 0, listY);
+        this.favoritesList.setRectangle(this.width, Math.max(0, statusLineY() - 4 - CONTENT_TOP), 0, listY);
     }
 
     // Screen.keyPressed switched from (int,int,int) to a KeyEvent record parameter in 1.21.9.
@@ -573,6 +608,20 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int keyCode = event.key();
     */
     //?}
+        if (keyCode == GLFW.GLFW_KEY_PAGE_UP || keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+            int direction = keyCode == GLFW.GLFW_KEY_PAGE_UP ? -1 : 1;
+            if (currentTab == Tab.FRIENDS) {
+                friendsScroll = Math.max(0, Math.min(friendsMaxScroll(), friendsScroll + direction * Math.max(1, friendsVisibleRows())));
+                rebuildFriendRows(); return true;
+            }
+            if (currentTab == Tab.GAMES) {
+                gamesScroll = Math.max(0, Math.min(gamesMaxScroll(), gamesScroll + direction * Math.max(1, discoverVisibleRows())));
+                rebuildGameRows(); return true;
+            }
+            if (currentTab == Tab.DISCOVER) {
+                setDiscoverScroll(discoverScroll + direction * Math.max(1, discoverVisibleRows())); return true;
+            }
+        }
         if (keyCode != GLFW.GLFW_KEY_ENTER && keyCode != GLFW.GLFW_KEY_KP_ENTER) {
             return false;
         }
@@ -593,16 +642,17 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int rowsBottom = friendsInputTop();
 
-        this.addByCodeBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, rowsBottom + 8, 190, 20, Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
+        this.addByCodeBox = new SteampunkSettingsTheme.Field(this.font, contentLeft(), rowsBottom + 8, contentWidth() - actionWidth() - 6, 20, Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
         this.addByCodeBox.setMaxLength(6);
         this.addByCodeBox.setHint(Component.translatable("peercraft.gui.multiplayer.add_by_code_field"));
+        this.addByCodeBox.setValue(savedFriendCode);
         this.friendsStaticWidgets.add(this.addRenderableWidget(this.addByCodeBox));
 
-        this.addByCodeButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX, rowsBottom + 8, 200, 20,
+        this.addByCodeButton = this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft() + contentWidth() - actionWidth(), rowsBottom + 8, actionWidth(), 20,
                 Component.translatable("peercraft.gui.multiplayer.add_by_code_button"), b -> onAddByCode(), true));
         this.friendsStaticWidgets.add(this.addByCodeButton);
 
-        this.friendsStaticWidgets.add(this.addRenderableWidget(SteampunkSettingsTheme.action(centerX - 200, rowsBottom + 34, 400, 20,
+        this.friendsStaticWidgets.add(this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), rowsBottom + 34, contentWidth(), 20,
                 Component.translatable("peercraft.gui.multiplayer.friend_requests_button"),
                 b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftFriendRequestsScreen(this)), false)));
 
@@ -653,14 +703,15 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 64;
-        int shown = Math.min(this.friends.size(), Math.max(0, (statusLineY() - 4 - top) / ROW_HEIGHT));
+        friendsScroll = Math.max(0, Math.min(friendsMaxScroll(), friendsScroll));
+        int shown = Math.min(this.friends.size() - friendsScroll, friendsVisibleRows());
         boolean fr = this.currentTab == Tab.FRIENDS;
         for (int i = 0; i < shown; i++) {
-            AccountClient.FriendInfo friend = this.friends.get(i);
+            AccountClient.FriendInfo friend = this.friends.get(friendsScroll + i);
             int rowY = top + i * ROW_HEIGHT;
 
             boolean canConnect = friend.status() == AccountProtocol.STATUS_HOSTING;
-            Button connectButton = SteampunkSettingsTheme.action(centerX + 20, rowY, 110, 18,
+            Button connectButton = SteampunkSettingsTheme.action(contentLeft() + contentWidth() - actionWidth() - removeWidth() - 5, rowY, actionWidth(), 18,
                     Component.translatable("peercraft.gui.multiplayer.connect"), b -> onConnectToFriend(friend), true);
             if (!canConnect) {
                 connectButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.multiplayer.not_hosting_tooltip")));
@@ -670,17 +721,14 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             this.addRenderableWidget(connectButton);
             this.friendRowWidgets.add(connectButton);
 
-            Button removeButton = SteampunkSettingsTheme.action(centerX + 135, rowY, 60, 18,
+            Button removeButton = SteampunkSettingsTheme.action(contentLeft() + contentWidth() - removeWidth(), rowY, removeWidth(), 18,
                     Component.translatable("peercraft.gui.multiplayer.remove"), b -> confirmRemoveFriend(friend), false);
             removeButton.visible = fr;
             this.addRenderableWidget(removeButton);
             this.friendRowWidgets.add(removeButton);
         }
 
-        if (this.friends.size() > shown) {
-            this.friendsStatusMessage = Component.translatable("peercraft.gui.common.shown_first", shown, this.friends.size());
-            this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
-        } else if (this.friends.isEmpty()) {
+        if (this.friends.isEmpty()) {
             this.friendsStatusMessage = Component.translatable("peercraft.gui.multiplayer.no_friends_yet", Component.translatable("peercraft.gui.multiplayer.tab_discover"));
             this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         } else {
@@ -737,7 +785,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** Removing a friend can't be undone from this screen — confirm first rather than losing them to a misclick. */
     private void confirmRemoveFriend(AccountClient.FriendInfo friend) {
-        PeerCraftUi.setScreen(this.minecraft, new ConfirmScreen(confirmed -> {
+        PeerCraftUi.setScreen(this.minecraft, new PeerCraftConfirmScreen(confirmed -> {
             PeerCraftUi.setScreen(this.minecraft, this);
             if (confirmed) {
                 onRemoveFriend(friend);
@@ -774,6 +822,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** The whole point of this feature — no room code ever typed, just the code the server already told us the friend is hosting under. */
     private void onConnectToFriend(AccountClient.FriendInfo friend) {
+        if (PeerCraftProgressNoticeScreen.beforeConnecting(this, () -> onConnectToFriend(friend))) return;
         this.friendsStatusMessage = Component.translatable("peercraft.gui.multiplayer.connecting_to", friend.displayName());
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         String friendRoomCode = friend.roomCode();
@@ -820,12 +869,13 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 4;
 
-        this.searchQueryBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, top, 300, 20, Component.translatable("peercraft.gui.multiplayer.search_query_field"));
+        this.searchQueryBox = new SteampunkSettingsTheme.Field(this.font, contentLeft(), top, contentWidth() - actionWidth() - 6, 20, Component.translatable("peercraft.gui.multiplayer.search_query_field"));
         this.searchQueryBox.setMaxLength(16);
         this.searchQueryBox.setHint(Component.translatable("peercraft.gui.multiplayer.search_query_hint"));
+        this.searchQueryBox.setValue(savedPlayerSearch);
         this.discoverStaticWidgets.add(this.addRenderableWidget(this.searchQueryBox));
 
-        this.searchButton = this.addRenderableWidget(SteampunkSettingsTheme.action(centerX + 105, top, 90, 20,
+        this.searchButton = this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft() + contentWidth() - actionWidth(), top, actionWidth(), 20,
                 Component.translatable("peercraft.gui.multiplayer.search_button"), b -> onSearch(), true));
         this.discoverStaticWidgets.add(this.searchButton);
 
@@ -888,7 +938,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
         for (int i = 0; i < shown; i++) {
             AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
-            Button addButton = SteampunkSettingsTheme.action(centerX + 30, top + i * ROW_HEIGHT, 170, 18,
+            Button addButton = SteampunkSettingsTheme.action(contentLeft() + contentWidth() - actionWidth(), top + i * ROW_HEIGHT, actionWidth(), 18,
                     Component.translatable("peercraft.gui.multiplayer.add_friend"), b -> onAddFriend(result), true);
             addButton.visible = disc;
             this.addRenderableWidget(addButton);
@@ -943,9 +993,10 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 4;
 
-        this.gameSearchBox = new SteampunkSettingsTheme.Field(this.font, centerX - 200, top, 270, 20, Component.translatable("peercraft.gui.multiplayer.game_search_field"));
+        this.gameSearchBox = new SteampunkSettingsTheme.Field(this.font, contentLeft(), top, contentWidth() - actionWidth() - 6, 20, Component.translatable("peercraft.gui.multiplayer.game_search_field"));
         this.gameSearchBox.setMaxLength(32);
         this.gameSearchBox.setHint(Component.translatable("peercraft.gui.multiplayer.game_search_hint"));
+        this.gameSearchBox.setValue(savedGameSearch);
         this.gameSearchBox.setResponder(value -> rebuildGameRows());
         this.gamesStaticWidgets.add(this.addRenderableWidget(this.gameSearchBox));
 
@@ -969,6 +1020,9 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     .sorted()
                     .forEach(versions::add);
         }
+        if (this.games == null && !versions.contains(this.selectedVersionFilter)) {
+            versions.add(this.selectedVersionFilter);
+        }
         if (!versions.contains(this.selectedVersionFilter)) {
             this.selectedVersionFilter = "";
         }
@@ -982,7 +1036,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int top = CONTENT_TOP + 4;
         java.util.function.Function<String, Component> valueName = v ->
                 v.isEmpty() ? Component.translatable("peercraft.gui.multiplayer.game_version_filter_all") : Component.literal(v);
-        this.gameVersionFilterButton = new SteampunkSettingsTheme.Choice(centerX + 80, top, 120, 20,
+        this.gameVersionFilterButton = new SteampunkSettingsTheme.Choice(contentLeft() + contentWidth() - actionWidth(), top, actionWidth(), 20,
                 versions, this.selectedVersionFilter, valueName, value -> {
                     this.selectedVersionFilter = value;
                     rebuildGameRows();
@@ -1004,6 +1058,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
             return;
         }
         String search = this.gameSearchBox == null ? "" : this.gameSearchBox.getValue().trim().toLowerCase(Locale.ROOT);
+        String filterSnapshot = search + "\n" + this.selectedVersionFilter;
+        if (!filterSnapshot.equals(gameFilterSnapshot)) { gamesScroll = 0; gameFilterSnapshot = filterSnapshot; }
         List<AccountClient.PublicGameInfo> result = new ArrayList<>();
         for (AccountClient.PublicGameInfo game : this.games) {
             boolean matchesSearch = search.isEmpty() || game.worldName().toLowerCase(Locale.ROOT).contains(search);
@@ -1058,23 +1114,21 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         int centerX = this.width / 2;
         int top = CONTENT_TOP + 32;
-        int shown = Math.min(this.filteredGames.size(), rowsFitting(top, statusLineY() - 4));
+        gamesScroll = Math.max(0, Math.min(gamesMaxScroll(), gamesScroll));
+        int shown = Math.min(this.filteredGames.size() - gamesScroll, rowsFitting(top, statusLineY() - 4));
         boolean gamesTab = this.currentTab == Tab.GAMES;
         for (int i = 0; i < shown; i++) {
-            AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+            AccountClient.PublicGameInfo game = this.filteredGames.get(gamesScroll + i);
             int rowY = top + i * ROW_HEIGHT;
 
-            Button joinButton = SteampunkSettingsTheme.action(centerX + 20, rowY, 110, 18,
+            Button joinButton = SteampunkSettingsTheme.action(contentLeft() + contentWidth() - actionWidth(), rowY, actionWidth(), 18,
                     Component.translatable("peercraft.gui.multiplayer.connect"), b -> onJoinGame(game), true);
             joinButton.visible = gamesTab;
             this.addRenderableWidget(joinButton);
             this.gameRowWidgets.add(joinButton);
         }
 
-        if (this.filteredGames.size() > shown) {
-            this.gamesStatusMessage = Component.translatable("peercraft.gui.common.shown_first", shown, this.filteredGames.size());
-            this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
-        } else if (this.games.isEmpty()) {
+        if (this.games.isEmpty()) {
             this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.no_public_games");
             this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
         } else if (this.filteredGames.isEmpty()) {
@@ -1087,6 +1141,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
     /** Same join path as onConnectToFriend — the only difference is the code comes from a public listing entry instead of a friend's presence status. */
     private void onJoinGame(AccountClient.PublicGameInfo game) {
+        if (PeerCraftProgressNoticeScreen.beforeConnecting(this, () -> onJoinGame(game))) return;
         String label = game.worldName().isBlank() ? game.code() : game.worldName();
         this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.joining_game", label);
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -1188,52 +1243,64 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         return PeerCraftUi.isCurrentScreen(this);
     }
 
+    private Component hoveredRowCaption(int x, int y) {
+        int top = currentTab == Tab.FRIENDS ? CONTENT_TOP + 64 : CONTENT_TOP + 32;
+        int textWidth = contentWidth() - actionWidth() - (currentTab == Tab.FRIENDS ? removeWidth() + 5 : 0);
+        if (currentTab == Tab.FAVORITES || x < contentLeft() || x >= contentLeft() + textWidth
+                || y < top || y >= top + rowsFitting(top, statusLineY() - 4) * ROW_HEIGHT) return null;
+        int row = (y - top) / ROW_HEIGHT;
+        if (currentTab == Tab.FRIENDS && friends != null && friendsScroll + row < friends.size()) {
+            AccountClient.FriendInfo friend = friends.get(friendsScroll + row);
+            String status = switch (friend.status()) {
+                case AccountProtocol.STATUS_HOSTING -> Component.translatable("peercraft.gui.multiplayer.status_hosting", friend.roomCode()).getString();
+                case AccountProtocol.STATUS_ONLINE -> Component.translatable("peercraft.gui.multiplayer.status_online").getString();
+                default -> Component.translatable("peercraft.gui.multiplayer.status_offline").getString();
+            };
+            return Component.literal(friend.displayName() + "\n" + status);
+        }
+        if (currentTab == Tab.DISCOVER && discoverScroll + row < searchResults.size())
+            return Component.literal(searchResults.get(discoverScroll + row).displayName());
+        if (currentTab == Tab.GAMES && gamesScroll + row < filteredGames.size()) {
+            AccountClient.PublicGameInfo game = filteredGames.get(gamesScroll + row);
+            return Component.literal(game.worldName() + "\n" + game.hostDisplayName() + " · " + game.mcVersion()
+                    + " · " + game.currentPlayerCount() + "/" + game.maxPlayers());
+        }
+        return null;
+    }
+
     // A plain vanilla-style scrollbar (black track + grey thumb, same as GuiSlot) down the right
     // edge of the Find Players result column, shown only when the results overflow the visible
     // rows. GuiGraphics#fill(x1,y1,x2,y2,argb) survived the 26.1 rename to GuiGraphicsExtractor
     // unchanged, so only the parameter type differs between the two copies below.
     //? if <26.1 {
-    private void peercraft$drawDiscoverScrollbar(GuiGraphics graphics, int centerX) {
-        int total = this.searchResults.size();
-        int visible = discoverVisibleRows();
+    //? if <26.1 {
+    private void peercraft$drawScrollbar(GuiGraphics graphics, int centerX, int trackTop, int total, int offset) {
+        int visible = rowsFitting(trackTop, statusLineY() - 4);
         if (visible <= 0 || total <= visible) {
             return;
         }
-        int trackTop = discoverResultsTop();
         int trackHeight = visible * ROW_HEIGHT;
-        int left = centerX + 202;
+        int left = contentLeft() + contentWidth() + 3;
         int right = left + 6;
-        graphics.fill(left, trackTop, right, trackTop + trackHeight, 0xFF000000);
+        graphics.fill(left, trackTop, right, trackTop + trackHeight, 0xFF2C241B);
         int maxScroll = total - visible;
-        int scroll = Math.max(0, Math.min(this.discoverScroll, maxScroll));
+        int scroll = Math.max(0, Math.min(offset, maxScroll));
         int thumbHeight = Math.max(16, trackHeight * visible / total);
         int thumbY = trackTop + (trackHeight - thumbHeight) * scroll / maxScroll;
-        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
+        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFBB8B4B);
     }
     //?} else {
-    /*private void peercraft$drawDiscoverScrollbar(GuiGraphicsExtractor graphics, int centerX) {
-        int total = this.searchResults.size();
-        int visible = discoverVisibleRows();
-        if (visible <= 0 || total <= visible) {
-            return;
-        }
-        int trackTop = discoverResultsTop();
-        int trackHeight = visible * ROW_HEIGHT;
-        int left = centerX + 202;
-        int right = left + 6;
-        graphics.fill(left, trackTop, right, trackTop + trackHeight, 0xFF000000);
-        int maxScroll = total - visible;
-        int scroll = Math.max(0, Math.min(this.discoverScroll, maxScroll));
-        int thumbHeight = Math.max(16, trackHeight * visible / total);
-        int thumbY = trackTop + (trackHeight - thumbHeight) * scroll / maxScroll;
-        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
-    }*/
+    /* */
+    //?}
+    //?} else {
+    /* */
     //?}
 
     // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
     // #extractRenderState; drawString/drawCenteredString became text/centeredText.
     //? if <26.1 {
-    //? if =1.21.1 {
+    //? if >=1.21.1 {
+    //? if <26.1 {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int panelWidth = Math.min(460, this.width - 16);
@@ -1242,6 +1309,9 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 (this.width - panelWidth) / 2, 8, panelWidth, panelHeight,
                 (System.nanoTime() - this.steampunkAnimationStart) / 1_000_000L);
     }
+    //?} else {
+    /* */
+    //?}
     //?}
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -1250,11 +1320,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
         if (this.currentTab == Tab.FRIENDS) {
             int top = CONTENT_TOP + 64;
-            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), Math.max(0, (statusLineY() - 4 - top) / ROW_HEIGHT));
+            int shown = this.friends == null ? 0 : Math.min(this.friends.size() - friendsScroll, friendsVisibleRows());
             for (int i = 0; i < shown; i++) {
-                AccountClient.FriendInfo friend = this.friends.get(i);
-                int rowY = top + i * ROW_HEIGHT + 5;
-                int afterBadgeX = PeerCraftUi.drawNameWithBadge(graphics, this.font, friend.displayName(), friend.licensed(), centerX - 200, rowY, PeerCraftUi.TEXT_TITLE);
+                AccountClient.FriendInfo friend = this.friends.get(friendsScroll + i);
+                int rowY = top + i * ROW_HEIGHT + 1;
+                int afterBadgeX = PeerCraftUi.drawNameWithBadge(graphics, this.font, this.font.plainSubstrByWidth(friend.displayName(), Math.max(1, contentWidth() - actionWidth() - removeWidth() - 24)), friend.licensed(), contentLeft(), rowY, PeerCraftUi.TEXT_TITLE);
 
                 String status = switch (friend.status()) {
                     case AccountProtocol.STATUS_HOSTING -> Component.translatable("peercraft.gui.multiplayer.status_hosting", friend.roomCode()).getString();
@@ -1266,23 +1336,25 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     case AccountProtocol.STATUS_ONLINE -> PeerCraftUi.TEXT_SUCCESS;
                     default -> PeerCraftUi.TEXT_MUTED;
                 };
-                graphics.drawString(this.font, " — " + status, afterBadgeX, rowY, statusColor, false);
+                graphics.drawString(this.font, this.font.plainSubstrByWidth(status, Math.max(1, contentWidth() - actionWidth() - removeWidth() - 8)), contentLeft(), rowY + 9, statusColor, false);
             }
+            peercraft$drawScrollbar(graphics, centerX, top, friends == null ? 0 : friends.size(), friendsScroll);
             graphics.drawCenteredString(this.font, this.friendsStatusMessage, centerX, statusLineY(), this.friendsStatusColor);
         } else if (this.currentTab == Tab.DISCOVER) {
             int top = discoverResultsTop();
             int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
             for (int i = 0; i < shown; i++) {
                 AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
-                PeerCraftUi.drawNameWithBadge(graphics, this.font, result.displayName(), result.licensed(), centerX - 200, top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
+                PeerCraftUi.drawNameWithBadge(graphics, this.font, this.font.plainSubstrByWidth(result.displayName(), Math.max(1, contentWidth() - actionWidth() - 24)), result.licensed(), contentLeft(), top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
             }
-            peercraft$drawDiscoverScrollbar(graphics, centerX);
+            peercraft$drawScrollbar(graphics, centerX, top, searchResults.size(), discoverScroll);
             graphics.drawCenteredString(this.font, this.discoverStatusMessage, centerX, statusLineY(), this.discoverStatusColor);
         } else if (this.currentTab == Tab.GAMES) {
             int top = CONTENT_TOP + 32;
-            int shown = Math.min(this.filteredGames.size(), rowsFitting(top, statusLineY() - 4));
+            gamesScroll = Math.max(0, Math.min(gamesMaxScroll(), gamesScroll));
+        int shown = Math.min(this.filteredGames.size() - gamesScroll, rowsFitting(top, statusLineY() - 4));
             for (int i = 0; i < shown; i++) {
-                AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+                AccountClient.PublicGameInfo game = this.filteredGames.get(gamesScroll + i);
                 int rowY = top + i * ROW_HEIGHT + 5;
                 String hostName = game.hostDisplayName().isBlank()
                         ? Component.translatable("peercraft.gui.multiplayer.anonymous_host").getString()
@@ -1290,10 +1362,20 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 String worldName = game.worldName().isBlank() ? game.code() : game.worldName();
                 String versionSuffix = game.mcVersion().isBlank() ? "" : " [" + game.mcVersion() + "]";
                 String line = worldName + " — " + hostName + " (" + game.currentPlayerCount() + "/" + game.maxPlayers() + ")" + versionSuffix;
-                graphics.drawString(this.font, line, centerX - 200, rowY, PeerCraftUi.TEXT_TITLE, false);
+                graphics.drawString(this.font, this.font.plainSubstrByWidth(line, Math.max(1, contentWidth() - actionWidth() - 8)), contentLeft(), rowY, PeerCraftUi.TEXT_TITLE, false);
             }
+            peercraft$drawScrollbar(graphics, centerX, top, filteredGames.size(), gamesScroll);
             graphics.drawCenteredString(this.font, this.gamesStatusMessage, centerX, statusLineY(), this.gamesStatusColor);
         }
+        Component caption = hoveredRowCaption(mouseX, mouseY);
+        if (caption != null) {
+            //? if <1.21.6 {
+            graphics.renderTooltip(this.font, caption, mouseX, mouseY);
+            //?} else {
+            /*graphics.setTooltipForNextFrame(this.font, caption, mouseX, mouseY);*/
+            //?}
+        }
+
     }
     //?} else {
     /*@Override
@@ -1302,12 +1384,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int centerX = this.width / 2;
 
         if (this.currentTab == Tab.FRIENDS) {
-            int top = CONTENT_TOP + 4;
-            int shown = this.friends == null ? 0 : Math.min(this.friends.size(), rowsFitting(top, friendsInputTop() + 4));
+            int top = CONTENT_TOP + 64;
+            int shown = this.friends == null ? 0 : Math.min(this.friends.size() - friendsScroll, friendsVisibleRows());
             for (int i = 0; i < shown; i++) {
-                AccountClient.FriendInfo friend = this.friends.get(i);
-                int rowY = top + i * ROW_HEIGHT + 5;
-                int afterBadgeX = PeerCraftUi.drawNameWithBadge(graphics, this.font, friend.displayName(), friend.licensed(), centerX - 200, rowY, PeerCraftUi.TEXT_TITLE);
+                AccountClient.FriendInfo friend = this.friends.get(friendsScroll + i);
+                int rowY = top + i * ROW_HEIGHT + 1;
+                int afterBadgeX = PeerCraftUi.drawNameWithBadge(graphics, this.font, this.font.plainSubstrByWidth(friend.displayName(), Math.max(1, contentWidth() - actionWidth() - removeWidth() - 24)), friend.licensed(), contentLeft(), rowY, PeerCraftUi.TEXT_TITLE);
 
                 String status = switch (friend.status()) {
                     case AccountProtocol.STATUS_HOSTING -> Component.translatable("peercraft.gui.multiplayer.status_hosting", friend.roomCode()).getString();
@@ -1319,23 +1401,25 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                     case AccountProtocol.STATUS_ONLINE -> PeerCraftUi.TEXT_SUCCESS;
                     default -> PeerCraftUi.TEXT_MUTED;
                 };
-                graphics.text(this.font, " — " + status, afterBadgeX, rowY, statusColor, false);
+                graphics.text(this.font, this.font.plainSubstrByWidth(status, Math.max(1, contentWidth() - actionWidth() - removeWidth() - 8)), contentLeft(), rowY + 9, statusColor, false);
             }
+            peercraft$drawScrollbar(graphics, centerX, top, friends == null ? 0 : friends.size(), friendsScroll);
             graphics.centeredText(this.font, this.friendsStatusMessage, centerX, statusLineY(), this.friendsStatusColor);
         } else if (this.currentTab == Tab.DISCOVER) {
             int top = discoverResultsTop();
             int shown = Math.min(discoverVisibleRows(), this.searchResults.size() - this.discoverScroll);
             for (int i = 0; i < shown; i++) {
                 AccountClient.SearchResult result = this.searchResults.get(this.discoverScroll + i);
-                PeerCraftUi.drawNameWithBadge(graphics, this.font, result.displayName(), result.licensed(), centerX - 200, top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
+                PeerCraftUi.drawNameWithBadge(graphics, this.font, this.font.plainSubstrByWidth(result.displayName(), Math.max(1, contentWidth() - actionWidth() - 24)), result.licensed(), contentLeft(), top + i * ROW_HEIGHT + 5, PeerCraftUi.TEXT_TITLE);
             }
-            peercraft$drawDiscoverScrollbar(graphics, centerX);
+            peercraft$drawScrollbar(graphics, centerX, top, searchResults.size(), discoverScroll);
             graphics.centeredText(this.font, this.discoverStatusMessage, centerX, statusLineY(), this.discoverStatusColor);
         } else if (this.currentTab == Tab.GAMES) {
             int top = CONTENT_TOP + 32;
-            int shown = Math.min(this.filteredGames.size(), rowsFitting(top, statusLineY() - 4));
+            gamesScroll = Math.max(0, Math.min(gamesMaxScroll(), gamesScroll));
+        int shown = Math.min(this.filteredGames.size() - gamesScroll, rowsFitting(top, statusLineY() - 4));
             for (int i = 0; i < shown; i++) {
-                AccountClient.PublicGameInfo game = this.filteredGames.get(i);
+                AccountClient.PublicGameInfo game = this.filteredGames.get(gamesScroll + i);
                 int rowY = top + i * ROW_HEIGHT + 5;
                 String hostName = game.hostDisplayName().isBlank()
                         ? Component.translatable("peercraft.gui.multiplayer.anonymous_host").getString()
@@ -1343,10 +1427,40 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 String worldName = game.worldName().isBlank() ? game.code() : game.worldName();
                 String versionSuffix = game.mcVersion().isBlank() ? "" : " [" + game.mcVersion() + "]";
                 String line = worldName + " — " + hostName + " (" + game.currentPlayerCount() + "/" + game.maxPlayers() + ")" + versionSuffix;
-                graphics.text(this.font, line, centerX - 200, rowY, PeerCraftUi.TEXT_TITLE, false);
+                graphics.text(this.font, this.font.plainSubstrByWidth(line, Math.max(1, contentWidth() - actionWidth() - 8)), contentLeft(), rowY, PeerCraftUi.TEXT_TITLE, false);
             }
+            peercraft$drawScrollbar(graphics, centerX, top, filteredGames.size(), gamesScroll);
             graphics.centeredText(this.font, this.gamesStatusMessage, centerX, statusLineY(), this.gamesStatusColor);
         }
+        Component caption = hoveredRowCaption(mouseX, mouseY);
+        if (caption != null) graphics.setTooltipForNextFrame(this.font, caption, mouseX, mouseY);
+
     }*/
     //?}
+    //? if >=26.1 {
+    /*    private void peercraft$drawScrollbar(GuiGraphicsExtractor graphics, int centerX, int trackTop, int total, int offset) {
+        int visible = rowsFitting(trackTop, statusLineY() - 4);
+        if (visible <= 0 || total <= visible) {
+            return;
+        }
+        int trackHeight = visible * ROW_HEIGHT;
+        int left = contentLeft() + contentWidth() + 3;
+        int right = left + 6;
+        graphics.fill(left, trackTop, right, trackTop + trackHeight, 0xFF2C241B);
+        int maxScroll = total - visible;
+        int scroll = Math.max(0, Math.min(offset, maxScroll));
+        int thumbHeight = Math.max(16, trackHeight * visible / total);
+        int thumbY = trackTop + (trackHeight - thumbHeight) * scroll / maxScroll;
+        graphics.fill(left, thumbY, right, thumbY + thumbHeight, 0xFFBB8B4B);
+    }
+    @Override
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        int panelWidth = Math.min(460, this.width - 16);
+        int panelHeight = Math.max(1, this.height - 16);
+        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
+                (this.width - panelWidth) / 2, 8, panelWidth, panelHeight,
+                (System.nanoTime() - this.steampunkAnimationStart) / 1_000_000L);
+    }*/
+    //?}
+
 }

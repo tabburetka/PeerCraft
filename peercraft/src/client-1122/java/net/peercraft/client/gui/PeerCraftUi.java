@@ -20,21 +20,29 @@ import net.minecraft.client.gui.GuiScreen;
  */
 public final class PeerCraftUi {
 
-    static final int TEXT_TITLE = 0xFFFFFFFF;
-    static final int TEXT_MUTED = 0xFFAAAAAA;
+    static final int TEXT_TITLE = net.peercraft.client.theme.SteampunkPalette.TEXT;
+    static final int TEXT_MUTED = net.peercraft.client.theme.SteampunkPalette.MUTED;
     static final int TEXT_ERROR = 0xFFFF5555;
     static final int TEXT_SUCCESS = 0xFF55FF55;
-    static final int TEXT_ACCENT = 0xFFFFD966;
+    static final int TEXT_ACCENT = net.peercraft.client.theme.SteampunkPalette.ACCENT;
 
     private PeerCraftUi() {
     }
 
     /** Greedy word-wrap of {@code text} to lines no wider than {@code maxWidth} px. Matches src/main's {@code PeerCraftUi.wrap}. */
     public static java.util.List<String> wrap(FontRenderer font, String text, int maxWidth) {
-        java.util.List<String> lines = new java.util.ArrayList<String>();
+        java.util.List<String> lines = new java.util.ArrayList<>();
         for (String paragraph : text.split("\n", -1)) {
             StringBuilder line = new StringBuilder();
             for (String word : paragraph.split(" ")) {
+                // Filenames and IDs may contain no spaces: they still have to stay inside the panel.
+                while (font.getStringWidth(word) > Math.max(1, maxWidth)) {
+                    if (line.length() > 0) { lines.add(line.toString()); line.setLength(0); }
+                    String part = font.trimStringToWidth(word, Math.max(1, maxWidth));
+                    if (part.isEmpty()) part = word.substring(0, word.offsetByCodePoints(0, 1));
+                    lines.add(part);
+                    word = word.substring(part.length());
+                }
                 String candidate = line.length() == 0 ? word : line + " " + word;
                 if (font.getStringWidth(candidate) > maxWidth && line.length() > 0) {
                     lines.add(line.toString());

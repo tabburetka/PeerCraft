@@ -19,7 +19,7 @@ import java.util.Locale;
  * was handed off to someone else and hasn't been reclaimed since — opening it means starting
  * from the older, pre-handoff state. Two buttons: proceed anyway / back.
  */
-public class HandoffStaleWorldWarningScreen extends Screen {
+public class HandoffStaleWorldWarningScreen extends PeerCraftDialogScreen {
 
     private final PeercraftWorldMeta meta;
     private final Runnable onProceed;
@@ -35,11 +35,10 @@ public class HandoffStaleWorldWarningScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
         int cx = this.width / 2;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.stale.proceed"), b -> choose(onProceed))
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.handoff.stale.back"), b -> choose(onBack))
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.handoff.stale.proceed"), b -> choose(onProceed), true, 0, 2));
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.handoff.stale.back"), b -> choose(onBack), false, 1, 2));
     }
 
     private void choose(Runnable action) {
@@ -63,7 +62,7 @@ public class HandoffStaleWorldWarningScreen extends Screen {
                 ? new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(new Date(meta.handedOffAt() * 1000L))
                 : "?";
         String body = Component.translatable("peercraft.handoff.stale.body", to, when).getString();
-        return PeerCraftUi.wrap(this.font, body, Math.min(this.width - 60, 380));
+        return PeerCraftUi.wrap(this.font, body, this.dialog.contentWidth());
     }
 
     //? if <26.1 {
@@ -73,26 +72,17 @@ public class HandoffStaleWorldWarningScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFF5555);
-        y += 22;
-        for (String line : bodyLines()) {
-            graphics.drawCenteredString(this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
+        int y = this.dialog.contentTop();
+        drawBody(graphics, bodyLines(), 0xFFCCCCCC);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFF5555);
-        y += 22;
-        for (String line : bodyLines()) {
-            graphics.centeredText(this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
+        int y = this.dialog.contentTop();
+        drawBody(graphics, bodyLines(), 0xFFCCCCCC);
     }*/
     //?}
 }

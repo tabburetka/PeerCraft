@@ -4,25 +4,20 @@ import com.mojang.authlib.minecraft.MinecraftSessionService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiYesNo;
-import net.minecraft.client.gui.GuiYesNoCallback;
 import net.minecraft.client.resources.I18n;
 import net.peercraft.client.account.AccountSessionHolder;
+import net.peercraft.client.account.AccountProgressNotice;
 import net.peercraft.network.account.AccountClient;
 
 import java.io.IOException;
 
-/**
- * Forge 1.12.2 backport of {@code src/main/.../PeerCraftAccountScreen.java} (cf. 1.16.5 twin).
- * 1.12.2 deltas: {@code ConfirmScreen(callback,...)} → {@code GuiYesNo} + this screen
- * implementing {@link GuiYesNoCallback}; {@code mc.getUser()} → {@code mc.getSession()}
- * ({@code getProfile()} / {@code getToken()}); {@code mc.getMinecraftSessionService()} →
- * {@code mc.getSessionService()}; {@code keyboardHandler.setClipboard} →
- * {@code GuiScreen.setClipboardString} (static); no offline-account guard (same as 1.16.5).
- */
-public class PeerCraftAccountScreen extends GuiScreen implements GuiYesNoCallback {
+/** Legacy account hub. Skin completion updates only the face texture, never the navigation stack. */
+public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
 
-    private static final int DIALOG_LOGOUT = 1;
+    private net.minecraft.util.ResourceLocation skinTexture;
+    private int identityY, identityHeight, statusY;
+    private IdButton copyCodeButton;
+
 
     private final GuiScreen lastScreen;
     private String statusMessage = "";
@@ -30,50 +25,77 @@ public class PeerCraftAccountScreen extends GuiScreen implements GuiYesNoCallbac
     private IdButton loginLicensedButton;
 
     public PeerCraftAccountScreen(GuiScreen lastScreen) {
-        this.lastScreen = lastScreen;
+        super(PeerCraftLang.tr("peercraft.gui.account.title"), 340);
+        this.lastScreen = lastScreen instanceof PeerCraftAccountScreen ? ((PeerCraftAccountScreen) lastScreen).lastScreen : lastScreen;
     }
 
     @Override
     public void initGui() {
+        boolean loggingIn = loginLicensedButton != null && !loginLicensedButton.enabled;
+        super.initGui();
         this.buttonList.clear();
-        int centerX = this.width / 2;
-
+        copyCodeButton = null;
         AccountClient.AccountSession session = AccountSessionHolder.current();
-        if (session != null) {
-            String codeLine = PeerCraftLang.tr("peercraft.gui.account.friend_code", session.friendCode());
-            int codeY = (this.height / 2 - 90) + 30;
-            int copySize = 14;
-            this.addButton(PeerCraftUi.squareGlyphButton(
-                    centerX + this.fontRenderer.getStringWidth(codeLine) / 2 + 6, codeY - 3, copySize,
-                    "⧉", PeerCraftLang.tr("peercraft.gui.account.copy_code_tooltip"),
-                    () -> onCopyFriendCode(session.friendCode())));
-        }
-
-        int y = session == null ? this.height / 2 - 70 : this.height / 2 - 40;
+        boolean compact = height < 300;
+        int header = (compact ? 36 : 46) + 6;
+        int buttons = session == null ? 3 : session.licensed() ? 1 : 4;
+        int identity = session == null ? 0 : (compact ? 36 : 56) + 6;
+        int desiredHeight = header + identity + buttons * accountButtonPitch() + 3
+                + accountButtonHeight() + 6 + 24 + 12;
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.gui.account.title"));
+        int x = dialog.contentX(), w = dialog.contentWidth(), y = dialog.contentTop();
         if (session == null) {
             this.loginLicensedButton = this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.login_licensed"), this::onLoginLicensed)
-                    .bounds(centerX - 100, y, 200, 20).build());
-            y += 26;
+                    .primary().bounds(x, y, w, accountButtonHeight()).build());
+            this.loginLicensedButton.enabled = !loggingIn;
+            y += accountButtonPitch();
             this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.register"),
-                    () -> PeerCraftUi.setScreen(this.mc, new PeerCraftRegisterScreen(this))).bounds(centerX - 100, y, 200, 20).build());
-            y += 26;
+                    () -> PeerCraftUi.setScreen(this.mc, new PeerCraftRegisterScreen(this))).bounds(x, y, w, accountButtonHeight()).build());
+            y += accountButtonPitch();
             this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.login_by_code"),
-                    () -> PeerCraftUi.setScreen(this.mc, new PeerCraftLoginByCodeScreen(this))).bounds(centerX - 100, y, 200, 20).build());
-            y += 26;
+                    () -> PeerCraftUi.setScreen(this.mc, new PeerCraftLoginByCodeScreen(this))).bounds(x, y, w, accountButtonHeight()).build());
+            y += accountButtonPitch();
         } else {
+            identityY = y;
+            identityHeight = dialog.compact ? 36 : 56;
+            int size = dialog.compact ? 14 : 18;
+            copyCodeButton = this.addButton(PeerCraftUi.squareGlyphButton(x + w - size - 5, y + identityHeight - size - 5,
+                    size, "⧉", PeerCraftLang.tr("peercraft.gui.account.copy_code_tooltip"), () -> onCopyFriendCode(session.friendCode())));
+            y += identityHeight + 6;
             if (!session.licensed()) {
+                this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.copy_recovery_id"),
+                        () -> onCopyAccountId(session)).bounds(x, y, w, accountButtonHeight()).build());
+                y += accountButtonPitch();
+                this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.progress_notice.open"),
+                        () -> PeerCraftUi.setScreen(this.mc, new PeerCraftProgressNoticeScreen(this)))
+                        .bounds(x, y, w, accountButtonHeight()).build());
+                y += accountButtonPitch();
                 this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.change_nickname"),
-                        () -> PeerCraftUi.setScreen(this.mc, new PeerCraftRenameScreen(this))).bounds(centerX - 100, y, 200, 20).build());
-                y += 26;
+                        () -> PeerCraftUi.setScreen(this.mc, new PeerCraftRenameScreen(this))).bounds(x, y, w, accountButtonHeight()).build());
+                y += accountButtonPitch();
             }
             this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.account.logout"), this::confirmLogout)
-                    .bounds(centerX - 100, y, 200, 20).build());
-            y += 26;
+                    .bounds(x, y, w, accountButtonHeight()).build());
+            y += accountButtonPitch();
+            loadAvatar();
         }
-
-        y += 4;
         this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.common.back"),
-                () -> PeerCraftUi.setScreen(this.mc, this.lastScreen)).bounds(centerX - 100, y, 200, 20).build());
+                () -> PeerCraftUi.setScreen(this.mc, this.lastScreen)).bounds(x, y + 3, w, accountButtonHeight()).build());
+        statusY = y + 3 + accountButtonHeight() + 6;
+        if (session != null && !session.licensed() && AccountProgressNotice.firstDisplay(session.accountId())) {
+            PeerCraftUi.setScreen(this.mc, new PeerCraftProgressNoticeScreen(this));
+        }
+    }
+
+    private int accountButtonHeight() { return height < 240 ? 16 : dialog.buttonHeight(); }
+    private int accountButtonPitch() { return height < 240 ? 18 : dialog.buttonPitch(); }
+    private IdButton addButton(IdButton button) { this.buttonList.add(button); return button; }
+    private void loadAvatar() {
+        if (skinTexture != null) return;
+        skinTexture = net.minecraft.client.resources.DefaultPlayerSkin.getDefaultSkin(mc.getSession().getProfile().getId());
+        mc.getSkinManager().loadProfileTextures(mc.getSession().getProfile(), (type, texture, profileTexture) -> {
+            if (type == com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN) runOnClientThread(() -> skinTexture = texture);
+        }, false);
     }
 
     @Override
@@ -89,23 +111,20 @@ public class PeerCraftAccountScreen extends GuiScreen implements GuiYesNoCallbac
         this.statusColor = PeerCraftUi.TEXT_SUCCESS;
     }
 
-    private void confirmLogout() {
-        this.mc.displayGuiScreen(new GuiYesNo(this,
-                PeerCraftLang.tr("peercraft.gui.account.logout_confirm_title"),
-                PeerCraftLang.tr("peercraft.gui.account.logout_confirm_message"),
-                DIALOG_LOGOUT));
+    private void onCopyAccountId(AccountClient.AccountSession session) {
+        GuiScreen.setClipboardString(session.accountId().toString());
+        this.statusMessage = PeerCraftLang.tr("peercraft.gui.account.recovery_id_copied");
+        this.statusColor = PeerCraftUi.TEXT_SUCCESS;
     }
 
-    @Override
-    public void confirmClicked(boolean result, int id) {
-        if (id == DIALOG_LOGOUT) {
-            if (result) {
+    private void confirmLogout() {
+        this.mc.displayGuiScreen(new PeerCraftConfirmScreen(confirmed -> {
+            if (confirmed) {
                 AccountSessionHolder.logout();
                 this.mc.displayGuiScreen(new PeerCraftAccountScreen(this.lastScreen));
-            } else {
-                this.mc.displayGuiScreen(this);
-            }
-        }
+            } else this.mc.displayGuiScreen(this);
+        }, PeerCraftLang.tr("peercraft.gui.account.logout_confirm_title"),
+                PeerCraftLang.tr("peercraft.gui.account.logout_confirm_message")));
     }
 
     private void onLoginLicensed() {
@@ -150,20 +169,36 @@ public class PeerCraftAccountScreen extends GuiScreen implements GuiYesNoCallbac
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        int centerX = this.width / 2;
-        int titleY = this.height / 2 - 90;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.gui.account.title"), centerX, titleY, PeerCraftUi.TEXT_TITLE);
-
         AccountClient.AccountSession session = AccountSessionHolder.current();
         if (session != null) {
+            int x = dialog.contentX();
+            SteampunkDialog.frame(x, identityY, dialog.contentWidth(), identityHeight,
+                    net.peercraft.client.theme.SteampunkPalette.CONTROL, net.peercraft.client.theme.SteampunkPalette.BORDER);
+            int size = dialog.compact ? 18 : 24, inset = dialog.compact ? 5 : 8;
+            if (skinTexture != null) {
+                org.lwjgl.opengl.GL11.glColor4f(1, 1, 1, 1);
+                org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL11.GL_BLEND);
+                org.lwjgl.opengl.GL11.glBlendFunc(org.lwjgl.opengl.GL11.GL_SRC_ALPHA, org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA);
+                mc.getTextureManager().bindTexture(skinTexture);
+                net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(x + 7, identityY + inset, 8, 8, 8, 8, size, size, 64, 64);
+                net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(x + 7, identityY + inset, 40, 8, 8, 8, size, size, 64, 64);
+                org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_BLEND);
+            }
             String name = PeerCraftLang.tr("peercraft.gui.account.logged_in_as", session.displayName());
-            PeerCraftUi.drawNameWithBadgeCentered(this.fontRenderer, name, session.licensed(), centerX, titleY + 16, PeerCraftUi.TEXT_TITLE);
-            this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.gui.account.friend_code", session.friendCode()), centerX, titleY + 30, PeerCraftUi.TEXT_ACCENT);
+            this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(name, Math.max(1, dialog.contentWidth() - size - 22)),
+                    x + size + 14, identityY + inset, PeerCraftUi.TEXT_TITLE);
+            String kind = PeerCraftLang.tr(session.licensed() ? "peercraft.gui.account.licensed_status" : "peercraft.gui.account.unlicensed_status");
+            this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(kind, Math.max(1, dialog.contentWidth() - size - 22)),
+                    x + size + 14, identityY + (dialog.compact ? 15 : 23), PeerCraftUi.TEXT_MUTED);
+            String code = PeerCraftLang.tr("peercraft.gui.account.friend_code", session.friendCode());
+            this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(code, Math.max(1, dialog.contentWidth() - (dialog.compact ? 32 : 36))),
+                    x + 8, identityY + (dialog.compact ? 27 : 40), PeerCraftUi.TEXT_ACCENT);
         }
-
-        if (!this.statusMessage.isEmpty()) {
-            this.drawCenteredString(this.fontRenderer, this.statusMessage, centerX, this.height / 2 + 70, this.statusColor);
-        }
+        dialog.status(this.fontRenderer, statusMessage, statusY, Math.max(0, dialog.top + dialog.height - 6 - statusY), statusColor);
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+    @Override protected void keyTyped(char typedChar, int keyCode) throws java.io.IOException {
+        if (keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE) { PeerCraftUi.setScreen(mc, lastScreen); return; }
+        super.keyTyped(typedChar, keyCode);
     }
 }

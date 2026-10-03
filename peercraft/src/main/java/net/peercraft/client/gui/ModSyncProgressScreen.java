@@ -11,15 +11,14 @@ import net.minecraft.network.chat.Component;
 import net.peercraft.network.modsync.ModSyncPlan;
 
 /**
- * Per-jar and overall download/verify/install progress, drawn as text bars (works on every
+ * Per-jar and overall download/verify/install progress, drawn with brass-framed progress bars (works on every
  * version without touching the render-primitive API). A Cancel button aborts the whole batch
  * and returns to the previous screen; a hard failure swaps to an error message.
  */
-public class ModSyncProgressScreen extends Screen {
+public class ModSyncProgressScreen extends PeerCraftDialogScreen {
 
     public enum State {DOWNLOADING, VERIFYING, INSTALLING}
 
-    private static final int BAR = 28;
 
     private final ModSyncPlan plan;
     private final Runnable onCancel;
@@ -40,12 +39,14 @@ public class ModSyncProgressScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int desiredHeight = dialog.headerHeight + 6 + 8 * 12 + 18 + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         Component label = errorKey != null
                 ? Component.translatable("peercraft.modsync.restart.back")
                 : Component.translatable("peercraft.modsync.confirm.cancel");
         Button.OnPress action = errorKey != null ? b -> toTitle() : b -> onCancel.run();
-        this.addRenderableWidget(Button.builder(label, action)
-                .bounds(this.width / 2 - 100, this.height - 40, 200, 20).build());
+        this.addRenderableWidget(dialogAction(label, action, true, 0, 1));
     }
 
     @Override
@@ -100,13 +101,7 @@ public class ModSyncProgressScreen extends Screen {
     }
 
     private static String bar(double frac) {
-        double f = Math.max(0, Math.min(1, frac));
-        int fill = (int) Math.round(f * BAR);
-        StringBuilder sb = new StringBuilder(BAR + 8).append('[');
-        for (int i = 0; i < BAR; i++) {
-            sb.append(i < fill ? '█' : '░');
-        }
-        return sb.append("] ").append((int) Math.round(f * 100)).append('%').toString();
+        return Math.round(Math.max(0, Math.min(1, frac)) * 100) + "%";
     }
 
     private static String humanSize(long b) {
@@ -142,43 +137,72 @@ public class ModSyncProgressScreen extends Screen {
         return bar(plan.totalBytes() > 0 ? (double) overallDone / plan.totalBytes() : 0);
     }
 
+    private int progressRows(String text) {
+        return Math.max(1, font.split(Component.literal(text), Math.max(1, dialog.contentWidth() - 8)).size());
+    }
+
     //? if <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 52;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 18;
-        graphics.drawCenteredString(this.font, currentLine(), cx, y, errorKey != null ? 0xFFFF5555 : 0xFFFFFFFF);
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        paragraphs.add(currentLine().getString());
         if (errorKey == null) {
-            y += 14;
-            graphics.drawCenteredString(this.font, fileBar(), cx, y, 0xFFAAAAAA);
-            y += 22;
-            graphics.drawCenteredString(this.font, overallCount(), cx, y, 0xFFFFFFFF);
-            y += 14;
-            graphics.drawCenteredString(this.font, overallBar(), cx, y, 0xFFFFD966);
+            paragraphs.add(fileBar()); paragraphs.add(""); paragraphs.add("");
+            paragraphs.add(overallCount().getString()); paragraphs.add(overallBar()); paragraphs.add("");
+        }
+        drawBody(graphics, paragraphs, errorKey != null ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
+        if (errorKey == null) {
+            int fileRow = progressRows(currentLine().getString())
+                    + progressRows(fileBar());
+            int totalRow = fileRow + 2 + progressRows(overallCount().getString())
+                    + progressRows(overallBar());
+            if (dialog.contentTop() + (totalRow + 1) * 12 <= dialog.top + dialog.height - 18 - dialog.buttonPitch()) {
+                drawProgressBar(graphics, dialog.contentTop() + fileRow * 12 + 2, fileReceived, fileTotal);
+                drawProgressBar(graphics, dialog.contentTop() + totalRow * 12 + 2, overallDone, plan.totalBytes());
+            }
         }
     }
+    private void drawProgressBar(GuiGraphics graphics, int y, long done, long total) {
+        int x = dialog.contentX(), w = dialog.contentWidth();
+        double fraction = total > 0 ? Math.max(0, Math.min(1, (double) done / total)) : 0;
+        graphics.fill(x, y, x + w, y + 6, net.peercraft.client.theme.SteampunkPalette.BORDER);
+        graphics.fill(x + 1, y + 1, x + w - 1, y + 5, net.peercraft.client.theme.SteampunkPalette.CONTROL);
+        int filled = (int) Math.round(Math.max(0, w - 2) * fraction);
+        if (filled > 0) graphics.fill(x + 1, y + 1, x + 1 + filled, y + 5, net.peercraft.client.theme.SteampunkPalette.PRIMARY);
+    }
     //?} else {
-    /*@Override
+    /*    @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 52;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 18;
-        graphics.centeredText(this.font, currentLine(), cx, y, errorKey != null ? 0xFFFF5555 : 0xFFFFFFFF);
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        paragraphs.add(currentLine().getString());
         if (errorKey == null) {
-            y += 14;
-            graphics.centeredText(this.font, fileBar(), cx, y, 0xFFAAAAAA);
-            y += 22;
-            graphics.centeredText(this.font, overallCount(), cx, y, 0xFFFFFFFF);
-            y += 14;
-            graphics.centeredText(this.font, overallBar(), cx, y, 0xFFFFD966);
+            paragraphs.add(fileBar()); paragraphs.add(""); paragraphs.add("");
+            paragraphs.add(overallCount().getString()); paragraphs.add(overallBar()); paragraphs.add("");
         }
-    }*/
+        drawBody(graphics, paragraphs, errorKey != null ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
+        if (errorKey == null) {
+            int fileRow = progressRows(currentLine().getString())
+                    + progressRows(fileBar());
+            int totalRow = fileRow + 2 + progressRows(overallCount().getString())
+                    + progressRows(overallBar());
+            if (dialog.contentTop() + (totalRow + 1) * 12 <= dialog.top + dialog.height - 18 - dialog.buttonPitch()) {
+                drawProgressBar(graphics, dialog.contentTop() + fileRow * 12 + 2, fileReceived, fileTotal);
+                drawProgressBar(graphics, dialog.contentTop() + totalRow * 12 + 2, overallDone, plan.totalBytes());
+            }
+        }
+    }
+    private void drawProgressBar(GuiGraphicsExtractor graphics, int y, long done, long total) {
+        int x = dialog.contentX(), w = dialog.contentWidth();
+        double fraction = total > 0 ? Math.max(0, Math.min(1, (double) done / total)) : 0;
+        graphics.fill(x, y, x + w, y + 6, net.peercraft.client.theme.SteampunkPalette.BORDER);
+        graphics.fill(x + 1, y + 1, x + w - 1, y + 5, net.peercraft.client.theme.SteampunkPalette.CONTROL);
+        int filled = (int) Math.round(Math.max(0, w - 2) * fraction);
+        if (filled > 0) graphics.fill(x + 1, y + 1, x + 1 + filled, y + 5, net.peercraft.client.theme.SteampunkPalette.PRIMARY);
+    }
+*/
     //?}
 }

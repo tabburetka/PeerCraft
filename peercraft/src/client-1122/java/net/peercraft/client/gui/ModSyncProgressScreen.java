@@ -4,7 +4,7 @@ package net.peercraft.client.gui;
 // GuiScreen; Component -> String; clearWidgets()+init() -> buttonList.clear()+initGui();
 // minecraft.setScreen(new TitleScreen()) -> mc.displayGuiScreen(new GuiMainMenu());
 // shouldCloseOnEsc()/onClose() -> ESC handling in keyTyped; switch expression -> colon switch.
-// Text bars are unchanged (they never touched the render-primitive API). Keep in sync.
+// Keep progress values and layout in sync with the modern renderer.
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiMainMenu;
@@ -15,15 +15,14 @@ import org.lwjgl.input.Keyboard;
 import java.io.IOException;
 
 /**
- * Per-jar and overall download/verify/install progress, drawn as text bars. A Cancel button
+ * Per-jar and overall download/verify/install progress, drawn with brass-framed progress bars. A Cancel button
  * aborts the whole batch and returns to the previous screen; a hard failure swaps to an error
  * message.
  */
-public class ModSyncProgressScreen extends GuiScreen {
+public class ModSyncProgressScreen extends PeerCraftDialogScreen {
 
     public enum State {DOWNLOADING, VERIFYING, INSTALLING}
 
-    private static final int BAR = 28;
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.progress.title");
     private final ModSyncPlan plan;
@@ -38,19 +37,19 @@ public class ModSyncProgressScreen extends GuiScreen {
     private volatile String errorKey;
 
     public ModSyncProgressScreen(ModSyncPlan plan, Runnable onCancel) {
+        super(PeerCraftLang.tr("peercraft.modsync.progress.title"), 340, 400);
         this.plan = plan;
         this.onCancel = onCancel;
     }
 
     @Override
     public void initGui() {
+        super.initGui();
+        int desiredHeight = dialog.headerHeight + 6 + 8 * 12 + 22 + dialog.buttonHeight();
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.modsync.progress.title"), 400);
         this.buttonList.clear();
-        String label = errorKey != null
-                ? PeerCraftLang.tr("peercraft.modsync.restart.back")
-                : PeerCraftLang.tr("peercraft.modsync.confirm.cancel");
-        Runnable action = errorKey != null ? this::toTitle : onCancel;
-        this.addButton(IdButton.builder(label, action)
-                .bounds(this.width / 2 - 100, this.height - 40, 200, 20).build());
+        String label = errorKey != null ? PeerCraftLang.tr("peercraft.modsync.restart.back") : PeerCraftLang.tr("peercraft.modsync.confirm.cancel");
+        dialogAction(label, errorKey != null ? this::toTitle : onCancel, false, 0, 1);
     }
 
     @Override
@@ -109,13 +108,7 @@ public class ModSyncProgressScreen extends GuiScreen {
     }
 
     private static String bar(double frac) {
-        double f = Math.max(0, Math.min(1, frac));
-        int fill = (int) Math.round(f * BAR);
-        StringBuilder sb = new StringBuilder(BAR + 8).append('[');
-        for (int i = 0; i < BAR; i++) {
-            sb.append(i < fill ? '█' : '░');
-        }
-        return sb.append("] ").append((int) Math.round(f * 100)).append('%').toString();
+        return Math.round(Math.max(0, Math.min(1, frac)) * 100) + "%";
     }
 
     private static String humanSize(long b) {
@@ -161,19 +154,32 @@ public class ModSyncProgressScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 52;
-        this.drawCenteredString(this.fontRenderer, this.titleText, cx, y, 0xFFFFFFFF);
-        y += 18;
-        this.drawCenteredString(this.fontRenderer, currentLine(), cx, y, errorKey != null ? 0xFFFF5555 : 0xFFFFFFFF);
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        paragraphs.add(currentLine());
         if (errorKey == null) {
-            y += 14;
-            this.drawCenteredString(this.fontRenderer, fileBar(), cx, y, 0xFFAAAAAA);
-            y += 22;
-            this.drawCenteredString(this.fontRenderer, overallCount(), cx, y, 0xFFFFFFFF);
-            y += 14;
-            this.drawCenteredString(this.fontRenderer, overallBar(), cx, y, 0xFFFFD966);
+            paragraphs.add(fileBar()); paragraphs.add(""); paragraphs.add("");
+            paragraphs.add(overallCount()); paragraphs.add(overallBar()); paragraphs.add("");
         }
+        drawBody(paragraphs, errorKey != null ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
+        if (errorKey == null) {
+            int fileRow = PeerCraftUi.wrap(this.fontRenderer, currentLine(), dialog.contentWidth() - 8).size()
+                    + PeerCraftUi.wrap(this.fontRenderer, fileBar(), dialog.contentWidth() - 8).size();
+            int totalRow = fileRow + 2 + PeerCraftUi.wrap(this.fontRenderer, overallCount(), dialog.contentWidth() - 8).size()
+                    + PeerCraftUi.wrap(this.fontRenderer, overallBar(), dialog.contentWidth() - 8).size();
+            if (dialog.contentTop() + (totalRow + 1) * 12 <= bodyBottom()) {
+                drawProgressBar(dialog.contentTop() + fileRow * 12 + 2, fileReceived, fileTotal);
+                drawProgressBar(dialog.contentTop() + totalRow * 12 + 2, overallDone, plan.totalBytes());
+            }
+        }
+        super.drawScreen(mouseX, mouseY, partialTicks);
     }
+    private void drawProgressBar(int y, long done, long total) {
+        int x = dialog.contentX(), w = dialog.contentWidth();
+        double fraction = total > 0 ? Math.max(0, Math.min(1, (double) done / total)) : 0;
+        SteampunkDialog.frame(x, y, w, 6, net.peercraft.client.theme.SteampunkPalette.CONTROL,
+                net.peercraft.client.theme.SteampunkPalette.BORDER);
+        int filled = (int) Math.round(Math.max(0, w - 2) * fraction);
+        if (filled > 0) drawRect(x + 1, y + 1, x + 1 + filled, y + 5, net.peercraft.client.theme.SteampunkPalette.PRIMARY);
+    }
+
 }
