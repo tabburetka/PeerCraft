@@ -1,64 +1,66 @@
 package net.peercraft.client.gui;
-
-// Forge 1.7.10 backport of src/main/.../client/gui/PeerCraftSettingsScreen.java (near-identical to the src/client-1122 twin).
-// 1.7.10 deltas: Screen -> GuiScreen (initGui/drawScreen/actionPerformed); Component -> PeerCraftLang.tr;
-// CycleButton -> CycleTextButton; Checkbox -> ToggleButton; EditBox rows are NOT ported here — the
-// free-text / port flags (rendezvous address, proxyPort, *UdpPort, peerHost/peerPort, roomCode) stay
-// launch-flag only on 1.7.10; size limits and max-players use preset cycles instead. Everything the
-// user actually toggles in-game (mod-sync host/client modes, autoAccept, mode) is covered.
-// Keep the covered rows in sync with the original.
-
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.config.PeerCraftSettings;
 import net.peercraft.config.PeerCraftSettingsStore;
+import java.util.*;
 import org.lwjgl.input.Keyboard;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-
-public class PeerCraftSettingsScreen extends GuiScreen {
-
-    private static final int ROWS_TOP = 46;
-    private static final int ROW_PITCH = 22;
-    private static final int CONTROL_W = 150;
-
-    private static final List<String> MODE_VALUES = Arrays.asList("auto", "client", "host", "disabled");
-    private static final List<String> MODSYNC_VALUES = Arrays.asList("off", "required", "all");
-    private static final List<String> TOTAL_MB = Arrays.asList("256", "512", "1024", "2048", "4096");
-    private static final List<String> MOD_MB = Arrays.asList("64", "128", "256", "512", "1024", "2048");
-    private static final List<String> PLAYERS = Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8");
-
+import org.lwjgl.input.Mouse;
+/** Complete settings editor for legacy Forge, using the shared panel and original settings store. */
+public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
+    private static final int KIND_BOOL=0, KIND_INT=1, KIND_STRING=2, KIND_MODE=3, KIND_MODSYNC=4;
+    private static final List<String> MODE_VALUES=Arrays.asList("auto","client","host","disabled");
+    private static final List<String> MODSYNC_VALUES=Arrays.asList("off","required","all");
     private final GuiScreen lastScreen;
     private PeerCraftSettings settings;
-    private final List<String> labels = new ArrayList<String>();
-    private final List<Integer> labelYs = new ArrayList<Integer>();
-    private final List<Boolean> labelWarn = new ArrayList<Boolean>();
-    private String statusMessage = "";
-    private int statusColor = PeerCraftUi.TEXT_ERROR;
-
-    public PeerCraftSettingsScreen(GuiScreen lastScreen) {
-        this.lastScreen = lastScreen;
+    private final List<Row> rows=new ArrayList<>();
+    private ToggleButton developerToggle;
+    private int rowsTop, listBottom, rowPitch, controlWidth, labelX, scroll;
+    private boolean draggingScrollbar;
+    private String statusMessage="";
+    private int statusColor=PeerCraftUi.TEXT_MUTED;
+    private static final class Row {
+        final String key, labelKey;
+        final int kind, min, max;
+        final boolean developer, restart;
+        String warnOverride;
+        Object widget;
+        List<String> cycleValues;
+        int cycleIndex, screenY=-1;
+        boolean enabled;
+        Row(String key,int kind,boolean developer,boolean restart,int min,int max,String labelKey) {
+            this.key=key;this.kind=kind;this.developer=developer;this.restart=restart;this.min=min;this.max=max;this.labelKey=labelKey;
+        }
     }
-
+    public PeerCraftSettingsScreen(GuiScreen lastScreen) {
+        super(PeerCraftLang.tr("peercraft.gui.settings.title"),600,440);this.lastScreen=lastScreen;
+    }
     private static String builtinDefault(String key) {
-        if ("mode".equals(key)) return "auto";
-        if ("internetPlay".equals(key)) return "false";
-        if ("maxPlayers".equals(key)) return "4";
-        if ("modSync.host".equals(key)) return "all";
-        if ("modSync.client".equals(key)) return "all";
-        if ("modSync.autoAccept".equals(key)) return "false";
-        if ("modSync.reofferDeclined".equals(key)) return "false";
-        if ("modSync.maxTotalMb".equals(key)) return "512";
-        if ("modSync.maxModMb".equals(key)) return "256";
-        if ("handoff".equals(key)) return "true";
-        if ("handoff.declineSuccessor".equals(key)) return "false";
-        if ("handoff.confirmBeforeOffer".equals(key)) return "true";
-        if ("handoff.chatNotify".equals(key)) return "true";
-        return "";
+        switch (key) {
+            case "mode": return "auto";
+            case "proxyPort": return "25566";
+            case "clientUdpPort": return "50002";
+            case "hostUdpPort": return "50001";
+            case "peerHost": return "127.0.0.1";
+            case "peerPort": return "";
+            case "internetPlay": return "false";
+            case "rendezvousHost": return "91.146.31.165";
+            case "rendezvousPort": return "51000";
+            case "maxPlayers": return "4";
+            case "modSync.host": return "all";
+            case "modSync.client": return "all";
+            case "modSync.autoAccept": return "false";
+            case "modSync.reofferDeclined": return "false";
+            case "modSync.maxTotalMb": return "512";
+            case "modSync.maxModMb": return "256";
+            case "handoff": return "true";
+            case "handoff.declineSuccessor": return "false";
+            case "handoff.confirmBeforeOffer": return "true";
+            case "handoff.chatNotify": return "true";
+            default: return "";
+        }
     }
 
     private static String envName(String key) {
@@ -93,170 +95,184 @@ public class PeerCraftSettingsScreen extends GuiScreen {
         String baseline = PeerCraftConfig.baselineValue(key);
         return !baseline.isEmpty() ? baseline : builtinDefault(key);
     }
+    @Override public void initGui() {
+        for(Row row:rows) if(row.widget!=null && settings!=null) settings.set(row.key,readWidget(row));
+        super.initGui(); Keyboard.enableRepeatEvents(true);this.buttonList.clear();
+        if(settings==null) settings=PeerCraftSettingsStore.load();
+        labelX=dialog.contentX()+4;
+        controlWidth=Math.max(70,Math.min(150,dialog.contentWidth()*2/5));
+        rowsTop=dialog.contentTop()+36;rowPitch=dialog.compact?24:30;
+        listBottom=backY()-28; rows.clear();
+        addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
+        addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
+        addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");
+        addRow("modSync.maxTotalMb", KIND_INT, false, false, 1, 4096, "max_total_mb");
+        addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
+        addRow("internetPlay", KIND_BOOL, false, false, 0, 0, "internet_play");
+        addRow("maxPlayers", KIND_INT, false, false, 1, 8, "max_players");
+        addRow("handoff", KIND_BOOL, false, false, 0, 0, "handoff");
+        addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
+        addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
+        addRow("handoff.chatNotify", KIND_BOOL, false, false, 0, 0, "handoff_chat_notify");
 
-    // Right-hand column for the cycle controls, pushed toward the edge so the Russian label to
-    // its left has room; drawScreen() clips the label so the two never overlap.
-    private int controlX() {
-        return Math.max(this.width / 2 + 4, this.width - 20 - CONTROL_W);
+        addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
+        addRow("modSync.autoAccept", KIND_BOOL, true, false, 0, 0, "autoaccept").warnOverride = "autoaccept_warning";
+        addRow("rendezvousHost", KIND_STRING, true, true, 0, 0, "rendezvous_host");
+        addRow("rendezvousPort", KIND_INT, true, true, 0, 65535, "rendezvous_port");
+        addRow("proxyPort", KIND_INT, true, true, 0, 65535, "proxy_port");
+        addRow("clientUdpPort", KIND_INT, true, true, 0, 65535, "client_udp_port");
+        addRow("hostUdpPort", KIND_INT, true, true, 0, 65535, "host_udp_port");
+        addRow("peerHost", KIND_STRING, true, true, 0, 0, "peer_host");
+        addRow("peerPort", KIND_INT, true, true, 0, 65535, "peer_port");
+
+        for(Row row:rows) { row.enabled=!forcedByFlag(row.key);row.widget=buildWidget(row); }
+        developerToggle=new ToggleButton(labelX,dialog.contentTop(),"",settings.showDeveloperSection,value->{
+            settings.showDeveloperSection=value;scroll=0;relayout();
+        });
+        developerToggle.width=20;developerToggle.height=20;this.buttonList.add(developerToggle);
+        int actionWidth=Math.max(1,(dialog.contentWidth()-12)/3);
+        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.save"),this::onSave).primary()
+                .bounds(dialog.contentX(),backY(),actionWidth,dialog.buttonHeight()).build());
+        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.reset"),this::onReset)
+                .bounds(dialog.contentX()+actionWidth+6,backY(),actionWidth,dialog.buttonHeight()).build());
+        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.cancel"),()->PeerCraftUi.setScreen(mc,lastScreen))
+                .bounds(dialog.contentX()+(actionWidth+6)*2,backY(),actionWidth,dialog.buttonHeight()).build());
+        relayout();
     }
-
-    @Override
-    public void initGui() {
-        if (this.settings == null) {
-            this.settings = PeerCraftSettingsStore.load();
+    private Row addRow(String key,int kind,boolean developer,boolean restart,int min,int max,String labelKey) {
+        Row row=new Row(key,kind,developer,restart,min,max,labelKey);rows.add(row);return row;
+    }
+    private int controlX() { return dialog.contentX()+dialog.contentWidth()-controlWidth-12; }
+    private Object buildWidget(Row row) {
+        String current=seed(row.key);
+        if(row.kind==KIND_INT || row.kind==KIND_STRING) {
+            SteampunkField box=new SteampunkField(this.fontRendererObj,controlX(),rowsTop,controlWidth,dialog.buttonHeight());
+            box.setMaxStringLength(row.kind==KIND_INT?6:128);box.setText(current);box.setEnabled(row.enabled);return box;
         }
-        Keyboard.enableRepeatEvents(true);
-        this.buttonList.clear();
-        this.labels.clear();
-        this.labelYs.clear();
-        this.labelWarn.clear();
-
-        int y = ROWS_TOP;
-        y = cycleRow(y, "modSync.client", "modsync_client", MODSYNC_VALUES, "modsync_mode.", false);
-        y = cycleRow(y, "modSync.host", "modsync_host", MODSYNC_VALUES, "modsync_mode.", false);
-        y = toggleRow(y, "modSync.reofferDeclined", "reoffer_declined", false);
-        y = cycleRow(y, "modSync.maxTotalMb", "max_total_mb", TOTAL_MB, null, false);
-        y = cycleRow(y, "modSync.maxModMb", "max_mod_mb", MOD_MB, null, false);
-        y = toggleRow(y, "internetPlay", "internet_play", false);
-        y = cycleRow(y, "maxPlayers", "max_players", PLAYERS, null, false);
-        y = toggleRow(y, "handoff", "handoff", false);
-        y = toggleRow(y, "handoff.declineSuccessor", "handoff_decline_successor", false);
-        y = toggleRow(y, "handoff.confirmBeforeOffer", "handoff_confirm_before_offer", false);
-        y = toggleRow(y, "handoff.chatNotify", "handoff_chat_notify", false);
-
-        // developer section toggle
-        this.buttonList.add(new ToggleButton(this.width / 2 - CONTROL_W, y,
-                PeerCraftLang.tr("peercraft.gui.settings.developer_toggle"),
-                this.settings.showDeveloperSection,
-                value -> {
-                    this.settings.showDeveloperSection = value;
-                    this.initGui();
-                }));
-        y += ROW_PITCH + 4;
-
-        if (this.settings.showDeveloperSection) {
-            y = cycleRow(y, "mode", "mode", MODE_VALUES, "mode.", false);
-            y = toggleRow(y, "modSync.autoAccept", "autoaccept", true);
+        GuiButton button;
+        if(row.kind==KIND_BOOL) {
+            ToggleButton cb=new ToggleButton(controlX(),rowsTop,"","true".equalsIgnoreCase(current),value->{});
+            cb.width=16;cb.height=16;button=cb;
+        } else {
+            row.cycleValues=row.kind==KIND_MODE?MODE_VALUES:MODSYNC_VALUES;
+            row.cycleIndex=Math.max(0,row.cycleValues.indexOf(row.cycleValues.contains(current)?current:row.cycleValues.get(row.cycleValues.size()-1)));
+            IdButton[] self=new IdButton[1];
+            self[0]=IdButton.builder(cycleLabel(row),()->{
+                row.cycleIndex=(row.cycleIndex+1)%row.cycleValues.size();self[0].displayString=cycleLabel(row);
+            }).bounds(controlX(),rowsTop,controlWidth,dialog.buttonHeight()).build();button=self[0];
         }
-
-        int by = this.height - 40;
-        int cx = this.width / 2;
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.save"), this::onSave)
-                .bounds(cx - 154, by, 100, 20).build());
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.reset"), this::onReset)
-                .bounds(cx - 50, by, 100, 20).build());
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.gui.settings.cancel"),
-                        () -> PeerCraftUi.setScreen(this.mc, this.lastScreen))
-                .bounds(cx + 54, by, 100, 20).build());
+        button.enabled=row.enabled;this.buttonList.add(button);return button;
     }
-
-    private int cycleRow(int y, String key, String labelKey, List<String> values, String langPrefix, boolean warn) {
-        String current = seed(key);
-        final String prefix = langPrefix;
-        IdButton button = CycleTextButton.create(controlX(), y, CONTROL_W, 20,
-                values, values.contains(current) ? current : values.get(values.size() - 1),
-                v -> prefix == null ? v : PeerCraftLang.tr("peercraft.gui.settings." + prefix + v),
-                v -> this.settings.set(key, v));
-        this.settings.set(key, values.contains(current) ? current : values.get(values.size() - 1));
-        if (forcedByFlag(key)) {
-            button.enabled = false;
+    private String cycleLabel(Row row) { return PeerCraftLang.tr("peercraft.gui.settings."+(row.kind==KIND_MODE?"mode.":"modsync_mode.")+row.cycleValues.get(row.cycleIndex)); }
+    private List<Row> visibleRows() {
+        List<Row> out=new ArrayList<>();for(Row row:rows)if(!row.developer || settings.showDeveloperSection)out.add(row);return out;
+    }
+    private int rowsShown() { return Math.max(0,(listBottom-rowsTop)/rowPitch); }
+    private void relayout() {
+        List<Row> visible=visibleRows();int shown=rowsShown();scroll=Math.max(0,Math.min(scroll,Math.max(0,visible.size()-shown)));
+        for(Row row:rows) {
+            row.screenY=-1;
+            if(row.widget instanceof GuiTextField) ((GuiTextField)row.widget).setVisible(false);
+            else ((GuiButton)row.widget).visible=false;
         }
-        this.buttonList.add(button);
-        addLabel(labelKey, y, warn);
-        return y + ROW_PITCH;
-    }
-
-    private int toggleRow(int y, String key, String labelKey, boolean warn) {
-        boolean current = "true".equalsIgnoreCase(seed(key));
-        ToggleButton toggle = new ToggleButton(this.width / 2 - CONTROL_W, y,
-                labelText(labelKey, false),
-                current,
-                value -> this.settings.set(key, Boolean.toString(value)));
-        this.settings.set(key, Boolean.toString(current));
-        if (forcedByFlag(key)) {
-            toggle.enabled = false;
+        for(int i=0;i<shown && scroll+i<visible.size();i++) {
+            Row row=visible.get(scroll+i);row.screenY=rowsTop+i*rowPitch;
+            if(row.widget instanceof GuiTextField) {
+                GuiTextField field=(GuiTextField)row.widget;field.xPosition=controlX()+5;field.yPosition=row.screenY;field.setVisible(true);
+            } else { GuiButton button=(GuiButton)row.widget;button.xPosition=controlX();button.yPosition=row.screenY;button.visible=true; }
         }
-        this.buttonList.add(toggle);
-        return y + ROW_PITCH;
+        for(Row row:rows)if(row.screenY<0 && row.widget instanceof GuiTextField)((GuiTextField)row.widget).setFocused(false);
     }
-
-    private void addLabel(String labelKey, int y, boolean warn) {
-        this.labels.add(labelText(labelKey, true));
-        this.labelYs.add(y + 6);
-        this.labelWarn.add(warn);
+    private String readWidget(Row row) {
+        if(row.widget instanceof GuiTextField)return ((GuiTextField)row.widget).getText();
+        if(row.widget instanceof ToggleButton)return Boolean.toString(((ToggleButton)row.widget).isChecked());
+        return row.cycleValues.get(row.cycleIndex);
     }
-
-    private String labelText(String labelKey, boolean withRestartHint) {
-        String base = PeerCraftLang.tr("peercraft.gui.settings." + labelKey);
-        boolean restart = "mode".equals(labelKey);
-        return (withRestartHint && restart)
-                ? base + " " + PeerCraftLang.tr("peercraft.gui.settings.restart_hint")
-                : base;
-    }
-
-    @Override
-    public void onGuiClosed() {
-        Keyboard.enableRepeatEvents(false);
-    }
-
-    @Override
-    protected void actionPerformed(GuiButton button) {
-        if (button instanceof ToggleButton) {
-            ((ToggleButton) button).fire();
-        } else if (button instanceof IdButton) {
-            ((IdButton) button).onPress.run();
-        }
-    }
-
-    @Override
-    protected void keyTyped(char typedChar, int keyCode) {
-        if (keyCode == Keyboard.KEY_ESCAPE) {
-            PeerCraftUi.setScreen(this.mc, this.lastScreen);
-            return;
-        }
-        super.keyTyped(typedChar, keyCode);
-    }
-
     private void onReset() {
-        PeerCraftSettingsStore.clear();
-        PeerCraftConfig.applyOverrides(new LinkedHashMap<String, String>());
-        PeerCraftUi.setScreen(this.mc, new PeerCraftSettingsScreen(this.lastScreen));
+        PeerCraftSettingsStore.clear();PeerCraftConfig.applyOverrides(new LinkedHashMap<String,String>());
+        PeerCraftUi.setScreen(mc,new PeerCraftSettingsScreen(lastScreen));
     }
-
+    private void focusRow(Row row) {
+        if(row.developer && !settings.showDeveloperSection) { settings.showDeveloperSection=true;developerToggle.setIsChecked(true); }
+        List<Row> visible=visibleRows();int index=visible.indexOf(row);
+        if(index<scroll)scroll=index;else if(index>=scroll+rowsShown())scroll=index-Math.max(1,rowsShown())+1;
+        relayout();for(Row r:rows)if(r.widget instanceof GuiTextField)((GuiTextField)r.widget).setFocused(r==row);
+    }
+    private void failValidation(Row row) {
+        focusRow(row);statusMessage=PeerCraftLang.tr("peercraft.gui.settings.invalid_number",PeerCraftLang.tr("peercraft.gui.settings."+row.labelKey));statusColor=PeerCraftUi.TEXT_ERROR;
+    }
     private void onSave() {
-        for (String key : PeerCraftSettings.FLAG_KEYS) {
-            String value = this.settings.get(key);
-            if (value != null && (value.equals(builtinDefault(key))
-                    || value.equals(PeerCraftConfig.baselineValue(key))
-                    || forcedByFlag(key))) {
-                this.settings.set(key, null);
+        for(Row row:rows)if(row.kind==KIND_INT) {
+            String value=readWidget(row).trim();if(value.isEmpty())continue;
+            try { int n=Integer.parseInt(value);if(n<row.min || n>row.max){failValidation(row);return;} }
+            catch(NumberFormatException invalid){failValidation(row);return;}
+        }
+        for(Row row:rows) {
+            String value=readWidget(row).trim();
+            settings.set(row.key,value.isEmpty() || value.equals(builtinDefault(row.key)) || value.equals(PeerCraftConfig.baselineValue(row.key)) || forcedByFlag(row.key)?null:value);
+        }
+        settings.showDeveloperSection=developerToggle.isChecked();PeerCraftSettingsStore.save(settings);
+        PeerCraftConfig.applyOverrides(settings.toOverrideMap());HandoffClientController.INSTANCE.resendPreference();PeerCraftUi.setScreen(mc,lastScreen);
+    }
+    @Override protected void actionPerformed(GuiButton button) {
+        if(button instanceof ToggleButton)((ToggleButton)button).fire();else if(button instanceof IdButton)((IdButton)button).onPress.run();
+    }
+    @Override public void onGuiClosed(){Keyboard.enableRepeatEvents(false);}
+    @Override public void updateScreen(){for(Row row:rows)if(row.widget instanceof GuiTextField)((GuiTextField)row.widget).updateCursorCounter();}
+    @Override protected void keyTyped(char typedChar,int keyCode) {
+        if(keyCode==Keyboard.KEY_ESCAPE){PeerCraftUi.setScreen(mc,lastScreen);return;}
+        if(keyCode==Keyboard.KEY_TAB) {
+            List<Row> edits=new ArrayList<>();int current=-1;
+            for(Row row:visibleRows())if(row.enabled && row.widget instanceof GuiTextField){if(((GuiTextField)row.widget).isFocused())current=edits.size();edits.add(row);}
+            if(!edits.isEmpty()){int delta=GuiScreen.isShiftKeyDown()?-1:1;focusRow(edits.get(current<0?(delta<0?edits.size()-1:0):(current+delta+edits.size())%edits.size()));}return;
+        }
+        for(Row row:rows)if(row.screenY>=0 && row.enabled && row.widget instanceof GuiTextField && ((GuiTextField)row.widget).textboxKeyTyped(typedChar,keyCode))return;
+        if(keyCode==Keyboard.KEY_NEXT || keyCode==Keyboard.KEY_PRIOR){scroll+=(keyCode==Keyboard.KEY_NEXT?1:-1)*Math.max(1,rowsShown());relayout();return;}
+        super.keyTyped(typedChar,keyCode);
+    }
+    @Override public void handleMouseInput() {
+        super.handleMouseInput();int delta=Mouse.getEventDWheel();int x=Mouse.getEventX()*width/mc.displayWidth,y=height-Mouse.getEventY()*height/mc.displayHeight-1;
+        if(delta!=0 && x>=dialog.contentX() && x<dialog.left+dialog.width && y>=rowsTop && y<listBottom){scroll-=(int)Math.signum(delta)*3;relayout();}
+    }
+    private int scrollbarX(){return dialog.left+dialog.width-9;}
+    private void scrollAt(int y){
+        int total=visibleRows().size(),shown=rowsShown(),track=listBottom-rowsTop;
+        if(shown<=0 || total<=shown)return;
+        int thumb=Math.max(8,track*shown/total);
+        scroll=(int)Math.round(Math.max(0,Math.min(1,(y-rowsTop-thumb/2.0)/Math.max(1,track-thumb)))*(total-shown));relayout();
+    }
+    @Override protected void mouseClicked(int x,int y,int button) {
+        if(button==0 && x>=scrollbarX()-3 && x<scrollbarX()+7 && y>=rowsTop && y<listBottom){draggingScrollbar=true;scrollAt(y);return;}
+        super.mouseClicked(x,y,button);
+        if(mc.currentScreen!=this)return;
+        for(Row row:rows)if(row.widget instanceof GuiTextField){GuiTextField field=(GuiTextField)row.widget;if(row.screenY>=0 && row.enabled)field.mouseClicked(x,y,button);else field.setFocused(false);}
+    }
+    @Override protected void mouseClickMove(int x,int y,int button,long elapsed){if(button==0 && draggingScrollbar){scrollAt(y);return;}super.mouseClickMove(x,y,button,elapsed);}
+    @Override protected void mouseMovedOrUp(int x,int y,int button){if(button==0)draggingScrollbar=false;super.mouseMovedOrUp(x,y,button);}
+    private String rowLabel(Row row){
+        String label=PeerCraftLang.tr("peercraft.gui.settings."+row.labelKey);
+        if(row.restart)label+=" "+PeerCraftLang.tr("peercraft.gui.settings.restart_hint");return label;
+    }
+    @Override public void drawScreen(int mouseX,int mouseY,float partialTicks){
+        drawDefaultBackground();
+        for(Row row:rows)if(row.screenY>=0 && row.widget instanceof GuiTextField)((GuiTextField)row.widget).drawTextBox();
+        super.drawScreen(mouseX,mouseY,partialTicks);
+        this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(PeerCraftLang.tr("peercraft.gui.settings.developer_toggle"),Math.max(1,dialog.contentWidth()-28)),labelX+24,dialog.contentTop()+5,PeerCraftUi.TEXT_MUTED);
+        if(settings.showDeveloperSection)this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(PeerCraftLang.tr("peercraft.gui.settings.developer_warning"),dialog.contentWidth()),labelX,dialog.contentTop()+22,PeerCraftUi.TEXT_ERROR);
+        List<String> tooltip=null;
+        for(Row row:rows)if(row.screenY>=0){
+            int color=!row.enabled?PeerCraftUi.TEXT_MUTED:row.warnOverride!=null?PeerCraftUi.TEXT_ERROR:PeerCraftUi.TEXT_TITLE;
+            String label=rowLabel(row);this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(label,Math.max(1,controlX()-labelX-10)),labelX,row.screenY+5,color);
+            if(mouseX>=labelX && mouseX<controlX() && mouseY>=row.screenY && mouseY<row.screenY+rowPitch){
+                if(row.warnOverride!=null)label+="\n"+PeerCraftLang.tr("peercraft.gui.settings."+row.warnOverride);
+                tooltip=PeerCraftUi.wrap(this.fontRendererObj,label,dialog.contentWidth());
             }
         }
-        PeerCraftSettingsStore.save(this.settings);
-        PeerCraftConfig.applyOverrides(this.settings.toOverrideMap());
-        HandoffClientController.INSTANCE.resendPreference();
-        PeerCraftUi.setScreen(this.mc, this.lastScreen);
-    }
-
-    @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        this.drawDefaultBackground();
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        this.drawCenteredString(this.fontRendererObj, PeerCraftLang.tr("peercraft.gui.settings.title"),
-                cx, 16, PeerCraftUi.TEXT_TITLE);
-        int labelMax = Math.max(60, controlX() - 12 - (cx - CONTROL_W));
-        for (int i = 0; i < this.labels.size(); i++) {
-            this.drawString(this.fontRendererObj, this.fontRendererObj.trimStringToWidth(this.labels.get(i), labelMax),
-                    cx - CONTROL_W, this.labelYs.get(i),
-                    this.labelWarn.get(i) ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
-        }
-        if (this.settings != null && this.settings.showDeveloperSection) {
-            this.drawString(this.fontRendererObj, PeerCraftLang.tr("peercraft.gui.settings.developer_warning"),
-                    cx - CONTROL_W, 32, PeerCraftUi.TEXT_ERROR);
-        }
-        if (!this.statusMessage.isEmpty()) {
-            this.drawCenteredString(this.fontRendererObj, this.statusMessage, cx, this.height - 54, this.statusColor);
-        }
+        int total=visibleRows().size(),shown=rowsShown();
+        if(total>shown && shown>0){int track=listBottom-rowsTop,thumb=Math.max(8,track*shown/total),y=rowsTop+(track-thumb)*scroll/(total-shown);
+            drawRect(scrollbarX(),rowsTop,scrollbarX()+3,listBottom,net.peercraft.client.theme.SteampunkPalette.BORDER);
+            drawRect(scrollbarX(),y,scrollbarX()+3,y+thumb,PeerCraftUi.TEXT_ACCENT);}
+        dialog.status(this.fontRendererObj,statusMessage,backY()-20,16,statusColor);
+        if(tooltip!=null)drawHoveringText(tooltip,mouseX,mouseY, this.fontRendererObj);
     }
 }

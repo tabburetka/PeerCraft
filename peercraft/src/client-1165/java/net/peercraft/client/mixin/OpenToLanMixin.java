@@ -25,6 +25,7 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
+import net.peercraft.client.handoff.HandoffCommandOwner;
 
 /**
  * Minecraft 1.16.5 backport of {@code src/main/.../OpenToLanMixin.java}. The hook target is
@@ -39,11 +40,12 @@ import net.peercraft.platform.Services;
 public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
-
     @Inject(method = "publishServer", at = @At("RETURN"))
     private void onOpenToLan(GameType gameMode, boolean cheatsAllowed, int port, CallbackInfoReturnable<Boolean> cir) {
 
         if (cir.getReturnValue()) {
+            if (HandoffCommandOwner.originalOwner((IntegratedServer) (Object) this) != null)
+                ((IntegratedServer) (Object) this).getPlayerList().setOverrideGameMode(null);
             if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || PeerCraftConfig.MODE_CLIENT.equals(PeerCraftConfig.mode())) {
                 LOGGER.info("[PeerCraft P2P] Хост-мост не запускается в режиме {}", PeerCraftConfig.mode());
                 return;

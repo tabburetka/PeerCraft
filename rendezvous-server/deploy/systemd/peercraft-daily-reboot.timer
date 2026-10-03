@@ -1,0 +1,11 @@
+[Unit]
+Description=Reboot the PeerCraft host daily at 05:00 Saratov time
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 Europe/Saratov
+AccuracySec=1min
+Persistent=false
+Unit=peercraft-daily-reboot.service
+
+[Install]
+WantedBy=timers.target

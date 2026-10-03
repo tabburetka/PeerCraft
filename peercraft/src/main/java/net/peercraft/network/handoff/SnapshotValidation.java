@@ -84,6 +84,9 @@ public final class SnapshotValidation {
     }
     public static void validateRegion(Path region) throws IOException {
         long size = Files.size(region);
+        // Minecraft may leave an unopened, empty region file (notably in poi/).
+        // It contains no header or chunks; any non-empty partial header is corrupt.
+        if (size == 0) return;
         if (size < 8192 || size % 4096 != 0) throw new IOException("Truncated region file: " + region.getFileName());
         Matcher name = REGION.matcher(region.getFileName().toString());
         if (!name.matches()) throw new IOException("Invalid region name");

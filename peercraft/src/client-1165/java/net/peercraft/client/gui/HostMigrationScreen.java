@@ -30,7 +30,7 @@ import java.util.UUID;
  * parses {@code host:port} out of {@code ServerData.ip} itself (see {@code PeerCraftJoinScreen}'s
  * own connect path for the same pattern) so no {@code ServerAddress} is needed.
  */
-public class HostMigrationScreen extends Screen {
+public class HostMigrationScreen extends PeerCraftDialogScreen {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     private static final long LOOKUP_TIMEOUT_MILLIS = 3 * 60_000L;
@@ -55,18 +55,23 @@ public class HostMigrationScreen extends Screen {
         if (safeJoin != null) safeJoin.cancel(false);
     }
     public HostMigrationScreen(UUID successorAccountId, boolean amSuccessor) {
-        super(new TranslatableComponent("peercraft.handoff.migrating.title"));
+        super(new TranslatableComponent("peercraft.handoff.migrating.title"), 300);
         this.successorAccountId = successorAccountId;
         this.amSuccessor = amSuccessor;
     }
 
     @Override
     protected void init() {
+        super.init();
+        int renderedLines = bodyLines().size();
+        int actions = (failed ? 1 : 0);
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12
+                + 18 + actions * dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.buttons.clear();
         this.children.clear();
         if (failed) {
-            this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.restart.back"), b -> toTitle())
-                    .bounds(this.width / 2 - 100, this.height - 40, 200, 20).build());
+            dialogAction(new TranslatableComponent("peercraft.modsync.restart.back"), b -> toTitle(), false, 0, 1);
         }
         if (!started) {
             started = true;
@@ -209,21 +214,13 @@ public class HostMigrationScreen extends Screen {
 
     private List<String> bodyLines() {
         return PeerCraftUi.wrap(this.font, new TranslatableComponent(statusKey).getString(),
-                Math.min(this.width - 60, 360));
+                dialog.contentWidth() - 10);
     }
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        drawBody(poseStack, bodyLines(), failed ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 30;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
-        int color = failed ? 0xFFFF5555 : 0xFFCCCCCC;
-        for (String line : bodyLines()) {
-            GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, color);
-            y += 12;
-        }
     }
 }

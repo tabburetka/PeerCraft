@@ -125,6 +125,7 @@ public final class SuccessorLauncher {
         Path staging = plan.root.resolve(".peercraft-handoff-staging-" + attemptId);
         net.peercraft.network.handoff.WorldInstall.unpack(archive, staging, WorldTargetPlan.UNPACK_LIMIT);
         net.peercraft.network.handoff.SnapshotValidation.validate(staging);
+        if (HandoffOwnerPolicy.read(staging) == null) throw new IOException("Snapshot has no handoff owner");
         PeercraftWorldMeta meta = PeercraftWorldMeta.loadOrNull(staging);
         if (meta == null || !offer.worldId().equals(meta.worldId())) throw new IOException("Snapshot belongs to another world");
         return staging;
@@ -371,6 +372,7 @@ public final class SuccessorLauncher {
             /*boolean ok = server.publishServer(net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, port);*/
             if (ok) {
                 LOGGER.info("[Handoff] Мир открыт для сети на порту {} — регистрируем комнату как новый хост", port);
+                watchRenderAfterPublish(Minecraft.getInstance(), Thread.currentThread(), server);
                 done.serverPublished();
             } else {
                 done.failed("peercraft.handoff.abort.transfer_failed");
@@ -379,5 +381,23 @@ public final class SuccessorLauncher {
             LOGGER.warn("[Handoff] publishServer у нового хоста не удался: {}", e.toString());
             done.failed("peercraft.handoff.abort.transfer_failed");
         }
+    }
+
+    private static void watchRenderAfterPublish(Minecraft mc, Thread renderThread, IntegratedServer server) {
+        Thread watchdog = new Thread(() -> {
+            try {
+                Thread.sleep(5_000);
+                java.util.concurrent.CountDownLatch rendered = new java.util.concurrent.CountDownLatch(1);
+                mc.execute(rendered::countDown);
+                if (!rendered.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                        && renderThread.isAlive() && mc.getSingleplayerServer() == server) {
+                    Exception stack = new Exception("Render thread stalled after handoff room publication");
+                    stack.setStackTrace(renderThread.getStackTrace());
+                    LOGGER.warn("[Handoff] Новый хост не обновил экран за 10 секунд после открытия комнаты", stack);
+                }
+            } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+        }, "PeerCraft-Handoff-Render-Watchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
     }
 }

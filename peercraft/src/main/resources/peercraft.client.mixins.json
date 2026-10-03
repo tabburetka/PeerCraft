@@ -5,6 +5,8 @@
 	"client": [
       "ExampleClientMixin",
 		"OpenToLanMixin",
+		"HandoffPlayerListPermissionsMixin",
+		"HandoffServerPermissionsMixin",
 		"PauseScreenMixin",
 		"ServerLoginPacketListenerImplMixin",
 		"PlayerDataLoadMixin",
@@ -12,6 +14,8 @@
 		"PlayerDataSaveMixin",
 		"ShareToLanScreenMixin",
 		"PeerCraftListBackgroundMixin",
+		"PeerCraftWidgetTooltipAccessor",
+        "PeerCraftWidgetSizeAccessor",
 		"TitleScreenMixin",
 		"WorldOpenFlowsMixin"
 	],

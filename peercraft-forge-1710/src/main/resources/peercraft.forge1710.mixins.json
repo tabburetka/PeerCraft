@@ -6,6 +6,7 @@
   "refmap": "peercraft.mixins.refmap.json",
   "mixins": [
     "OpenToLanMixin",
+    "HandoffLegacyPermissionsMixin",
     "ServerLoginPacketListenerImplMixin",
     "PlayerDataLoadMixin",
     "PlayerDataMigrationMixin",
@@ -16,5 +17,9 @@
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "client": [
+    "PeerCraftLegacyListThemeMixin",
+    "PeerCraftLegacyServerListMixin"
+  ]
 }

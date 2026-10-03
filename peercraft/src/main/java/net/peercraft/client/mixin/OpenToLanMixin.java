@@ -24,11 +24,18 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
+import net.peercraft.client.handoff.HandoffCommandOwner;
 
 @Mixin(IntegratedServer.class)
 public abstract class OpenToLanMixin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    // publishServer supplies the world's default mode as a forced mode. After handoff that
+    // would overwrite each returning player's independently saved creative/survival mode.
+    @Inject(method = "getForcedGameType", at = @At("HEAD"), cancellable = true)
+    private void peercraft$preservePlayerGameType(CallbackInfoReturnable<GameType> cir) {
+        if (HandoffCommandOwner.originalOwner((IntegratedServer) (Object) this) != null) cir.setReturnValue(null);
+    }
 
     // 26.2 reworked "Open to LAN": MultiplayerOptionsScreen -> changeMultiplayerScope -> publish()
     // calls the NEW two-arg IntegratedServer.publishServer(MultiplayerScope, int) — the old

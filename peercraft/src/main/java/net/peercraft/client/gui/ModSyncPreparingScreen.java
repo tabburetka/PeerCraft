@@ -14,9 +14,8 @@ import net.minecraft.network.chat.Component;
  * isn't a blank, seemingly-frozen screen. Carries a status line the agent updates through the
  * phases and an indeterminate "working" bar.
  */
-public class ModSyncPreparingScreen extends Screen {
+public class ModSyncPreparingScreen extends PeerCraftDialogScreen {
 
-    private static final int TRACK = 28;
 
     private volatile Component status = Component.translatable("peercraft.modsync.prepare.connecting");
     private final Runnable onCancel;
@@ -32,25 +31,15 @@ public class ModSyncPreparingScreen extends Screen {
 
     @Override
     protected void init() {
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.confirm.cancel"), b -> onCancel.run())
-                .bounds(this.width / 2 - 100, this.height - 44, 200, 20).build());
+        super.init();
+        int reminderLines = font.split(Component.translatable("peercraft.modsync.confirm.trust_reminder"), dialog.contentWidth()).size();
+        dialog = new SteampunkDialog(width, height, dialog.headerHeight + 6 + 38 + 12 + reminderLines * 12 + 18 + dialog.buttonPitch() + 10, title);
+        this.addRenderableWidget(dialogAction(Component.translatable("peercraft.modsync.confirm.cancel"), b -> onCancel.run(), true, 0, 1));
     }
 
     @Override
     public void onClose() {
         onCancel.run();
-    }
-
-    /** A single block bouncing back and forth inside a fixed-width track — visibly alive, no percentage. */
-    private String indeterminateBar() {
-        int span = TRACK - 3;
-        int t = (int) ((System.currentTimeMillis() / 90) % (2L * span));
-        int pos = t < span ? t : (2 * span - t);
-        StringBuilder sb = new StringBuilder(TRACK);
-        for (int i = 0; i < TRACK; i++) {
-            sb.append(i >= pos && i < pos + 3 ? '█' : '░');
-        }
-        return sb.toString();
     }
 
     //? if <26.1 {
@@ -59,23 +48,38 @@ public class ModSyncPreparingScreen extends Screen {
         //? if <1.21.6
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        graphics.drawCenteredString(this.font, this.title, cx, this.height / 2 - 30, 0xFFFFFFFF);
-        graphics.drawCenteredString(this.font, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
-        graphics.drawCenteredString(this.font, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
-        graphics.drawCenteredString(this.font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
-                cx, this.height / 2 + 40, 0xFFFF5555);
+        int y = dialog.contentTop();
+        dialog.status(graphics, font, status, y, 26, SteampunkSettingsTheme.MUTED, mouseX, mouseY);
+        int trackY = y + 30, trackWidth = dialog.contentWidth();
+        int blockWidth = Math.max(12, trackWidth / 8);
+        int span = Math.max(1, trackWidth - blockWidth - 2);
+        int phase = (int) ((System.currentTimeMillis() / 12) % (2L * span));
+        int blockX = dialog.contentX() + 1 + (phase < span ? phase : 2 * span - phase);
+        SteampunkSettingsTheme.frame(graphics, dialog.contentX(), trackY, trackWidth, 6,
+                net.peercraft.client.theme.SteampunkPalette.CONTROL, SteampunkSettingsTheme.BORDER);
+        graphics.fill(blockX, trackY + 1, blockX + blockWidth, trackY + 5, SteampunkSettingsTheme.ACCENT);
+        dialog.status(graphics, font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
+                trackY + 16, Math.max(0, dialog.top + dialog.height - 28 - dialog.buttonPitch() - trackY - 16),
+                0xFFFF5555, mouseX, mouseY);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        graphics.centeredText(this.font, this.title, cx, this.height / 2 - 30, 0xFFFFFFFF);
-        graphics.centeredText(this.font, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
-        graphics.centeredText(this.font, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
-        graphics.centeredText(this.font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
-                cx, this.height / 2 + 40, 0xFFFF5555);
+        int y = dialog.contentTop();
+        dialog.status(graphics, font, status, y, 26, SteampunkSettingsTheme.MUTED, mouseX, mouseY);
+        int trackY = y + 30, trackWidth = dialog.contentWidth();
+        int blockWidth = Math.max(12, trackWidth / 8);
+        int span = Math.max(1, trackWidth - blockWidth - 2);
+        int phase = (int) ((System.currentTimeMillis() / 12) % (2L * span));
+        int blockX = dialog.contentX() + 1 + (phase < span ? phase : 2 * span - phase);
+        SteampunkSettingsTheme.frame(graphics, dialog.contentX(), trackY, trackWidth, 6,
+                net.peercraft.client.theme.SteampunkPalette.CONTROL, SteampunkSettingsTheme.BORDER);
+        graphics.fill(blockX, trackY + 1, blockX + blockWidth, trackY + 5, SteampunkSettingsTheme.ACCENT);
+        dialog.status(graphics, font, Component.translatable("peercraft.modsync.confirm.trust_reminder"),
+                trackY + 16, Math.max(0, dialog.top + dialog.height - 28 - dialog.buttonPitch() - trackY - 16),
+                0xFFFF5555, mouseX, mouseY);
     }*/
     //?}
 }

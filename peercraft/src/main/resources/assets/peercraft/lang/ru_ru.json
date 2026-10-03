@@ -3,7 +3,6 @@
   "peercraft.gui.common.account_server_timeout": "Сервер аккаунтов не ответил",
   "peercraft.gui.common.shown_first": "Показаны первые %s из %s",
   "peercraft.gui.common.unlicensed_badge": "(офлайн)",
-
   "peercraft.gui.account.title": "PeerCraft — аккаунт",
   "peercraft.gui.account.subtitle": "Аккаунт",
   "peercraft.gui.account.licensed_status": "Лицензионный аккаунт",
@@ -21,7 +20,6 @@
   "peercraft.gui.account.confirming_license": "Подтверждаем лицензию через Mojang...",
   "peercraft.gui.account.logged_in_as": "Вы вошли как %s",
   "peercraft.gui.account.friend_code": "Код дружбы: %s",
-
   "peercraft.gui.register.title": "PeerCraft — регистрация",
   "peercraft.gui.register.copy_code": "Скопировать код",
   "peercraft.gui.register.continue": "Продолжить",
@@ -38,25 +36,21 @@
   "peercraft.gui.register.success_title": "Аккаунт создан!",
   "peercraft.gui.register.success_code_label": "Ваш код дружбы:",
   "peercraft.gui.register.success_hint": "Сохраните его — он нужен для входа с другого устройства",
-
   "peercraft.gui.login_code.title": "PeerCraft — вход по коду дружбы",
   "peercraft.gui.login_code.friend_code_field": "Код дружбы",
   "peercraft.gui.login_code.friend_code_hint": "Код дружбы",
   "peercraft.gui.login_code.submit": "Войти",
   "peercraft.gui.login_code.code_length_error": "Код дружбы — это 6 символов",
   "peercraft.gui.login_code.logging_in": "Входим...",
-
   "peercraft.gui.rename.title": "PeerCraft — изменить ник",
   "peercraft.gui.rename.field": "Новый ник",
   "peercraft.gui.rename.save": "Сохранить",
   "peercraft.gui.rename.saving": "Сохраняем...",
-
   "peercraft.gui.friend_requests.title": "PeerCraft — заявки в друзья",
   "peercraft.gui.friend_requests.loading": "Загружаем заявки...",
   "peercraft.gui.friend_requests.accept": "Принять",
   "peercraft.gui.friend_requests.decline": "Отклонить",
   "peercraft.gui.friend_requests.empty": "Нет входящих заявок",
-
   "peercraft.gui.join.title": "PeerCraft — присоединиться по коду",
   "peercraft.gui.join.subtitle": "Присоединиться по коду",
   "peercraft.gui.join.code_help": "Попросите код комнаты у хоста.",
@@ -68,7 +62,6 @@
   "peercraft.gui.join.override_field": "Адрес сервера",
   "peercraft.gui.join.enter_code_error": "Введите код комнаты",
   "peercraft.gui.join.connecting": "Подключаемся...",
-
   "peercraft.gui.multiplayer.account_tooltip": "PeerCraft: аккаунт",
   "peercraft.gui.multiplayer.join_by_code_tooltip": "Присоединиться по коду",
   "peercraft.gui.multiplayer.tab_favorites": "Избранное",
@@ -108,7 +101,6 @@
   "peercraft.gui.multiplayer.status_hosting": "хостит (%s)",
   "peercraft.gui.multiplayer.status_online": "онлайн",
   "peercraft.gui.multiplayer.status_offline": "офлайн",
-
   "peercraft.mixin.share_to_lan.max_players": "Макс. игроков",
   "peercraft.mixin.share_to_lan.allow_unlicensed": "Разрешить нелицензионных игроков",
   "peercraft.mixin.share_to_lan.internet_play": "PeerCraft: через интернет",
@@ -116,17 +108,14 @@
   "peercraft.mixin.share_to_lan.public_room": "Открыть для всех",
   "peercraft.mixin.share_to_lan.world_name": "Название мира",
   "peercraft.mixin.share_to_lan.world_name_hint": "Название мира (видно в списке публичных игр)",
-
   "peercraft.mixin.open_to_lan.room_code_changed_prefix": "PeerCraft: старый код комнаты больше не работает (сервер знакомств потерял комнату) — новый код: ",
   "peercraft.mixin.open_to_lan.room_code_prefix": "PeerCraft: код комнаты для второго игрока — ",
   "peercraft.mixin.open_to_lan.hover_copy": "Нажмите, чтобы скопировать код комнаты",
   "peercraft.mixin.open_to_lan.failed_prefix": "PeerCraft: %s",
-
   "peercraft.gui.title.feedback_button": "Отзыв",
   "peercraft.gui.title.feedback_tooltip": "Написать нам письмо с отзывом или багом",
   "peercraft.gui.title.donate_button": "Донат",
   "peercraft.gui.title.donate_tooltip": "Поддержать разработку PeerCraft",
-
   "peercraft.p2p.join_fail.invalid_code": "неверный код комнаты",
   "peercraft.p2p.join_fail.already_claimed": "комната уже занята",
   "peercraft.p2p.join_fail.expired": "код комнаты истёк",
@@ -142,7 +131,6 @@
   "peercraft.p2p.fail.udp_port_busy": "UDP-порт занят другим процессом — скорее всего, уже запущен другой клиент Minecraft с PeerCraft. Закройте его и попробуйте снова, либо укажите свободный порт через -Dpeercraft.hostUdpPort / -Dpeercraft.clientUdpPort",
   "peercraft.p2p.status.joining": "присоединяемся к комнате через сервер знакомств...",
   "peercraft.p2p.status.peer_found": "пир найден, пробиваем NAT...",
-
   "peercraft.modsync.status.handshake": "Сверяем моды с хостом...",
   "peercraft.modsync.notice.title": "PeerCraft — синхронизация модов и доверие",
   "peercraft.modsync.notice.body1": "Синхронизация модов скачает и установит моды хоста в вашу папку mods.",
@@ -188,7 +176,6 @@
   "peercraft.modsync.fail.loader_mismatch": "У хоста другой загрузчик модов — моды несовместимы",
   "peercraft.modsync.fail.incompatible": "Версия PeerCraft у хоста несовместима с синхронизацией модов",
   "peercraft.modsync.fail.io": "Не удалось сохранить скачанный мод в папку mods",
-
   "peercraft.gui.settings.title": "PeerCraft — Настройки",
   "peercraft.gui.settings.glyph_tooltip": "Настройки PeerCraft",
   "peercraft.gui.settings.save": "Сохранить",
@@ -250,7 +237,6 @@
   "peercraft.gui.settings.peer_host_desc": "Адрес удалённого пира для статического (не через интернет) пути локального теста.",
   "peercraft.gui.settings.peer_port": "Статический порт пира",
   "peercraft.gui.settings.peer_port_desc": "UDP-порт удалённого пира для статического пути локального теста (0–65535). Пусто — вычислить автоматически.",
-
   "peercraft.handoff.menu.button": "Передать хостинг…",
   "peercraft.handoff.picker.title": "Передать хостинг другому игроку",
   "peercraft.handoff.picker.intro": "Выбранный игрок получит копию мира и станет новым хостом. Все переподключатся к нему; после этого вы сможете выйти.",
@@ -313,5 +299,11 @@
   "peercraft.handoff.target.body": "В этом каталоге есть несколько копий. Использовать «%s»?",
   "peercraft.handoff.target.use": "Использовать",
   "peercraft.handoff.target.next": "Следующая копия",
-  "peercraft.handoff.abort.recovery_failed": "Не удалось восстановить прерванную замену мира. Копии мира и журнал сохранены; подробности в логе."
+  "peercraft.handoff.abort.recovery_failed": "Не удалось восстановить прерванную замену мира. Копии мира и журнал сохранены; подробности в логе.",
+  "peercraft.gui.account.profile_lookup_error": "Не удалось получить профиль Minecraft. Попробуйте ещё раз.",
+  "peercraft.gui.account.copy_recovery_id": "Скопировать ID восстановления",
+  "peercraft.gui.account.recovery_id_copied": "ID скопирован. Сохраните его вместе с паролем.",
+  "peercraft.gui.progress_notice.title": "Прогресс и удаление PeerCraft",
+  "peercraft.gui.progress_notice.understood": "Понятно",
+  "peercraft.gui.progress_notice.message": "Аккаунт без лицензии использует UUID PeerCraft. После удаления мода инвентарь и опыт могут выглядеть потерянными. Файлы остаются в мире хоста, но перед удалением нужны резервная копия и перенос на UUID Minecraft. Автоматического переноса пока нет: согласуйте его с хостом. Сохраните ID аккаунта и пароль."
 }

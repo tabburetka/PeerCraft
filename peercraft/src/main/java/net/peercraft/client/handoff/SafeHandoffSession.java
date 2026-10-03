@@ -66,6 +66,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
         volatile Boolean consentDecision;
         Object sourceServer;
         Path sourcePath;
+        UUID originalOwner;
         LocalPlayerIdentity.ArchiveIdentity identity;
         HandoffCoordinator.Callbacks callbacks;
         Context(HandoffProtocol.Offer offer, HandoffJournal journal, boolean source, boolean successor) throws IOException {
@@ -119,7 +120,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
         }
     }
     /** Called by the actual player picker instead of starting the legacy coordinator. */
-    public synchronized boolean begin(Object server, PeerAddress chosen, HandoffProtocol.Offer offer, HandoffCoordinator.Callbacks callbacks) {
+    public synchronized boolean begin(Object server, PeerAddress chosen, String successorName, HandoffProtocol.Offer offer, HandoffCoordinator.Callbacks callbacks) {
         if (current != null || server == null || !bridge.isHostingViaRendezvous()) return false;
         try {
             Path source = SafeHandoffPlatform.INSTANCE.worldPath(server);
@@ -129,10 +130,16 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             long epoch = grant == null ? 0 : grant.epoch;
             HandoffJournal journal = new HandoffJournal(journalPath(sid, offer.offerId()), sid, offer.offerId(), epoch, hostKey);
             journal.role = "SOURCE"; journal.source = source.toString(); journal.authorityHost = bridge.handoffAuthorityHost();
+            if (successorName == null || successorName.trim().isEmpty() || successorName.length() > 128)
+                throw new IOException("Successor display name is unavailable");
+            journal.successorName = successorName;
             journal.authorityPort = net.peercraft.config.PeerCraftConfig.rendezvousPort();
             Context c = new Context(offer, journal, true, false); c.initialEpoch = epoch;
             c.callbacks = callbacks; c.sourceServer = server; c.sourcePath = source;
             c.identity = LocalPlayerIdentity.captureForArchive(source);
+            c.originalOwner = HandoffOwnerPolicy.read(source);
+            if (c.originalOwner == null) c.originalOwner = LocalPlayerIdentity.current();
+            if (c.originalOwner == null) throw new IOException("Source owner UUID is unavailable");
             byte[] successorKey = HandoffAuthorityClient.newKey(), observerKey = HandoffAuthorityClient.newKey();
             for (P2PBridge.HandoffCandidate player : bridge.connectedJoiners()) {
                 boolean successor = player.peer().equals(chosen);
@@ -144,7 +151,10 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             journal.save(); current = c;
             new Thread(() -> sourceStart(c, successor, successorKey, observerKey), "PeerCraft-Safe-Handoff-Source-Begin").start();
             return true;
-        } catch (IOException | RuntimeException failure) { callbacks.onAborted("peercraft.handoff.abort.transfer_failed"); return false; }
+        } catch (IOException | RuntimeException failure) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Could not begin source attempt", failure);
+            callbacks.onAborted("peercraft.handoff.abort.transfer_failed"); return false;
+        }
     }
     private void sourceStart(Context c, Peer successor, byte[] successorKey, byte[] observerKey) {
         try {
@@ -192,13 +202,20 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                         if (answer.state != HandoffAuthorityProtocol.PENDING || !answer.isCurrentAttempt) throw new IOException("Room quiesce failed");
                         bridge.setHandoffAdmissionClosed(true); requireSameParticipants(c); bridge.prepareSourceStop(c.offer.offerId()); c.frozen = true;
                         for (Peer p : c.peers.values()) c.send(p, PREPARE, new byte[0]);
-                        for (Peer p : c.peers.values()) p.prepared.get(30, TimeUnit.SECONDS); return null;
+                        return null;
                     });
                 }
-                public CompletableFuture<Void> saveAndStop() { return c.io.submit(() -> { SafeHandoffPlatform.INSTANCE.saveAndStop(c.sourceServer); return null; }); }
+                public CompletableFuture<Void> saveAndStop() { return c.io.submit(() -> {
+                    SafeHandoffPlatform.INSTANCE.saveAndStop(c.sourceServer);
+                    // The server must be stopped before waiting for a client that may still
+                    // be on a death screen. Otherwise it keeps ticking for up to 30 seconds.
+                    for (Peer p : c.peers.values()) p.prepared.get(30, TimeUnit.SECONDS);
+                    return null;
+                }); }
                 public CompletableFuture<HandoffSourceFlow.Snapshot> archiveClosedWorld() {
                     return c.io.submit(() -> {
                         c.identity.prepare(c.sourcePath);
+                        HandoffOwnerPolicy.write(c.sourcePath, c.originalOwner);
                         WorldArchiver.Result archive = WorldArchiver.archiveClosed(c.sourcePath, journals(), c.journal.session + "-" + Long.toHexString(c.offer.offerId()));
                         c.archive = archive.zip(); c.journal.archive = c.archive.toString(); c.journal.digest = archive.sha512(); c.journal.save();
                         return new HandoffSourceFlow.Snapshot(archive.zip(), archive.sha512());
@@ -218,7 +235,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 }
                 public CompletableFuture<byte[]> verifiedStaging() { return poll(c, HandoffAuthorityProtocol.STAGED).thenApply(m -> m.digest); }
                 public void committed(long epoch) {
-                    PeercraftWorldMeta.markHandedOff(c.sourcePath, c.offer.worldLabel());
+                    PeercraftWorldMeta.markHandedOff(c.sourcePath, c.journal.successorName);
                     c.send(successor, START, new byte[0]);
                 }
                 public CompletableFuture<Void> installedSuccessor() { return poll(c, HandoffAuthorityProtocol.INSTALLED).thenApply(m -> null); }
@@ -240,6 +257,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             }, c.operation, HandoffSourceFlow.Limits.defaults(), phase -> c.callbacks.onStatus("peercraft.handoff.status.transferring"));
             c.sourceFlow.start(); if (c.cancelled.get()) c.sourceFlow.cancel();
         } catch (Exception failure) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Source setup failed before transfer", failure);
             try {
                 if (!c.beginSent) { c.stopWorkers().get(); c.cleanup().get(); }
                 else if (c.operation.abort()) { c.stopWorkers().get(); c.cleanup().get(); }
@@ -399,6 +417,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 candidate(c); return null;
             }).whenComplete((done, preflightFailure) -> {
                 if (preflightFailure != null) new Thread(() -> {
+                    org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Successor preflight failed", preflightFailure);
                     try { if (c.operation.abort()) { c.stopWorkers().get(); c.cleanup().get(); } }
                     catch (Exception unknown) { /* Retain all files when ABORT is unconfirmed. */ }
                     c.stopWorkers(); c.terminal("peercraft.handoff.abort.transfer_failed", false);

@@ -23,6 +23,8 @@ import org.lwjgl.glfw.GLFW;
 public class PeerCraftRegisterScreen extends Screen {
 
     private final Screen lastScreen;
+    private SteampunkDialog dialog;
+    private int statusY, successHintHeight;
     /** null while the form is showing; set to the assigned code once registration succeeds. */
     private final String registeredFriendCode;
 
@@ -31,7 +33,7 @@ public class PeerCraftRegisterScreen extends Screen {
     private Button registerButton;
     private Component statusMessage = Component.empty();
     private int statusColor = PeerCraftUi.TEXT_MUTED;
-    //? if =1.21.1 {
+    //? if >=1.21.1 {
     private final long animationStart = System.nanoTime();
     //?}
 
@@ -47,55 +49,50 @@ public class PeerCraftRegisterScreen extends Screen {
 
     @Override
     protected void init() {
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 50;
-
-        if (this.registeredFriendCode != null) {
-            this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, this.height / 2 + 8, 200, 20,
+        String firstValue = nicknameBox == null ? "" : nicknameBox.getValue();
+        String secondValue = passwordBox == null ? "" : passwordBox.getValue();
+        Component subtitle = Component.literal(title.getString().replace("PeerCraft — ", ""));
+        dialog = new SteampunkDialog(width, height, 220, subtitle);
+        int fieldRow = dialog.buttonPitch() + 12;
+        int desiredHeight = dialog.headerHeight + 6 + 2 * fieldRow + 2 * dialog.buttonPitch() + 26 + 12;
+        if (registeredFriendCode != null) {
+            subtitle = Component.translatable("peercraft.gui.register.success_title");
+            successHintHeight = Math.max(1, PeerCraftUi.wrap(font,
+                    Component.translatable("peercraft.gui.register.success_hint").getString(), dialog.contentWidth()).size()) * 12;
+            desiredHeight = dialog.headerHeight + 6 + 48 + successHintHeight + 8 + 2 * dialog.buttonPitch() + 26 + 12;
+        }
+        dialog = new SteampunkDialog(width, height, desiredHeight, subtitle);
+        int x = dialog.contentX(), w = dialog.contentWidth(), h = dialog.buttonHeight();
+        int y = dialog.contentTop() + 12;
+        if (registeredFriendCode != null) {
+            int actionY = dialog.contentTop() + 48 + successHintHeight + 8;
+            addRenderableWidget(SteampunkSettingsTheme.action(x, actionY, w, h,
                     Component.translatable("peercraft.gui.register.copy_code"), b -> onCopyCode(), false));
-            this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, this.height / 2 + 34, 200, 20,
-                    Component.translatable("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen)), true));
+            addRenderableWidget(SteampunkSettingsTheme.action(x, actionY + dialog.buttonPitch(), w, h,
+                    Component.translatable("peercraft.gui.register.continue"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftAccountScreen(lastScreen)), true));
+            statusY = actionY + 2 * dialog.buttonPitch() + 2;
             return;
         }
-
-        //? if =1.21.1 {
-        this.nicknameBox = PeerCraftUi.themedField(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.nickname_field"));
-        //?} else {
-        /*this.nicknameBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.nickname_field"));*/
-        //?}
-        this.nicknameBox.setMaxLength(16);
-        this.nicknameBox.setHint(Component.translatable("peercraft.gui.register.nickname_hint"));
-        this.addRenderableWidget(this.nicknameBox);
-        this.setInitialFocus(this.nicknameBox);
-
-        y += 26;
-        //? if =1.21.1 {
-        this.passwordBox = PeerCraftUi.themedField(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));
-        //?} else {
-        /*this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.register.password_field"));*/
-        //?}
-        this.passwordBox.setMaxLength(64);
-        this.passwordBox.setHint(Component.translatable("peercraft.gui.register.password_hint"));
-        PeerCraftUi.maskAsPassword(this.passwordBox);
-        this.addRenderableWidget(this.passwordBox);
-
-        y += 26;
-        //? if =1.21.1 {
-        this.registerButton = this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, y, 200, 20,
+        nicknameBox = new SteampunkSettingsTheme.Field(font, x, y, w, h, Component.translatable("peercraft.gui.register.nickname_field"));
+        nicknameBox.setMaxLength(16);
+        nicknameBox.setHint(Component.translatable("peercraft.gui.register.nickname_hint"));
+        nicknameBox.setValue(firstValue);
+        addRenderableWidget(nicknameBox);
+        setInitialFocus(nicknameBox);
+        y += fieldRow;
+        passwordBox = new SteampunkSettingsTheme.Field(font, x, y, w, h, Component.translatable("peercraft.gui.register.password_field"));
+        passwordBox.setMaxLength(64);
+        passwordBox.setHint(Component.translatable("peercraft.gui.register.password_hint"));
+        passwordBox.setValue(secondValue);
+        PeerCraftUi.maskAsPassword(passwordBox);
+        addRenderableWidget(passwordBox);
+        y = dialog.contentTop() + 2 * fieldRow;
+        registerButton = addRenderableWidget(SteampunkSettingsTheme.action(x, y, w, h,
                 Component.translatable("peercraft.gui.register.submit"), b -> onRegister(), true));
-        //?} else {
-        /*this.registerButton = this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.register.submit"), b -> onRegister())
-                .bounds(centerX - 100, y, 200, 20).build());*/
-        //?}
-
-        y += 26;
-        //? if =1.21.1 {
-        this.addRenderableWidget(PeerCraftUi.themedAction(centerX - 100, y, 200, 20,
-                Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen), false));
-        //?} else {
-        /*this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, y, 200, 20).build());*/
-        //?}
+        y += dialog.buttonPitch();
+        addRenderableWidget(SteampunkSettingsTheme.action(x, y, w, h,
+                Component.translatable("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(minecraft, lastScreen), false));
+        statusY = y + dialog.buttonPitch() + 2;
     }
 
     // Screen.keyPressed switched from (int,int,int) to a KeyEvent record parameter in 1.21.9.
@@ -186,59 +183,45 @@ public class PeerCraftRegisterScreen extends Screen {
         return PeerCraftUi.isCurrentScreen(this);
     }
 
-    // 26.1 renamed GuiGraphics -> GuiGraphicsExtractor and replaced Screen#render with
-    // #extractRenderState; drawString/drawCenteredString became text/centeredText (fill unchanged).
     //? if <26.1 {
-    //? if =1.21.1 {
-    @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        int panelWidth = Math.min(320, this.width - 16);
-        int panelHeight = Math.min(this.height - 16, this.registeredFriendCode == null ? 194 : 164);
-        SteampunkSettingsTheme.screenBackground(graphics, this.width, this.height,
-                (this.width - panelWidth) / 2, (this.height - panelHeight) / 2, panelWidth, panelHeight,
-                (System.nanoTime() - this.animationStart) / 1_000_000L);
+    @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        dialog.background(graphics, font, width, height, (System.nanoTime() - animationStart) / 1_000_000L);
     }
-    //?}
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 1.21.6 made Screen call renderBackground() itself before render() runs — calling it
-        // again here double-fires the (now once-per-frame) blur effect and crashes.
+    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         //? if <1.21.6
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        if (this.registeredFriendCode != null) {
-            graphics.drawCenteredString(this.font, Component.translatable("peercraft.gui.register.success_title"), centerX, this.height / 2 - 90, PeerCraftUi.TEXT_TITLE);
-            graphics.drawCenteredString(this.font, Component.translatable("peercraft.gui.register.success_code_label"), centerX, this.height / 2 - 55, PeerCraftUi.TEXT_TITLE);
-
-            graphics.fill(centerX - 60, this.height / 2 - 42, centerX + 60, this.height / 2 - 20, 0x80000000);
-            graphics.drawCenteredString(this.font, Component.literal(this.registeredFriendCode), centerX, this.height / 2 - 36, PeerCraftUi.TEXT_ACCENT);
-
-            graphics.drawCenteredString(this.font, Component.translatable("peercraft.gui.register.success_hint"), centerX, this.height / 2 - 8, PeerCraftUi.TEXT_MUTED);
-            graphics.drawCenteredString(this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+        if (registeredFriendCode != null) {
+            int y = dialog.contentTop();
+            graphics.drawCenteredString(font, Component.translatable("peercraft.gui.register.success_code_label"), width / 2, y, SteampunkSettingsTheme.TEXT);
+            SteampunkSettingsTheme.frame(graphics, dialog.contentX(), y + 14, dialog.contentWidth(), 24, net.peercraft.client.theme.SteampunkPalette.CONTROL, SteampunkSettingsTheme.BORDER);
+            graphics.drawCenteredString(font, registeredFriendCode, width / 2, y + 22, SteampunkSettingsTheme.ACCENT);
+            dialog.status(graphics, font, Component.translatable("peercraft.gui.register.success_hint"), y + 48,
+                    successHintHeight, SteampunkSettingsTheme.MUTED, mouseX, mouseY);
         } else {
-            graphics.drawCenteredString(this.font, this.title, centerX, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
-            graphics.drawCenteredString(this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+        graphics.drawString(font, Component.translatable("peercraft.gui.register.nickname_field"), dialog.contentX(), nicknameBox.getY() - 12, SteampunkSettingsTheme.MUTED, false);
+        graphics.drawString(font, Component.translatable("peercraft.gui.register.password_field"), dialog.contentX(), passwordBox.getY() - 12, SteampunkSettingsTheme.MUTED, false);
         }
+        dialog.status(graphics, font, statusMessage, statusY, 26, statusColor, mouseX, mouseY);
     }
     //?} else {
-    /*@Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    /*@Override public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        dialog.background(graphics, font, width, height, (System.nanoTime() - animationStart) / 1_000_000L);
+    }
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        if (this.registeredFriendCode != null) {
-            graphics.centeredText(this.font, Component.translatable("peercraft.gui.register.success_title"), centerX, this.height / 2 - 90, PeerCraftUi.TEXT_TITLE);
-            graphics.centeredText(this.font, Component.translatable("peercraft.gui.register.success_code_label"), centerX, this.height / 2 - 55, PeerCraftUi.TEXT_TITLE);
-
-            graphics.fill(centerX - 60, this.height / 2 - 42, centerX + 60, this.height / 2 - 20, 0x80000000);
-            graphics.centeredText(this.font, Component.literal(this.registeredFriendCode), centerX, this.height / 2 - 36, PeerCraftUi.TEXT_ACCENT);
-
-            graphics.centeredText(this.font, Component.translatable("peercraft.gui.register.success_hint"), centerX, this.height / 2 - 8, PeerCraftUi.TEXT_MUTED);
-            graphics.centeredText(this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+        if (registeredFriendCode != null) {
+            int y = dialog.contentTop();
+            graphics.centeredText(font, Component.translatable("peercraft.gui.register.success_code_label"), width / 2, y, SteampunkSettingsTheme.TEXT);
+            SteampunkSettingsTheme.frame(graphics, dialog.contentX(), y + 14, dialog.contentWidth(), 24, net.peercraft.client.theme.SteampunkPalette.CONTROL, SteampunkSettingsTheme.BORDER);
+            graphics.centeredText(font, registeredFriendCode, width / 2, y + 22, SteampunkSettingsTheme.ACCENT);
+            dialog.status(graphics, font, Component.translatable("peercraft.gui.register.success_hint"), y + 48,
+                    successHintHeight, SteampunkSettingsTheme.MUTED, mouseX, mouseY);
         } else {
-            graphics.centeredText(this.font, this.title, centerX, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
-            graphics.centeredText(this.font, this.statusMessage, centerX, this.height / 2 + 60, this.statusColor);
+        graphics.text(font, Component.translatable("peercraft.gui.register.nickname_field"), dialog.contentX(), nicknameBox.getY() - 12, SteampunkSettingsTheme.MUTED, false);
+        graphics.text(font, Component.translatable("peercraft.gui.register.password_field"), dialog.contentX(), passwordBox.getY() - 12, SteampunkSettingsTheme.MUTED, false);
         }
+        dialog.status(graphics, font, statusMessage, statusY, 26, statusColor, mouseX, mouseY);
     }*/
     //?}
 }

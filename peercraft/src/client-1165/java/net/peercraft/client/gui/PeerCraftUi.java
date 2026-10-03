@@ -21,11 +21,11 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class PeerCraftUi {
 
-    static final int TEXT_TITLE = 0xFFFFFFFF;
-    static final int TEXT_MUTED = 0xFFAAAAAA;
+    static final int TEXT_TITLE = net.peercraft.client.theme.SteampunkPalette.TEXT;
+    static final int TEXT_MUTED = net.peercraft.client.theme.SteampunkPalette.MUTED;
     static final int TEXT_ERROR = 0xFFFF5555;
     static final int TEXT_SUCCESS = 0xFF55FF55;
-    static final int TEXT_ACCENT = 0xFFFFD966;
+    static final int TEXT_ACCENT = net.peercraft.client.theme.SteampunkPalette.ACCENT;
 
     private PeerCraftUi() {
     }
@@ -36,6 +36,14 @@ public final class PeerCraftUi {
         for (String paragraph : text.split("\n", -1)) {
             StringBuilder line = new StringBuilder();
             for (String word : paragraph.split(" ")) {
+                // Filenames and IDs may contain no spaces: they still have to stay inside the panel.
+                while (font.width(word) > Math.max(1, maxWidth)) {
+                    if (line.length() > 0) { lines.add(line.toString()); line.setLength(0); }
+                    String part = font.plainSubstrByWidth(word, Math.max(1, maxWidth));
+                    if (part.isEmpty()) part = word.substring(0, word.offsetByCodePoints(0, 1));
+                    lines.add(part);
+                    word = word.substring(part.length());
+                }
                 String candidate = line.length() == 0 ? word : line + " " + word;
                 if (font.width(candidate) > maxWidth && line.length() > 0) {
                     lines.add(line.toString());
@@ -131,6 +139,6 @@ public final class PeerCraftUi {
 
     /** A small square glyph button. 1.16.5 has no {@code Tooltip} object, so {@code tooltipText} is unused here. */
     static Button squareGlyphButton(int x, int y, int size, String glyph, String tooltipText, Button.OnPress onPress) {
-        return new Button(x, y, size, size, new TextComponent(glyph), onPress);
+        return new SteampunkButton(x, y, size, size, new TextComponent(glyph), onPress);
     }
 }

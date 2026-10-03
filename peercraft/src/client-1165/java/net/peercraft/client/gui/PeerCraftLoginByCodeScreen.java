@@ -15,8 +15,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
 
-/** Login for an unlicensed account on a new device — friend code + password, since nicknames aren't unique. */
-public class PeerCraftLoginByCodeScreen extends Screen {
+/** Login for an unlicensed account on a new device — friend code or stable account ID + password. */
+public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
 
     private final Screen lastScreen;
 
@@ -27,35 +27,45 @@ public class PeerCraftLoginByCodeScreen extends Screen {
     private int statusColor = PeerCraftUi.TEXT_MUTED;
 
     public PeerCraftLoginByCodeScreen(Screen lastScreen) {
-        super(new TranslatableComponent("peercraft.gui.login_code.title"));
+        super(new TranslatableComponent("peercraft.gui.login_code.title"), 270);
         this.lastScreen = lastScreen;
     }
 
     @Override
     protected void init() {
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 50;
+        super.init();
+        boolean compact = height < 300;
+        int desiredHeight = (compact ? 36 : 46) + 6 + 6 + 3 * (compact ? 22 : 30)
+                + (compact ? 18 : 24) + 8 + 26 + 12;
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
+        String previousfriendCodeBox = friendCodeBox == null ? null : friendCodeBox.getValue();
+        String previouspasswordBox = passwordBox == null ? null : passwordBox.getValue();
 
-        this.friendCodeBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.login_code.friend_code_field"));
+        int centerX = this.width / 2;
+        int y = dialog.contentTop() + 6;
+
+        this.friendCodeBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.login_code.friend_code_field"));
         this.friendCodeBox.setMaxLength(6);
         PeerCraftUi.placeholder(this.friendCodeBox, new TranslatableComponent("peercraft.gui.login_code.friend_code_hint").getString());
+        if (previousfriendCodeBox != null) this.friendCodeBox.setValue(previousfriendCodeBox);
         this.addButton(this.friendCodeBox);
         this.setFocused(this.friendCodeBox);
 
-        y += 26;
-        this.passwordBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.register.password_field"));
+        y += dialog.buttonPitch();
+        this.passwordBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.register.password_field"));
         this.passwordBox.setMaxLength(64);
         PeerCraftUi.placeholder(this.passwordBox, new TranslatableComponent("peercraft.gui.register.password_hint").getString());
         PeerCraftUi.maskAsPassword(this.passwordBox);
+        if (previouspasswordBox != null) this.passwordBox.setValue(previouspasswordBox);
         this.addButton(this.passwordBox);
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.loginButton = this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.login_code.submit"), b -> onLogin())
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).primary().build());
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).build());
     }
 
     // Screen.keyPressed switched from (int,int,int) to a KeyEvent record parameter in 1.21.9.
@@ -130,7 +140,8 @@ public class PeerCraftLoginByCodeScreen extends Screen {
         // again here double-fires the (now once-per-frame) blur effect and crashes.
         this.renderBackground(poseStack);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, this.width / 2, this.height / 2 - 80, PeerCraftUi.TEXT_TITLE);
-        GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, this.width / 2, this.height / 2 + 60, this.statusColor);
+        dialog.status(poseStack, this.font, this.statusMessage, dialog.top + dialog.height - 36, 26, this.statusColor);
     }
+    @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
+
 }

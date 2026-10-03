@@ -26,42 +26,46 @@ import java.util.concurrent.ThreadLocalRandom;
  * 1.12.2 and returns {@code EntityPlayerMP} directly; {@code GameProfile.getName()} is
  * unchanged (the record conversion was 1.21.9, far outside this tree).
  */
-public class HandoffPlayerPickerScreen extends GuiScreen {
+public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
 
     private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     private final GuiScreen lastScreen;
+    private List<P2PBridge.HandoffCandidate> candidates = new ArrayList<>();
+    private final List<String> rowLabels = new ArrayList<>();
+    private int scrollOffset, visibleRows, listTop;
 
     public HandoffPlayerPickerScreen(GuiScreen lastScreen) {
+        super(PeerCraftLang.tr("peercraft.handoff.picker.title"), 440, 400);
         this.lastScreen = lastScreen;
     }
 
     @Override
     public void initGui() {
-        this.buttonList.clear();
-        int cx = this.width / 2;
-        List<P2PBridge.HandoffCandidate> candidates = P2PBridge.INSTANCE.connectedJoiners();
+        super.initGui();
+        candidates = P2PBridge.INSTANCE.connectedJoiners();
+        listTop = dialog.contentTop() + introLines().size() * 12 + 8;
+        rebuildRows();
+    }
+    private int maxScroll() { return Math.max(0, candidates.size() - visibleRows); }
+    private void rebuildRows() {
+        this.buttonList.clear(); rowLabels.clear();
+        visibleRows = Math.max(0, (backY() - 8 - listTop) / dialog.buttonPitch());
+        scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll()));
         IntegratedServer server = this.mc.getIntegratedServer();
-
-        int y = this.height / 2 - 40;
-        for (int i = 0; i < candidates.size(); i++) {
-            P2PBridge.HandoffCandidate c = candidates.get(i);
-            String name = displayName(server, c, i);
+        for (int i = 0; i < Math.min(visibleRows, candidates.size() - scrollOffset); i++) {
+            int index = i + scrollOffset;
+            P2PBridge.HandoffCandidate c = candidates.get(index);
+            String name = displayName(server, c, index);
             boolean eligible = c.signedIn() && !c.declinedSuccessor();
-            String label = !c.signedIn()
-                    ? PeerCraftLang.tr("peercraft.handoff.picker.row_not_signed_in", name)
-                    : c.declinedSuccessor()
-                            ? PeerCraftLang.tr("peercraft.handoff.picker.row_declined_successor", name)
-                            : PeerCraftLang.tr("peercraft.handoff.picker.hand_off", name);
-            IdButton b = IdButton.builder(label, () -> confirmAndChoose(c, name)).bounds(cx - 155, y, 310, 20).build();
-            b.enabled = eligible;
-            this.addButton(b);
-            y += 24;
+            String label = !c.signedIn() ? PeerCraftLang.tr("peercraft.handoff.picker.row_not_signed_in", name)
+                    : c.declinedSuccessor() ? PeerCraftLang.tr("peercraft.handoff.picker.row_declined_successor", name)
+                    : PeerCraftLang.tr("peercraft.handoff.picker.hand_off", name);
+            IdButton b = IdButton.builder(label, () -> confirmAndChoose(c, name))
+                    .bounds(dialog.contentX(), listTop + i * dialog.buttonPitch(), dialog.contentWidth() - 8, dialog.buttonHeight()).build();
+            b.enabled = eligible; this.buttonList.add(b); rowLabels.add(label);
         }
-
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.handoff.picker.cancel"),
-                        () -> PeerCraftUi.setScreen(this.mc, lastScreen))
-                .bounds(cx - 100, this.height - 40, 200, 20).build());
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.picker.cancel"), () -> PeerCraftUi.setScreen(this.mc, lastScreen), false, 0, 1);
     }
 
     @Override
@@ -71,37 +75,15 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
         }
     }
 
-    // Set by confirmAndChoose() right before pushing the GuiYesNo, consumed by confirmClicked().
-    private P2PBridge.HandoffCandidate pendingCandidate;
-    private String pendingName;
-
-    /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
+    /** Preserve the configured confirmation gate before starting any transfer. */
     private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
-        if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) {
-            choose(c, name);
-            return;
-        }
-        this.pendingCandidate = c;
-        this.pendingName = name;
-        PeerCraftUi.setScreen(this.mc, new net.minecraft.client.gui.GuiYesNo(this,
-                PeerCraftLang.tr("peercraft.handoff.picker.confirm.title"),
+        if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) { choose(c, name); return; }
+        PeerCraftUi.setScreen(this.mc, new PeerCraftConfirmScreen(result -> {
+            if (result) choose(c, name); else PeerCraftUi.setScreen(this.mc, this);
+        }, PeerCraftLang.tr("peercraft.handoff.picker.confirm.title"),
                 PeerCraftLang.tr("peercraft.handoff.picker.confirm.body", name),
                 PeerCraftLang.tr("peercraft.handoff.picker.confirm.yes"),
-                PeerCraftLang.tr("peercraft.handoff.picker.confirm.no"), 0));
-    }
-
-    /** {@code GuiYesNoCallback} — fired by the {@code GuiYesNo} pushed from {@link #confirmAndChoose}. */
-    @Override
-    public void confirmClicked(boolean result, int id) {
-        P2PBridge.HandoffCandidate c = this.pendingCandidate;
-        String name = this.pendingName;
-        this.pendingCandidate = null;
-        this.pendingName = null;
-        if (result && c != null) {
-            choose(c, name);
-        } else {
-            PeerCraftUi.setScreen(this.mc, this);
-        }
+                PeerCraftLang.tr("peercraft.handoff.picker.confirm.no")));
     }
 
     /** Posts a chat line for a handoff event, gated on the chatNotify setting. */
@@ -171,7 +153,7 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
             @Override public void onStatus(String messageKey) { status.onStatus(messageKey); }
         };
 
-        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), offer, callbacks);
+        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), name, offer, callbacks);
         if (!session) {
             status.onAborted("peercraft.handoff.abort.unknown");
         }
@@ -221,7 +203,7 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
 
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.intro"),
-                Math.min(this.width - 60, 380));
+                dialog.contentWidth() - 8);
     }
 
     private boolean noneConnected() {
@@ -231,17 +213,42 @@ public class HandoffPlayerPickerScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.title"), cx, 24, 0xFFFFFFFF);
-        int y = 44;
+        int y = dialog.contentTop();
         for (String line : introLines()) {
-            this.drawCenteredString(this.fontRenderer, line, cx, y, 0xFFAAAAAA);
-            y += 11;
+            this.drawCenteredString(this.fontRenderer, line, width / 2, y, PeerCraftUi.TEXT_MUTED); y += 12;
         }
-        if (noneConnected()) {
-            this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.no_candidates"),
-                    cx, this.height / 2 - 40, 0xFFFF5555);
+        if (candidates.isEmpty()) dialog.status(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.no_candidates"), listTop,
+                Math.max(0, backY() - listTop - 8), PeerCraftUi.TEXT_ERROR);
+        if (maxScroll() > 0 && visibleRows > 0) {
+            int track = visibleRows * dialog.buttonPitch(), thumb = Math.max(8, track * visibleRows / candidates.size());
+            int thumbY = listTop + (track - thumb) * scrollOffset / maxScroll();
+            drawRect(dialog.left + dialog.width - 7, listTop, dialog.left + dialog.width - 5, listTop + track, net.peercraft.client.theme.SteampunkPalette.BORDER);
+            drawRect(dialog.left + dialog.width - 7, thumbY, dialog.left + dialog.width - 5, thumbY + thumb, net.peercraft.client.theme.SteampunkPalette.ACCENT);
+        }
+        super.drawScreen(mouseX, mouseY, partialTicks);
+        if (mouseX >= dialog.contentX() && mouseX < dialog.contentX() + dialog.contentWidth() - 8 && mouseY >= listTop) {
+            int row = (mouseY - listTop) / dialog.buttonPitch();
+            if (row < rowLabels.size() && (mouseY - listTop) % dialog.buttonPitch() < dialog.buttonHeight()) {
+                String label = rowLabels.get(row);
+                if (this.fontRenderer.getStringWidth(label) > dialog.contentWidth() - 20)
+                    drawHoveringText(PeerCraftUi.wrap(this.fontRenderer, label, Math.max(1, dialog.contentWidth())), mouseX, mouseY);
+            }
+        }
+    }
+    @Override protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (keyCode == org.lwjgl.input.Keyboard.KEY_ESCAPE) { PeerCraftUi.setScreen(mc, lastScreen); return; }
+        if (keyCode == org.lwjgl.input.Keyboard.KEY_NEXT || keyCode == org.lwjgl.input.Keyboard.KEY_PRIOR) {
+            scrollOffset += (keyCode == org.lwjgl.input.Keyboard.KEY_NEXT ? 1 : -1) * Math.max(1, visibleRows); rebuildRows(); return;
+        }
+        super.keyTyped(typedChar, keyCode);
+    }
+    @Override public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int delta = org.lwjgl.input.Mouse.getEventDWheel();
+        int x = org.lwjgl.input.Mouse.getEventX() * width / mc.displayWidth;
+        int y = height - org.lwjgl.input.Mouse.getEventY() * height / mc.displayHeight - 1;
+        if (delta != 0 && x >= dialog.contentX() && x < dialog.left + dialog.width && y >= listTop && y < backY() - 8) {
+            scrollOffset -= (int) Math.signum(delta) * 3; rebuildRows();
         }
     }
 }

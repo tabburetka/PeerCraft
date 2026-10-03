@@ -29,7 +29,7 @@ import java.util.UUID;
  * world ({@link net.peercraft.client.handoff.SuccessorLauncher}); everyone else polls
  * {@code TYPE_LOOKUP_HOST} for the successor's new room code and auto-reconnects.
  */
-public class HostMigrationScreen extends Screen {
+public class HostMigrationScreen extends PeerCraftDialogScreen {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
     private static final long LOOKUP_TIMEOUT_MILLIS = 3 * 60_000L;
@@ -61,10 +61,17 @@ public class HostMigrationScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int renderedLines = 0;
+        for (String line : bodyLines()) renderedLines += Math.max(1,
+                font.split(Component.literal(line), Math.max(1, dialog.contentWidth() - 8)).size());
+        int actions = (failed ? 1 : 0);
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12
+                + 18 + actions * dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.clearWidgets();
         if (failed) {
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.modsync.restart.back"), b -> toTitle())
-                    .bounds(this.width / 2 - 100, this.height - 40, 200, 20).build());
+            this.addRenderableWidget(dialogAction(Component.translatable("peercraft.modsync.restart.back"), b -> toTitle(), true, 0, 1));
         }
         if (!started) {
             started = true;
@@ -236,7 +243,7 @@ public class HostMigrationScreen extends Screen {
 
     private List<String> bodyLines() {
         return PeerCraftUi.wrap(this.font, Component.translatable(statusKey).getString(),
-                Math.min(this.width - 60, 360));
+                Math.max(1, this.dialog.contentWidth() - 8));
     }
 
     //? if <26.1 {
@@ -246,28 +253,19 @@ public class HostMigrationScreen extends Screen {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         super.render(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 30;
-        graphics.drawCenteredString(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
+        int y = this.dialog.contentTop();
         int color = failed ? 0xFFFF5555 : 0xFFCCCCCC;
-        for (String line : bodyLines()) {
-            graphics.drawCenteredString(this.font, line, cx, y, color);
-            y += 12;
-        }
+        drawBody(graphics, bodyLines(), color);
     }
     //?} else {
     /*@Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int cx = this.width / 2;
-        int y = this.height / 2 - 30;
-        graphics.centeredText(this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
+        int y = this.dialog.contentTop();
         int color = failed ? 0xFFFF5555 : 0xFFCCCCCC;
-        for (String line : bodyLines()) {
-            graphics.centeredText(this.font, line, cx, y, color);
-            y += 12;
-        }
+        drawBody(graphics, bodyLines(), color);
     }*/
     //?}
 }

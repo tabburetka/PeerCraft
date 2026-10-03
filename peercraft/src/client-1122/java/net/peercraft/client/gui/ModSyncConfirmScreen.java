@@ -32,11 +32,10 @@ import java.util.function.Consumer;
  * out; mods needed to join the host's world have no checkbox. A filter button cycles all /
  * client-only / required. What the player unchecks is remembered ({@code ModSyncDeclinedStore}).
  */
-public class ModSyncConfirmScreen extends GuiScreen {
+public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
-    private static final int LIST_TOP = 82;
-    private static final int ROW_HEIGHT = 22;
-    private static final int MAX_ROWS_SHOWN = 8;
+    private int listTop;
+    private static final int ROW_HEIGHT = 28;
 
     private enum ViewFilter {ALL, CLIENT_ONLY, REQUIRED}
 
@@ -56,6 +55,7 @@ public class ModSyncConfirmScreen extends GuiScreen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
+        super(PeerCraftLang.tr("peercraft.modsync.confirm.title"), 500, 440);
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -79,25 +79,22 @@ public class ModSyncConfirmScreen extends GuiScreen {
 
     @Override
     public void initGui() {
-        this.buttonList.clear();
-        this.rowWidgets.clear();
-        int centerX = this.width / 2;
-
-        this.buttonList.add(CycleTextButton.create(centerX + 62, 54, 150, 20,
-                Arrays.asList(ViewFilter.values()), filter, this::filterLabel,
-                v -> {
-                    filter = v;
-                    scroll = 0;
-                    rebuildRows();
+        super.initGui();
+        this.buttonList.clear(); this.rowWidgets.clear();
+        int y = dialog.contentTop();
+        this.buttonList.add(CycleTextButton.create(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(),
+                Arrays.asList(ViewFilter.values()), filter, this::filterLabel, value -> {
+                    filter = value; scroll = 0; rebuildRows();
                 }));
+        listTop = y + dialog.buttonPitch() + warningLines().size() * 12 + 4;
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.accept"), this::accept, true, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel, false, 1, 2);
         rebuildRows();
-
-        int y = this.height - 52;
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.confirm.accept"), this::accept)
-                .bounds(centerX - 154, y, 150, 20).build());
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel)
-                .bounds(centerX + 4, y, 150, 20).build());
     }
+    private List<String> warningLines() {
+        return PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"), Math.max(1, dialog.contentWidth() - 8));
+    }
+    private int selectionInfoY() { return backY() - dialog.buttonPitch() - 28; }
 
     private void accept() {
         onAccept.accept(new LinkedHashSet<>(deselected));
@@ -130,8 +127,7 @@ public class ModSyncConfirmScreen extends GuiScreen {
     }
 
     private int visibleRows() {
-        int avail = (this.height - 96) - LIST_TOP;
-        return Math.max(0, Math.min(MAX_ROWS_SHOWN, avail / ROW_HEIGHT));
+        return Math.max(0, (selectionInfoY() - 6 - listTop) / ROW_HEIGHT);
     }
 
     /** Client-side rows get a fresh checkbox each rebuild — the state lives in {@link #deselected}. */
@@ -153,8 +149,8 @@ public class ModSyncConfirmScreen extends GuiScreen {
                 continue;
             }
             final String id = m.entry().id();
-            int rowY = LIST_TOP + i * ROW_HEIGHT;
-            ToggleButton cb = new ToggleButton(centerX - 210, rowY + 1, "", !deselected.contains(id),
+            int rowY = listTop + i * ROW_HEIGHT;
+            ToggleButton cb = new ToggleButton(dialog.contentX(), rowY + 5, "", !deselected.contains(id),
                     val -> {
                         if (val) {
                             deselected.remove(id);
@@ -162,6 +158,7 @@ public class ModSyncConfirmScreen extends GuiScreen {
                             deselected.add(id);
                         }
                     });
+            cb.width = 16; cb.height = 16;
             this.buttonList.add(cb);
             rowWidgets.add(cb);
         }
@@ -178,6 +175,9 @@ public class ModSyncConfirmScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (keyCode == Keyboard.KEY_NEXT || keyCode == Keyboard.KEY_PRIOR) {
+            scroll += (keyCode == Keyboard.KEY_NEXT ? 1 : -1) * Math.max(1, visibleRows()); rebuildRows(); return;
+        }
         if (keyCode == Keyboard.KEY_ESCAPE) {
             onCancel.run();
             return;
@@ -185,22 +185,14 @@ public class ModSyncConfirmScreen extends GuiScreen {
         super.keyTyped(typedChar, keyCode);
     }
 
-    // 1.12.2 has no mouseScrolled callback — the wheel arrives here as a raw LWJGL event delta.
-    @Override
-    public void handleMouseInput() throws IOException {
-        int wheel = Mouse.getEventDWheel();
-        if (wheel != 0) {
-            int total = visibleMods().size();
-            int visible = visibleRows();
-            if (total > visible) {
-                int next = Math.max(0, Math.min(scroll + (wheel > 0 ? -1 : 1), total - visible));
-                if (next != scroll) {
-                    scroll = next;
-                    rebuildRows();
-                }
-            }
-        }
+    @Override public void handleMouseInput() throws IOException {
         super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        int x = Mouse.getEventX() * width / mc.displayWidth;
+        int y = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+        if (wheel != 0 && x >= dialog.contentX() && x < dialog.left + dialog.width && y >= listTop && y < selectionInfoY() - 6) {
+            scroll -= (int) Math.signum(wheel) * 3; rebuildRows();
+        }
     }
 
     private static String humanSize(long bytes) {
@@ -228,56 +220,43 @@ public class ModSyncConfirmScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        int centerX = this.width / 2;
-        this.drawCenteredString(this.fontRenderer, this.titleText, centerX, 14, 0xFFFFFFFF);
-        this.drawCenteredString(this.fontRenderer,
-                PeerCraftLang.tr("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
-        this.drawCenteredString(this.fontRenderer,
-                PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"), centerX, 42, 0xFFFF5555);
-
+        int y = dialog.contentTop() + dialog.buttonPitch();
+        for (String line : warningLines()) { this.drawCenteredString(this.fontRenderer, line, width / 2, y, PeerCraftUi.TEXT_ERROR); y += 12; }
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
+        List<String> hovered = null;
         for (int i = 0; i < rows; i++) {
             ModSyncPlan.PlannedMod m = vis.get(scroll + i);
-            ModEntry e = m.entry();
-            int textY = LIST_TOP + i * ROW_HEIGHT + 6;
-            boolean client = isClient(m);
-            if (!client) {
-                this.fontRenderer.drawString("—", centerX - 204, textY, 0xFF777777);
+            ModEntry e = m.entry(); boolean client = isClient(m);
+            int rowY = listTop + i * ROW_HEIGHT;
+            int textX = dialog.contentX() + 24;
+            int textWidth = Math.max(1, dialog.contentWidth() - 34);
+            if (!client) this.fontRenderer.drawStringWithShadow("—", dialog.contentX() + 3, rowY + 7, PeerCraftUi.TEXT_MUTED);
+            this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(rowName(e), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
+            String tag = PeerCraftLang.tr(client ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required");
+            String details = tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
+            this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(details, textWidth), textX, rowY + 14,
+                    client ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
+            if (mouseX >= textX && mouseX < textX + textWidth && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT) {
+                hovered = PeerCraftUi.wrap(this.fontRenderer, rowName(e) + "\n" + details, dialog.contentWidth());
             }
-            this.fontRenderer.drawString(rowName(e), centerX - 186, textY, 0xFFFFFFFF);
-            this.fontRenderer.drawString(PeerCraftLang.tr(client
-                            ? "peercraft.modsync.confirm.tag_client"
-                            : "peercraft.modsync.confirm.tag_required"),
-                    centerX + 20, textY, client ? 0xFFAAAAAA : 0xFFFFD966);
-            this.fontRenderer.drawString(humanSize(e.sizeBytes()) + ", " + sourceLabel(m),
-                    centerX + 96, textY, 0xFFAAAAAA);
         }
-        drawScrollbar(centerX, vis.size());
-
-        ModSyncPlan sel = plan.excluding(deselected);
-        this.drawCenteredString(this.fontRenderer,
-                PeerCraftLang.tr("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
-                centerX, this.height - 86, 0xFFFFFFFF);
-        this.drawCenteredString(this.fontRenderer,
-                PeerCraftLang.tr("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
-                centerX, this.height - 72, 0xFFFFD966);
+        drawScrollbar(vis.size());
+        ModSyncPlan selected = plan.excluding(deselected);
+        this.drawCenteredString(this.fontRenderer, this.fontRenderer.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.count_selected", selected.count(), plan.count()), dialog.contentWidth()),
+                width / 2, selectionInfoY(), PeerCraftUi.TEXT_TITLE);
+        this.drawCenteredString(this.fontRenderer, this.fontRenderer.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())), dialog.contentWidth()),
+                width / 2, selectionInfoY() + 12, PeerCraftUi.TEXT_ACCENT);
+        super.drawScreen(mouseX, mouseY, partialTicks);
+        if (hovered != null) drawHoveringText(hovered, mouseX, mouseY);
     }
 
-    private void drawScrollbar(int centerX, int total) {
+    private void drawScrollbar(int total) {
         int visible = visibleRows();
-        if (visible <= 0 || total <= visible) {
-            return;
-        }
-        int trackHeight = visible * ROW_HEIGHT;
-        int left = centerX + 214;
-        int right = left + 6;
-        drawRect(left, LIST_TOP, right, LIST_TOP + trackHeight, 0xFF000000);
-        int maxScroll = total - visible;
-        int s = Math.max(0, Math.min(scroll, maxScroll));
-        int thumbHeight = Math.max(16, trackHeight * visible / total);
-        int thumbY = LIST_TOP + (trackHeight - thumbHeight) * s / maxScroll;
-        drawRect(left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
+        if (visible <= 0 || total <= visible) return;
+        int track = visible * ROW_HEIGHT, thumb = Math.max(8, track * visible / total);
+        int y = listTop + (track - thumb) * scroll / (total - visible);
+        drawRect(dialog.left + dialog.width - 7, listTop, dialog.left + dialog.width - 5, listTop + track, net.peercraft.client.theme.SteampunkPalette.BORDER);
+        drawRect(dialog.left + dialog.width - 7, y, dialog.left + dialog.width - 5, y + thumb, net.peercraft.client.theme.SteampunkPalette.ACCENT);
     }
 }

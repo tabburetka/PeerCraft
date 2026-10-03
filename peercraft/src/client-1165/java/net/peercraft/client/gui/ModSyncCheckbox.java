@@ -2,6 +2,10 @@ package net.peercraft.client.gui;
 
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiComponent;
+import net.peercraft.client.theme.SteampunkPalette;
 
 import java.util.function.Consumer;
 
@@ -25,4 +29,11 @@ final class ModSyncCheckbox extends Checkbox {
         super.onPress();
         onToggle.accept(this.selected());
     }
+    @Override public void renderButton(PoseStack pose, int mouseX, int mouseY, float partialTick) {
+        SteampunkDialog.frame(pose, x, y, width, height, selected() ? SteampunkPalette.PRIMARY : SteampunkPalette.CONTROL,
+                isFocused() ? SteampunkPalette.ACCENT : isHovered() ? SteampunkPalette.BORDER_HOVER : SteampunkPalette.BORDER);
+        if (selected()) GuiComponent.drawCenteredString(pose, Minecraft.getInstance().font, "✓", x + width / 2,
+                y + (height - 8) / 2, SteampunkPalette.CONTROL);
+    }
+
 }

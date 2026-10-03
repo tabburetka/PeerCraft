@@ -69,6 +69,10 @@ final class RoomRegistry {
     }
     void suspendForHandoff(String code, String attempt) { handoffSuspended.put(code, attempt); }
     void resumeAfterHandoff(String code, String attempt) { handoffSuspended.remove(code, attempt); }
+    void resumeAfterHandoff(String attempt) {
+        for (Map.Entry<String, String> entry : handoffSuspended.entrySet())
+            handoffSuspended.remove(entry.getKey(), attempt);
+    }
 
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
     private final LongSupplier clock;
@@ -272,6 +276,19 @@ final class RoomRegistry {
 
     int roomCount() {
         return roomsByCode.size();
+    }
+
+    Map<String, Integer> analyticsSnapshot() {
+        int all = 0, publicRooms = 0, friendsOnly = 0, players = 0;
+        long now = clock.getAsLong();
+        for (Room room : roomsByCode.values()) {
+            if (now - room.lastSeenAt > ROOM_TTL_MILLIS) continue;
+            all++;
+            if (room.publicRoom) publicRooms++;
+            if (room.friendsOnly) friendsOnly++;
+            players += Math.max(0, room.currentPlayerCount);
+        }
+        return Map.of("rooms", all, "publicRooms", publicRooms, "friendsOnlyRooms", friendsOnly, "reportedPlayers", players);
     }
 
     /** Diagnostic snapshot — code plus a short description of each room's state, for debug logging. */

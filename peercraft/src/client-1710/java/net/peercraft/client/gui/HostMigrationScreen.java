@@ -22,7 +22,7 @@ import java.util.UUID;
  * 1.12.2 twin, near-mechanical: {@code mc.world}/{@code mc.player} -&gt;
  * {@code mc.theWorld}/{@code mc.thePlayer}, {@code addScheduledTask} -&gt; {@code func_152344_a}).
  */
-public class HostMigrationScreen extends GuiScreen {
+public class HostMigrationScreen extends PeerCraftDialogScreen {
 
     private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final long LOOKUP_TIMEOUT_MILLIS = 3 * 60_000L;
@@ -47,6 +47,7 @@ public class HostMigrationScreen extends GuiScreen {
         if (safeJoin != null) safeJoin.cancel(false);
     }
     public HostMigrationScreen(UUID successorAccountId, boolean amSuccessor) {
+        super(PeerCraftLang.tr("peercraft.handoff.migrating.title"), 320, 400);
         this.successorAccountId = successorAccountId;
         this.amSuccessor = amSuccessor;
     }
@@ -58,11 +59,14 @@ public class HostMigrationScreen extends GuiScreen {
 
     @Override
     public void initGui() {
+        super.initGui();
+        int renderedLines = bodyLines().size();
+        int actions = (failed ? 1 : 0);
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12
+                + 18 + actions * dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.migrating.title"), 400);
         this.buttonList.clear();
-        if (failed) {
-            this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::toTitle)
-                    .bounds(this.width / 2 - 100, this.height - 40, 200, 20).build());
-        }
+        if (failed) dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::toTitle, false, 0, 1);
         if (!started) {
             started = true;
             if (amSuccessor) {
@@ -202,21 +206,13 @@ public class HostMigrationScreen extends GuiScreen {
     }
 
     private List<String> bodyLines() {
-        return PeerCraftUi.wrap(this.fontRendererObj, PeerCraftLang.tr(statusKey), Math.min(this.width - 60, 360));
+        return PeerCraftUi.wrap(this.fontRendererObj, PeerCraftLang.tr(statusKey), dialog.contentWidth() - 8);
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        drawBody(bodyLines(), failed ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 30;
-        this.drawCenteredString(this.fontRendererObj, PeerCraftLang.tr("peercraft.handoff.migrating.title"), cx, y, 0xFFFFFFFF);
-        y += 22;
-        int color = failed ? 0xFFFF5555 : 0xFFCCCCCC;
-        for (String line : bodyLines()) {
-            this.drawCenteredString(this.fontRendererObj, line, cx, y, color);
-            y += 12;
-        }
     }
 }

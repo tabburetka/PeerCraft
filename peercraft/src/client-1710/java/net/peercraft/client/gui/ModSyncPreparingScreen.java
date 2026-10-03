@@ -17,15 +17,15 @@ import org.lwjgl.input.Keyboard;
  * confirm screen isn't a blank, seemingly-frozen screen. Carries a status line the agent
  * updates through the phases and an indeterminate "working" bar.
  */
-public class ModSyncPreparingScreen extends GuiScreen {
+public class ModSyncPreparingScreen extends PeerCraftDialogScreen {
 
-    private static final int TRACK = 28;
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.prepare.title");
     private volatile String status = PeerCraftLang.tr("peercraft.modsync.prepare.connecting");
     private final Runnable onCancel;
 
     public ModSyncPreparingScreen(Runnable onCancel) {
+        super(PeerCraftLang.tr("peercraft.modsync.prepare.title"), 340, 400);
         this.onCancel = onCancel;
     }
 
@@ -36,9 +36,14 @@ public class ModSyncPreparingScreen extends GuiScreen {
 
     @Override
     public void initGui() {
+        super.initGui();
         this.buttonList.clear();
-        this.buttonList.add(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel)
-                .bounds(this.width / 2 - 100, this.height - 44, 200, 20).build());
+        int reminderLines = PeerCraftUi.wrap(fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"), dialog.contentWidth()).size();
+        dialog = new SteampunkDialog(width, height,
+                dialog.headerHeight + 6 + 38 + 12 + reminderLines * 12 + 18 + dialog.buttonPitch() + 10,
+                titleText, 400);
+
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel, false, 0, 1);
     }
 
     @Override
@@ -57,27 +62,21 @@ public class ModSyncPreparingScreen extends GuiScreen {
         super.keyTyped(typedChar, keyCode);
     }
 
-    /** A single block bouncing back and forth inside a fixed-width track — visibly alive, no percentage. */
-    private String indeterminateBar() {
-        int span = TRACK - 3;
-        int t = (int) ((System.currentTimeMillis() / 90) % (2L * span));
-        int pos = t < span ? t : (2 * span - t);
-        StringBuilder sb = new StringBuilder(TRACK);
-        for (int i = 0; i < TRACK; i++) {
-            sb.append(i >= pos && i < pos + 3 ? '█' : '░');
-        }
-        return sb.toString();
-    }
-
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        int y = dialog.contentTop();
+        dialog.status(fontRendererObj, status, y, 26, net.peercraft.client.theme.SteampunkPalette.MUTED);
+        int trackY = y + 30, trackWidth = dialog.contentWidth();
+        int blockWidth = Math.max(12, trackWidth / 8);
+        int span = Math.max(1, trackWidth - blockWidth - 2);
+        int phase = (int) ((System.currentTimeMillis() / 12) % (2L * span));
+        int blockX = dialog.contentX() + 1 + (phase < span ? phase : 2 * span - phase);
+        SteampunkDialog.frame(dialog.contentX(), trackY, trackWidth, 6,
+                net.peercraft.client.theme.SteampunkPalette.CONTROL, net.peercraft.client.theme.SteampunkPalette.BORDER);
+        drawRect(blockX, trackY + 1, blockX + blockWidth, trackY + 5, net.peercraft.client.theme.SteampunkPalette.ACCENT);
+        int reminderHeight = Math.max(0, dialog.top + dialog.height - 28 - dialog.buttonPitch() - trackY - 16);
+        dialog.status(fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"), trackY + 16, reminderHeight, 0xFFFF5555);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        this.drawCenteredString(this.fontRendererObj, this.titleText, cx, this.height / 2 - 30, 0xFFFFFFFF);
-        this.drawCenteredString(this.fontRendererObj, this.status, cx, this.height / 2 - 6, 0xFFAAAAAA);
-        this.drawCenteredString(this.fontRendererObj, indeterminateBar(), cx, this.height / 2 + 14, 0xFFFFD966);
-        this.drawCenteredString(this.fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"),
-                cx, this.height / 2 + 40, 0xFFFF5555);
     }
 }

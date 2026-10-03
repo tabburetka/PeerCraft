@@ -33,11 +33,12 @@ import java.util.function.Consumer;
  * (see {@code ModSyncDeclinedStore}) so this screen doesn't reappear on every re-join.
  * Skipped entirely when {@code peercraft.modSync.autoAccept} is set.
  */
-public class ModSyncConfirmScreen extends Screen {
+public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
-    private static final int LIST_TOP = 82;
-    private static final int ROW_HEIGHT = 22;
-    private static final int MAX_ROWS_SHOWN = 8;
+    private int listTop;
+    private int listBottom;
+    private java.util.List<String> reminderLines;
+    private static final int ROW_HEIGHT = 24;
 
     private enum ViewFilter {ALL, CLIENT_ONLY, REQUIRED}
 
@@ -57,7 +58,7 @@ public class ModSyncConfirmScreen extends Screen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
-        super(new TranslatableComponent("peercraft.modsync.confirm.title"));
+        super(new TranslatableComponent("peercraft.modsync.confirm.title"), 500);
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -81,17 +82,17 @@ public class ModSyncConfirmScreen extends Screen {
 
     @Override
     protected void init() {
-        int centerX = this.width / 2;
-        this.filterButton = Btn.builder(filterLabel(), (Button.OnPress) b -> cycleFilter())
-                .bounds(centerX + 62, 54, 150, 20).build();
-        this.addButton(this.filterButton);
+        super.init();
+        rowWidgets.clear();
+        reminderLines = PeerCraftUi.wrap(font, new TranslatableComponent("peercraft.modsync.confirm.trust_reminder").getString(), dialog.contentWidth());
+        int filterY = dialog.contentTop() + 14 + reminderLines.size() * font.lineHeight + 4;
+        filterButton = addButton(Btn.builder(filterLabel(), b -> cycleFilter())
+                .bounds(dialog.contentX(), filterY, dialog.contentWidth(), dialog.buttonHeight()).build());
+        dialogAction(new TranslatableComponent("peercraft.modsync.confirm.accept"), b -> accept(), true, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.modsync.confirm.cancel"), b -> onCancel.run(), false, 1, 2);
+        listTop = filterY + dialog.buttonPitch();
+        listBottom = bodyBottom() - 24;
         rebuildRows();
-
-        int y = this.height - 52;
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.confirm.accept"), (Button.OnPress) b -> accept())
-                .bounds(centerX - 154, y, 150, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.modsync.confirm.cancel"), (Button.OnPress) b -> onCancel.run())
-                .bounds(centerX + 4, y, 150, 20).build());
     }
 
     @Override
@@ -144,8 +145,7 @@ public class ModSyncConfirmScreen extends Screen {
     }
 
     private int visibleRows() {
-        int avail = (this.height - 96) - LIST_TOP;
-        return Math.max(0, Math.min(MAX_ROWS_SHOWN, avail / ROW_HEIGHT));
+        return Math.max(0, (listBottom - listTop) / ROW_HEIGHT);
     }
 
     /** Client-side rows get a fresh checkbox each rebuild — the state lives in {@link #deselected}. */
@@ -168,8 +168,8 @@ public class ModSyncConfirmScreen extends Screen {
                 continue;
             }
             final String id = m.entry().id();
-            int rowY = LIST_TOP + i * ROW_HEIGHT;
-            ModSyncCheckbox cb = new ModSyncCheckbox(centerX - 210, rowY + 1, 20, 20, new TextComponent(""),
+            int rowY = listTop + i * ROW_HEIGHT;
+            ModSyncCheckbox cb = new ModSyncCheckbox(dialog.contentX(), rowY + 4, 16, 16, new TextComponent(""),
                     !deselected.contains(id),
                     val -> {
                         if (val) {
@@ -188,7 +188,8 @@ public class ModSyncConfirmScreen extends Screen {
         int total = visibleMods().size();
         int visible = visibleRows();
         if (delta != 0 && total > visible
-                && mouseY >= LIST_TOP && mouseY < LIST_TOP + visible * ROW_HEIGHT) {
+                && mouseX >= dialog.contentX() && mouseX < dialog.left + dialog.width
+                && mouseY >= listTop && mouseY < listTop + visible * ROW_HEIGHT) {
             int next = Math.max(0, Math.min(scroll - (int) Math.signum(delta), total - visible));
             if (next != scroll) {
                 scroll = next;
@@ -223,42 +224,35 @@ public class ModSyncConfirmScreen extends Screen {
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
-        super.render(poseStack, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, centerX, 14, 0xFFFFFFFF);
-        GuiComponent.drawCenteredString(poseStack, this.font,
-                new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size()), centerX, 28, 0xFFAAAAAA);
-        GuiComponent.drawCenteredString(poseStack, this.font,
-                new TranslatableComponent("peercraft.modsync.confirm.trust_reminder"), centerX, 42, 0xFFFF5555);
-
-        List<ModSyncPlan.PlannedMod> vis = visibleMods();
-        int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
+        renderBackground(poseStack);
+        GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size()), width / 2, dialog.contentTop(), PeerCraftUi.TEXT_MUTED);
+        for (int i = 0; i < reminderLines.size(); i++) GuiComponent.drawCenteredString(poseStack, font, reminderLines.get(i), width / 2,
+                dialog.contentTop() + 14 + i * font.lineHeight, PeerCraftUi.TEXT_ERROR);
+        List<ModSyncPlan.PlannedMod> mods = visibleMods();
+        int rows = Math.min(visibleRows(), Math.max(0, mods.size() - scroll));
         for (int i = 0; i < rows; i++) {
-            ModSyncPlan.PlannedMod m = vis.get(scroll + i);
-            ModEntry e = m.entry();
-            int textY = LIST_TOP + i * ROW_HEIGHT + 6;
-            boolean client = isClient(m);
-            if (!client) {
-                GuiComponent.drawString(poseStack, this.font, "—", centerX - 204, textY, 0xFF777777);
-            }
-            GuiComponent.drawString(poseStack, this.font, rowName(e), centerX - 186, textY, 0xFFFFFFFF);
-            GuiComponent.drawString(poseStack, this.font, new TranslatableComponent(client
-                            ? "peercraft.modsync.confirm.tag_client"
-                            : "peercraft.modsync.confirm.tag_required").getString(),
-                    centerX + 20, textY, client ? 0xFFAAAAAA : 0xFFFFD966);
-            GuiComponent.drawString(poseStack, this.font, humanSize(e.sizeBytes()) + ", " + sourceLabel(m),
-                    centerX + 96, textY, 0xFFAAAAAA);
+            ModSyncPlan.PlannedMod mod = mods.get(scroll + i);
+            ModEntry entry = mod.entry();
+            int y = listTop + i * ROW_HEIGHT;
+            String name = rowName(entry);
+            String detail = new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
+                    + " · " + humanSize(entry.sizeBytes()) + " · " + sourceLabel(mod);
+            if (!isClient(mod)) GuiComponent.drawString(poseStack, font, "—", dialog.contentX() + 4, y + 6, PeerCraftUi.TEXT_MUTED);
+            GuiComponent.drawString(poseStack, font, font.plainSubstrByWidth(name, dialog.contentWidth() - 26), dialog.contentX() + 22, y + 1, PeerCraftUi.TEXT_TITLE);
+            GuiComponent.drawString(poseStack, font, font.plainSubstrByWidth(detail, dialog.contentWidth() - 26), dialog.contentX() + 22, y + 12,
+                    isClient(mod) ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
         }
-        drawScrollbar(poseStack, centerX, vis.size());
-
-        ModSyncPlan sel = plan.excluding(deselected);
-        GuiComponent.drawCenteredString(poseStack, this.font,
-                new TranslatableComponent("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
-                centerX, this.height - 86, 0xFFFFFFFF);
-        GuiComponent.drawCenteredString(poseStack, this.font,
-                new TranslatableComponent("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
-                centerX, this.height - 72, 0xFFFFD966);
+        drawScrollbar(poseStack, width / 2, mods.size());
+        ModSyncPlan selected = plan.excluding(deselected);
+        GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.count_selected", selected.count(), plan.count()),
+                width / 2, bodyBottom() - 22, PeerCraftUi.TEXT_TITLE);
+        GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())),
+                width / 2, bodyBottom() - 11, PeerCraftUi.TEXT_ACCENT);
+        super.render(poseStack, mouseX, mouseY, partialTick);
+        if (mouseX >= dialog.contentX() && mouseX < dialog.contentX() + dialog.contentWidth() && mouseY >= listTop && mouseY < listTop + rows * ROW_HEIGHT) {
+            ModSyncPlan.PlannedMod mod = mods.get(scroll + (mouseY - listTop) / ROW_HEIGHT);
+            renderTooltip(poseStack, new TextComponent(rowName(mod.entry()) + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod)), mouseX, mouseY);
+        }
     }
 
     private void drawScrollbar(PoseStack poseStack, int centerX, int total) {
@@ -267,13 +261,13 @@ public class ModSyncConfirmScreen extends Screen {
             return;
         }
         int trackHeight = visible * ROW_HEIGHT;
-        int left = centerX + 214;
-        int right = left + 6;
-        GuiComponent.fill(poseStack, left, LIST_TOP, right, LIST_TOP + trackHeight, 0xFF000000);
+        int left = dialog.left + dialog.width - 7;
+        int right = left + 2;
+        GuiComponent.fill(poseStack, left, listTop, right, listTop + trackHeight, 0xFF49331F);
         int maxScroll = total - visible;
         int s = Math.max(0, Math.min(scroll, maxScroll));
         int thumbHeight = Math.max(16, trackHeight * visible / total);
-        int thumbY = LIST_TOP + (trackHeight - thumbHeight) * s / maxScroll;
-        GuiComponent.fill(poseStack, left, thumbY, right, thumbY + thumbHeight, 0xFFA0A0A0);
+        int thumbY = listTop + (trackHeight - thumbHeight) * s / maxScroll;
+        GuiComponent.fill(poseStack, left, thumbY, right, thumbY + thumbHeight, PeerCraftUi.TEXT_ACCENT);
     }
 }

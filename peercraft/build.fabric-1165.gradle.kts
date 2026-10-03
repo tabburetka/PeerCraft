@@ -182,7 +182,7 @@ tasks.processResources {
 	// resource files stay untouched for the other targets (mirror of the JAVA_25 rewrite in
 	// build.fabric-unmapped.gradle.kts).
 	filesMatching(listOf("peercraft.mixins.json", "peercraft.client.mixins.json")) {
-		filter { line -> if (line.contains("PeerCraftListBackgroundMixin")) "" else line.replace("\"JAVA_21\"", "\"JAVA_8\"") }
+		filter { line -> line.replace("\"JAVA_21\"", "\"JAVA_8\"") }
 	}
 }
 

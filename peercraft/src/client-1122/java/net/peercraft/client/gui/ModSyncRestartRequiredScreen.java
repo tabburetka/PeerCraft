@@ -19,26 +19,23 @@ import java.util.List;
  * Shown after mod sync has installed the missing jars. Minecraft can't load them without a
  * relaunch, so the join is deliberately NOT continued.
  */
-public class ModSyncRestartRequiredScreen extends GuiScreen {
+public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
 
-    private static final int MAX_LISTED = 12;
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.restart.title");
     private final List<String> installed;
 
     public ModSyncRestartRequiredScreen(List<String> installed) {
+        super(PeerCraftLang.tr("peercraft.modsync.restart.title"), 340, 400);
         this.installed = Collections.unmodifiableList(new ArrayList<>(installed));
     }
 
     @Override
     public void initGui() {
+        super.initGui();
         this.buttonList.clear();
-        int cx = this.width / 2;
-        int y = this.height - 52;
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.restart.quit"), () -> this.mc.shutdown())
-                .bounds(cx - 154, y, 150, 20).build());
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::toTitle)
-                .bounds(cx + 4, y, 150, 20).build());
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.quit"), () -> this.mc.shutdown(), true, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::toTitle, false, 1, 2);
     }
 
     private void toTitle() {
@@ -63,21 +60,10 @@ public class ModSyncRestartRequiredScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        paragraphs.add(PeerCraftLang.tr("peercraft.modsync.restart.body", installed.size()));
+        paragraphs.add(""); paragraphs.addAll(installed);
+        drawBody(paragraphs, PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = 40;
-        this.drawCenteredString(this.fontRenderer, this.titleText, cx, y, 0xFFFFFFFF);
-        y += 18;
-        this.drawCenteredString(this.fontRenderer,
-                PeerCraftLang.tr("peercraft.modsync.restart.body", installed.size()), cx, y, 0xFF55FF55);
-        y += 20;
-        int shown = Math.min(MAX_LISTED, installed.size());
-        for (int i = 0; i < shown; i++) {
-            this.drawCenteredString(this.fontRenderer, installed.get(i), cx, y, 0xFFFFFFFF);
-            y += 12;
-        }
-        if (installed.size() > shown) {
-            this.drawCenteredString(this.fontRenderer, "… +" + (installed.size() - shown), cx, y, 0xFFAAAAAA);
-        }
     }
 }

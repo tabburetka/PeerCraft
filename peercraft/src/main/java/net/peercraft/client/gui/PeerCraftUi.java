@@ -52,7 +52,7 @@ public final class PeerCraftUi {
     }
 
     /** "12.3 MB" / "512 KB" / "900 B" — matches ModSyncProgressScreen's humanSize. */
-    static String humanSize(long b) {
+    public static String humanSize(long b) {
         if (b < 1024) return b + " B";
         double kb = b / 1024.0;
         if (kb < 1024) return String.format("%.0f KB", kb);
@@ -125,6 +125,7 @@ public final class PeerCraftUi {
     // to render-state extraction. The call shapes are otherwise identical.
     /** Draws {@code name} left-aligned at {@code x}, followed by its badge. Returns the x position right after the badge, for drawing more text on the same line. */
     //? if <26.1 {
+    //? if <26.1 {
     static int drawNameWithBadge(GuiGraphics graphics, Font font, String name, boolean licensed, int x, int y, int nameColor) {
         graphics.drawString(font, name, x, y, nameColor, false);
         int badgeX = x + font.width(name);
@@ -132,13 +133,30 @@ public final class PeerCraftUi {
         graphics.drawString(font, badge, badgeX, y, badgeColor(licensed), false);
         return badgeX + font.width(badge);
     }
+    //?} else {
+    /*    static int drawNameWithBadge(GuiGraphicsExtractor graphics, Font font, String name, boolean licensed, int x, int y, int nameColor) {
+        graphics.text(font, name, x, y, nameColor, false);
+        int badgeX = x + font.width(name);
+        String badge = badgeText(licensed);
+        graphics.text(font, badge, badgeX, y, badgeColor(licensed), false);
+        return badgeX + font.width(badge);
+    }*/
+    //?}
 
     /** Draws {@code name} + badge centered as one unit around {@code centerX}. */
+    //? if <26.1 {
     static void drawNameWithBadgeCentered(GuiGraphics graphics, Font font, String name, boolean licensed, int centerX, int y, int nameColor) {
         String badge = badgeText(licensed);
         int totalWidth = font.width(name) + font.width(badge);
         drawNameWithBadge(graphics, font, name, licensed, centerX - totalWidth / 2, y, nameColor);
     }
+    //?} else {
+    /*    static void drawNameWithBadgeCentered(GuiGraphicsExtractor graphics, Font font, String name, boolean licensed, int centerX, int y, int nameColor) {
+        String badge = badgeText(licensed);
+        int totalWidth = font.width(name) + font.width(badge);
+        drawNameWithBadge(graphics, font, name, licensed, centerX - totalWidth / 2, y, nameColor);
+    }*/
+    //?}
     //?} else {
     /*static int drawNameWithBadge(GuiGraphicsExtractor graphics, Font font, String name, boolean licensed, int x, int y, int nameColor) {
         graphics.text(font, name, x, y, nameColor, false);
@@ -166,21 +184,4 @@ public final class PeerCraftUi {
                 .tooltip(Tooltip.create(Component.literal(tooltipText)))
                 .build();
     }
-    /** Keeps the new controls scoped to the currently supported interface version. */
-    static Button themedAction(int x, int y, int width, int height, Component label, Button.OnPress onPress, boolean primary) {
-        //? if =1.21.1 {
-        return SteampunkSettingsTheme.action(x, y, width, height, label, onPress, primary);
-        //?} else {
-        /*return Button.builder(label, onPress).bounds(x, y, width, height).build();*/
-        //?}
-    }
-
-    static net.minecraft.client.gui.components.EditBox themedField(Font font, int x, int y, int width, int height, Component label) {
-        //? if =1.21.1 {
-        return new SteampunkSettingsTheme.Field(font, x, y, width, height, label);
-        //?} else {
-        /*return new net.minecraft.client.gui.components.EditBox(font, x, y, width, height, label);*/
-        //?}
-    }
-
 }

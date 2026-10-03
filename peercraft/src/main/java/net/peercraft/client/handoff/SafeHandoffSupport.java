@@ -69,7 +69,8 @@ public abstract class SafeHandoffSupport {
                 String path = line.trim(); if (!path.isEmpty() && !path.startsWith("#")) external.add(path);
             }
         }
-        return HostManifestCapture.capture(minecraft, loader, version, mods, Services.PLATFORM.getConfigDir(), external);
+        return HostManifestCapture.capture(minecraft, loader, version, mods, Services.PLATFORM.getConfigDir(), external,
+                HandoffClientOnlyMods.classify(mods));
     }
     public void recoverJournals() { HandoffNetworkRecovery.start(stateDirectory(), savesDirectory(), this::rememberGrant, modernWorldLock()); }
 }

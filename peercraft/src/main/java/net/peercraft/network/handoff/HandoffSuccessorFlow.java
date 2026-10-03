@@ -134,6 +134,7 @@ public final class HandoffSuccessorFlow {
             }
             finish(Outcome.READY, room.code);
         } catch (IOException | RuntimeException | InterruptedException failed) {
+            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Successor failed before/after COMMIT (committed={}, startRequested={})", committed, startRequested, failed);
             if (failed instanceof InterruptedException) Thread.currentThread().interrupt();
             try {
                 if (!committed) {

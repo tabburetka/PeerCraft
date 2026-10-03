@@ -20,7 +20,7 @@ public final class HandoffTargetChoiceUi implements SuccessorLauncher.SelectionU
         if (index >= copies.size()) { result.completeExceptionally(new IOException("No return copy selected")); return; }
         Path copy = copies.get(index); String name = copy.getFileName().toString();
         if (copies.size() == 1) { policy(copy, result); return; }
-        PeerCraftUi.setScreen(Minecraft.getInstance(), new ConfirmScreen(
+        PeerCraftUi.setScreen(Minecraft.getInstance(), new PeerCraftConfirmScreen(
                 accepted -> {
                     if (accepted) policy(copy, result); else show(copies, index + 1, result);
                 },

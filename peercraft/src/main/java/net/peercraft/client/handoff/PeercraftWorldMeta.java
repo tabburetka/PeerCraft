@@ -101,9 +101,15 @@ public final class PeercraftWorldMeta {
         if (m.worldId == null || m.worldId.isEmpty()) {
             m.worldId = UUID.randomUUID().toString();
         }
-        m.handedOffAt = Math.max(nowSeconds(), m.lastBecameHostAt + 1);
-        m.handedOffTo = toName == null ? "" : toName;
-        m.write(worldDir);
+        // Recovery may replay this after COMMIT and on every later launch. Keep the original
+        // transfer time and a known recipient rather than replacing either with a guess.
+        boolean changed = !m.isStaleAfterHandoff();
+        if (changed) m.handedOffAt = Math.max(nowSeconds(), m.lastBecameHostAt + 1);
+        if (toName != null && !toName.isEmpty() && !toName.equals(m.handedOffTo)) {
+            m.handedOffTo = toName;
+            changed = true;
+        }
+        if (changed) m.write(worldDir);
     }
 
     /** Clears the "stale post-handoff" state — the local copy is authoritative again. */

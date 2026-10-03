@@ -14,7 +14,7 @@ import java.util.List;
  * Same widgets; 1.16.5's {@code ConfirmScreen} keeps the same 5-arg
  * (callback, title, message, yesButton, noButton) constructor.
  */
-public class HandoffReclaimConfirmScreen extends Screen {
+public class HandoffReclaimConfirmScreen extends PeerCraftDialogScreen {
 
     private final String existingName;
     private final String backupName;
@@ -23,7 +23,7 @@ public class HandoffReclaimConfirmScreen extends Screen {
     private boolean chosen;
 
     public HandoffReclaimConfirmScreen(String existingName, String backupName, Runnable onUpdate, Runnable onOverwrite) {
-        super(new TranslatableComponent("peercraft.handoff.reclaim.title"));
+        super(new TranslatableComponent("peercraft.handoff.reclaim.title"), 300);
         this.existingName = existingName;
         this.backupName = backupName;
         this.onUpdate = onUpdate;
@@ -32,16 +32,18 @@ public class HandoffReclaimConfirmScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, bodyLines().size()) * 12
+                + 22 + dialog.buttonHeight() + dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
         int cx = this.width / 2;
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.reclaim.update"), b -> choose(onUpdate))
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.reclaim.overwrite"), b -> confirmOverwrite())
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        dialogAction(new TranslatableComponent("peercraft.handoff.reclaim.update"), b -> choose(onUpdate), true, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.handoff.reclaim.overwrite"), b -> confirmOverwrite(), false, 1, 2);
     }
 
     private void confirmOverwrite() {
         Screen self = this;
-        PeerCraftUi.setScreen(this.minecraft, new ConfirmScreen(
+        PeerCraftUi.setScreen(this.minecraft, new PeerCraftConfirmScreen(
                 confirmed -> {
                     if (confirmed) {
                         choose(onOverwrite);
@@ -75,20 +77,13 @@ public class HandoffReclaimConfirmScreen extends Screen {
 
     private List<String> bodyLines() {
         String body = new TranslatableComponent("peercraft.handoff.reclaim.body", existingName, backupName).getString();
-        return PeerCraftUi.wrap(this.font, body, Math.min(this.width - 60, 380));
+        return PeerCraftUi.wrap(this.font, body, dialog.contentWidth() - 10);
     }
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        drawBody(poseStack, bodyLines(), PeerCraftUi.TEXT_TITLE);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 40;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
     }
 }

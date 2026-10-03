@@ -28,7 +28,8 @@ public final class SafeHandoffPlatform extends SafeHandoffSupport {
             result.complete(false); return result;
         }
         render(() -> { net.minecraft.client.gui.GuiScreen screen = new net.minecraft.client.gui.GuiYesNo(
-                    (accepted, id) -> result.complete(accepted), "PeerCraft", offer.worldLabel(), 0); consentScreen = screen; PeerCraftUi.setScreen(mc, screen); }); return result;
+                    (accepted, id) -> result.complete(accepted), net.peercraft.client.gui.PeerCraftLang.tr("peercraft.handoff.offer.title", offer.worldLabel()),
+                    net.peercraft.client.gui.PeerCraftLang.tr("peercraft.handoff.offer.body", offer.worldLabel(), PeerCraftUi.humanSize(offer.estArchiveBytes())), 0); consentScreen = screen; PeerCraftUi.setScreen(mc, screen); }); return result;
     }
     public void dismissConsent() { render(() -> { if (consentScreen != null && PeerCraftUi.isCurrentScreen(consentScreen)) PeerCraftUi.setScreen(mc, null); consentScreen = null; }); }
     public void waiting() { render(() -> { leaveCurrentWorld(); PeerCraftUi.setScreen(mc, new HandoffStatusScreen(new net.minecraft.client.gui.GuiMainMenu(), "")); }); }

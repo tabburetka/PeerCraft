@@ -95,13 +95,21 @@ public final class WorldArchiver {
 
     /** Worker-thread operation: save, request normal shutdown, and verify its thread has exited. */
     public static void saveAndStop(MinecraftServer server, long stopTimeoutMillis) throws IOException {
-        flush(server);
         java.util.concurrent.atomic.AtomicReference<Thread> serverThread = new java.util.concurrent.atomic.AtomicReference<>();
         net.peercraft.network.handoff.ServerThreadTasks.executeOn(server::addScheduledTask, () -> {
+            server.getPlayerList().saveAllPlayerData();
+            if (server.worlds == null) throw new IllegalStateException("Server has no loaded worlds");
+            for (net.minecraft.world.WorldServer world : server.worlds) {
+                if (world == null) continue;
+                try { world.saveAllChunks(true, null); }
+                catch (net.minecraft.world.MinecraftException e) { throw new IllegalStateException("Could not save dimension", e); }
+            }
             serverThread.set(Thread.currentThread()); closingThreads.put(server, Thread.currentThread());
             server.initiateShutdown();
         });
         net.peercraft.network.handoff.ServerThreadTasks.awaitTermination(serverThread.get(), stopTimeoutMillis);
+        try { net.minecraft.world.storage.ThreadedFileIOBase.getThreadedIOInstance().waitForFinish(); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Interrupted world flush", e); }
     }
 
     /** Archive a fully closed save without submitting tasks to a Minecraft server. */

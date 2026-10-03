@@ -13,7 +13,7 @@ import java.util.List;
  * no {@code throws IOException} on {@code actionPerformed}/{@code keyTyped} (that arrived in
  * 1.8); no {@code GuiScreen#addButton} (1.9+) -&gt; local shim.
  */
-public class HandoffOfferScreen extends GuiScreen {
+public class HandoffOfferScreen extends PeerCraftDialogScreen {
 
     private final HandoffProtocol.Offer offer;
     private final HandoffClientAgent agent;
@@ -27,6 +27,7 @@ public class HandoffOfferScreen extends GuiScreen {
     private boolean closeHandled;
 
     public HandoffOfferScreen(HandoffProtocol.Offer offer, HandoffClientAgent agent, Runnable onClosed, Runnable onAccept) {
+        super(PeerCraftLang.tr("peercraft.handoff.offer.title", hostLabel(offer)), 320, 400);
         this.offer = offer;
         this.agent = agent;
         this.onClosed = onClosed;
@@ -45,20 +46,20 @@ public class HandoffOfferScreen extends GuiScreen {
 
     @Override
     public void initGui() {
+        super.initGui();
+        int renderedLines = bodyLines().size();
+        int actions = (terminal ? 1 : statusKey == null ? 2 : 0);
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(3, renderedLines) * 12
+                + 18 + actions * dialog.buttonPitch();
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.offer.title", hostLabel(offer)), 400);
         this.buttonList.clear();
-        int cx = this.width / 2;
         if (terminal) {
-            this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::close)
-                    .bounds(cx - 100, this.height - 40, 200, 20).build());
+            dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::close, false, 0, 1);
             return;
         }
-        if (statusKey != null) {
-            return;
-        }
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.handoff.offer.accept"), this::accept)
-                .bounds(cx - 155, this.height - 44, 150, 20).build());
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.handoff.offer.decline"), this::decline)
-                .bounds(cx + 5, this.height - 44, 150, 20).build());
+        if (statusKey != null) return;
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.offer.accept"), this::accept, true, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.offer.decline"), this::decline, false, 1, 2);
     }
 
     @Override
@@ -132,7 +133,7 @@ public class HandoffOfferScreen extends GuiScreen {
         String body = statusKey != null
                 ? PeerCraftLang.tr(statusKey)
                 : PeerCraftLang.tr("peercraft.handoff.offer.body", hostLabel(offer), PeerCraftUi.humanSize(offer.estArchiveBytes()));
-        List<String> out = PeerCraftUi.wrap(this.fontRendererObj, body, Math.min(this.width - 60, 360));
+        List<String> out = PeerCraftUi.wrap(this.fontRendererObj, body, dialog.contentWidth() - 8);
         long total = this.recvTotal;
         if (statusKey != null && !terminal && total > 0) {
             long got = Math.min(this.recvBytes, total);
@@ -145,22 +146,9 @@ public class HandoffOfferScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        java.util.List<String> paragraphs = bodyLines();
+        if (offer.friendsOnly()) paragraphs.add(PeerCraftLang.tr("peercraft.handoff.picker.friends_only_note"));
+        drawBody(paragraphs, terminal ? PeerCraftUi.TEXT_ERROR : PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = this.height / 2 - 50;
-        this.drawCenteredString(this.fontRendererObj, PeerCraftLang.tr("peercraft.handoff.offer.title", hostLabel(offer)), cx, y, 0xFFFFFFFF);
-        y += 22;
-        for (String line : bodyLines()) {
-            this.drawCenteredString(this.fontRendererObj, line, cx, y, 0xFFCCCCCC);
-            y += 12;
-        }
-        if (offer.friendsOnly()) {
-            y += 8;
-            for (String line : PeerCraftUi.wrap(this.fontRendererObj,
-                    PeerCraftLang.tr("peercraft.handoff.picker.friends_only_note"), Math.min(this.width - 60, 360))) {
-                this.drawCenteredString(this.fontRendererObj, line, cx, y, 0xFFAAAAAA);
-                y += 12;
-            }
-        }
     }
 }

@@ -20,6 +20,14 @@ class SnapshotValidationTest {
         level(true); Path region = Files.createDirectories(root.resolve("region")).resolve("r.0.0.mca"); Files.write(region, new byte[8192]);
         SnapshotValidation.validate(root);
     }
+    @Test void zeroByteRegionIsEmptyButPartialHeaderIsRejected() throws Exception {
+        level(true);
+        Path region = Files.createDirectories(root.resolve("poi")).resolve("r.0.-1.mca");
+        Files.write(region, new byte[0]);
+        SnapshotValidation.validate(root);
+        Files.write(region, new byte[4096]);
+        assertThrows(IOException.class, () -> SnapshotValidation.validate(root));
+    }
     @Test void missingDataAndTruncatedGzipAreRejected() throws Exception {
         assertThrows(IOException.class, () -> SnapshotValidation.validateLevel(level(false)));
         Path file = level(true); byte[] bytes = Files.readAllBytes(file); Files.write(file, java.util.Arrays.copyOf(bytes, bytes.length - 3));

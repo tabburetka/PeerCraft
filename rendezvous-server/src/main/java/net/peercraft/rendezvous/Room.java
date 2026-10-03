@@ -37,7 +37,7 @@ final class Room {
     // sweepExpired(). A room stays alive indefinitely, claimed or not, as long as the
     // host keeps hosting; it's only reclaimed once nothing has touched it for a while
     // (host crashed, closed the world, quit the mod).
-    long lastSeenAt;
+    volatile long lastSeenAt;
 
     // Self-reported by the host on every REGISTER (including the 15s keepalive) — this is
     // how a slot freed up by a player leaving becomes joinable again within one keepalive
@@ -45,7 +45,7 @@ final class Room {
     // the host is the actual authority on who's connected; this just avoids wasted punch
     // attempts in the common case (see RoomRegistry.join()).
     int maxPlayers = 1;
-    int currentPlayerCount = 0;
+    volatile int currentPlayerCount = 0;
 
     // Guarded by synchronizing on the Room instance itself (see RoomRegistry.join). Keyed by
     // joiner address so multiple joiners can hold independent per-address debounce/rematch

@@ -30,4 +30,17 @@ class ToggleButton extends GuiCheckBox {
     void fire() {
         onChange.accept(this.isChecked());
     }
+    @Override public void drawButton(net.minecraft.client.Minecraft mc, int mouseX, int mouseY, float partialTicks) {
+        if (!visible) return;
+        int size = Math.min(16, Math.min(width, height));
+        boolean hover = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+        int border = enabled && hover ? net.peercraft.client.theme.SteampunkPalette.BORDER_HOVER : net.peercraft.client.theme.SteampunkPalette.BORDER;
+        net.minecraft.client.gui.Gui.drawRect(x, y, x + size, y + size, border);
+        net.minecraft.client.gui.Gui.drawRect(x + 1, y + 1, x + size - 1, y + size - 1, net.peercraft.client.theme.SteampunkPalette.CONTROL);
+        if (isChecked()) this.drawCenteredString(mc.fontRenderer, "✓", x + size / 2, y + (size - 8) / 2,
+                enabled ? net.peercraft.client.theme.SteampunkPalette.ACCENT : net.peercraft.client.theme.SteampunkPalette.MUTED);
+        String label = mc.fontRenderer.trimStringToWidth(displayString, Math.max(0, width - size - 5));
+        mc.fontRenderer.drawStringWithShadow(label, x + size + 5, y + (height - 8) / 2,
+                enabled ? net.peercraft.client.theme.SteampunkPalette.TEXT : net.peercraft.client.theme.SteampunkPalette.MUTED);
+    }
 }

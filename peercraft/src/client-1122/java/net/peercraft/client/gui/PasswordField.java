@@ -13,7 +13,7 @@ import org.lwjgl.input.Keyboard;
  * buffer and shows only bullets in the widget. Editing is deliberately restricted to
  * append / backspace / paste with the cursor pinned to the end (standard for a password box).
  */
-class PasswordField extends GuiTextField {
+class PasswordField extends SteampunkField {
 
     private final StringBuilder real = new StringBuilder();
     private int maxLength = 32;
@@ -31,6 +31,11 @@ class PasswordField extends GuiTextField {
     /** The actual typed password (the widget itself only ever holds bullets). */
     String getPassword() {
         return real.toString();
+    }
+
+    void setPassword(String value) {
+        real.setLength(0);
+        appendFiltered(value);
     }
 
     private void resync() {

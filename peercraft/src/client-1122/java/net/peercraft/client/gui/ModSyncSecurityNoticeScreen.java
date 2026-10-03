@@ -17,26 +17,32 @@ import java.io.IOException;
  * acknowledges the risk (a flag in {@code settings.json} is set and this screen never returns)
  * or cancels the join. A short red reminder stays on the preparing/confirm screens after that.
  */
-public class ModSyncSecurityNoticeScreen extends GuiScreen {
+public class ModSyncSecurityNoticeScreen extends PeerCraftDialogScreen {
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.notice.title");
     private final Runnable onAccept;
     private final Runnable onCancel;
 
     public ModSyncSecurityNoticeScreen(Runnable onAccept, Runnable onCancel) {
+        super(PeerCraftLang.tr("peercraft.modsync.notice.title"), 340, 400);
         this.onAccept = onAccept;
         this.onCancel = onCancel;
     }
 
     @Override
     public void initGui() {
+        super.initGui();
         this.buttonList.clear();
-        int cx = this.width / 2;
-        int y = this.height - 52;
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.notice.accept"), onAccept)
-                .bounds(cx - 204, y, 200, 20).build());
-        this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.modsync.notice.decline"), onCancel)
-                .bounds(cx + 4, y, 200, 20).build());
+        int lines = 0;
+        for (int i = 1; i <= 4; i++) {
+            lines += PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.notice.body" + i), Math.max(1, dialog.contentWidth() - 8)).size();
+        }
+        dialog = new SteampunkDialog(width, height,
+                dialog.headerHeight + 6 + (lines + 3) * 12 + 8 + 2 * dialog.buttonPitch() + 12,
+                titleText, 400);
+
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.notice.accept"), onAccept, true, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.modsync.notice.decline"), onCancel, false, 1, 2);
     }
 
     @Override
@@ -58,17 +64,12 @@ public class ModSyncSecurityNoticeScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
+        java.util.List<String> paragraphs = new java.util.ArrayList<>();
+        for (int i = 1; i <= 4; i++) {
+            if (i > 1) paragraphs.add("");
+            paragraphs.add(PeerCraftLang.tr("peercraft.modsync.notice.body" + i));
+        }
+        drawBody(paragraphs, PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);
-        int cx = this.width / 2;
-        int y = 48;
-        this.drawCenteredString(this.fontRenderer, this.titleText, cx, y, 0xFFFFFFFF);
-        y += 24;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.notice.body1"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.notice.body2"), cx, y, 0xFFFF5555);
-        y += 16;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.notice.body3"), cx, y, 0xFFCCCCCC);
-        y += 16;
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.notice.body4"), cx, y, 0xFFAAAAAA);
     }
 }

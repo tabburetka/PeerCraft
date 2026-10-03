@@ -21,7 +21,7 @@ import org.lwjgl.glfw.GLFW;
  * → {@code addButton}, {@code setInitialFocus} → {@code setFocused}, and {@code render} draws
  * through static {@code GuiComponent} calls with a {@link PoseStack}.
  */
-public class PeerCraftRenameScreen extends Screen {
+public class PeerCraftRenameScreen extends PeerCraftDialogScreen {
 
     private final Screen lastScreen;
 
@@ -31,31 +31,39 @@ public class PeerCraftRenameScreen extends Screen {
     private int statusColor = PeerCraftUi.TEXT_MUTED;
 
     public PeerCraftRenameScreen(Screen lastScreen) {
-        super(new TranslatableComponent("peercraft.gui.rename.title"));
+        super(new TranslatableComponent("peercraft.gui.rename.title"), 230);
         this.lastScreen = lastScreen;
     }
 
     @Override
     protected void init() {
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 30;
+        super.init();
+        boolean compact = height < 300;
+        int desiredHeight = (compact ? 36 : 46) + 6 + 6 + 2 * (compact ? 22 : 30)
+                + (compact ? 18 : 24) + 8 + 26 + 12;
+        dialog = new SteampunkDialog(width, height, desiredHeight, title);
+        String previousnewNameBox = newNameBox == null ? null : newNameBox.getValue();
 
-        this.newNameBox = new EditBox(this.font, centerX - 100, y, 200, 20, new TranslatableComponent("peercraft.gui.rename.field"));
+        int centerX = this.width / 2;
+        int y = dialog.contentTop() + 6;
+
+        this.newNameBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.rename.field"));
         this.newNameBox.setMaxLength(16);
         AccountClient.AccountSession session = AccountSessionHolder.current();
         if (session != null) {
             this.newNameBox.setValue(session.displayName());
         }
+        if (previousnewNameBox != null) this.newNameBox.setValue(previousnewNameBox);
         this.addButton(this.newNameBox);
         this.setFocused(this.newNameBox);
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.saveButton = this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.rename.save"), b -> onSave())
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).primary().build());
 
-        y += 26;
+        y += dialog.buttonPitch();
         this.addButton(Btn.builder(new TranslatableComponent("peercraft.gui.common.back"), b -> PeerCraftUi.setScreen(this.minecraft, this.lastScreen))
-                .bounds(centerX - 100, y, 200, 20).build());
+                .bounds(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight()).build());
     }
 
     @Override
@@ -127,7 +135,8 @@ public class PeerCraftRenameScreen extends Screen {
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(poseStack);
         super.render(poseStack, mouseX, mouseY, partialTick);
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, this.width / 2, this.height / 2 - 60, PeerCraftUi.TEXT_TITLE);
-        GuiComponent.drawCenteredString(poseStack, this.font, this.statusMessage, this.width / 2, this.height / 2 + 40, this.statusColor);
+        dialog.status(poseStack, this.font, this.statusMessage, dialog.top + dialog.height - 36, 26, this.statusColor);
     }
+    @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
+
 }

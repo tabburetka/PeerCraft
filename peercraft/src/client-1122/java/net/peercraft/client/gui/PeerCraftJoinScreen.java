@@ -24,10 +24,9 @@ public class PeerCraftJoinScreen extends GuiScreen {
     private final GuiScreen lastScreen;
 
     private GuiTextField roomCodeBox;
-    private GuiTextField overrideBox;
+    private SteampunkDialog dialog;
+    private final long openedAt = System.currentTimeMillis();
     private IdButton connectButton;
-    private IdButton overrideToggleButton;
-    private boolean overrideVisible = false;
     private String statusMessage = "";
 
     private final P2PBridge.ConnectListener listener = new P2PBridge.ConnectListener() {
@@ -53,48 +52,28 @@ public class PeerCraftJoinScreen extends GuiScreen {
 
     @Override
     public void initGui() {
+        String previousCode = this.roomCodeBox == null ? null : this.roomCodeBox.getText();
         Keyboard.enableRepeatEvents(true);
         this.buttonList.clear();
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 70;
-
-        this.roomCodeBox = new GuiTextField(0, this.fontRenderer, centerX - 100, y, 200, 20);
+        boolean compact = height < 300;
+        int desiredHeight = (compact ? 36 : 46) + 6 + 14 + 2 * (compact ? 22 : 30)
+                + 40 + 8 + (compact ? 18 : 24) + 12;
+        this.dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.gui.join.subtitle"));
+        int x = dialog.contentX(), w = dialog.contentWidth(), y = dialog.contentTop() + 14;
+        this.roomCodeBox = new SteampunkField(0, this.fontRenderer, x, y, w, dialog.buttonHeight());
         this.roomCodeBox.setMaxStringLength(32);
-        String prefillCode = PeerCraftConfig.roomCode();
-        if (!prefillCode.trim().isEmpty()) {
-            this.roomCodeBox.setText(prefillCode);
-        }
+        this.roomCodeBox.setText(previousCode == null ? PeerCraftConfig.roomCode() : previousCode);
         this.roomCodeBox.setFocused(true);
-
-        y += 26;
         this.connectButton = this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.join.connect"), this::onConnect)
-                .bounds(centerX - 100, y, 200, 20).build());
-
-        y += 26;
-        this.overrideToggleButton = this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.join.override_address_show"), this::toggleOverride)
-                .bounds(centerX - 100, y, 200, 20).build());
-
-        y += 26;
-        this.overrideBox = new GuiTextField(1, this.fontRenderer, centerX - 100, y, 200, 20);
-        this.overrideBox.setMaxStringLength(64);
-        this.overrideBox.setText(PeerCraftConfig.rendezvousHost() + ":" + PeerCraftConfig.rendezvousPort());
-        this.overrideBox.setVisible(this.overrideVisible);
-
-        y += 30;
+                .primary().bounds(x, y + dialog.buttonPitch(), w, dialog.buttonHeight()).build());
         this.addButton(IdButton.builder(PeerCraftLang.tr("peercraft.gui.common.back"),
-                () -> PeerCraftUi.setScreen(this.mc, this.lastScreen)).bounds(centerX - 100, y, 200, 20).build());
+                () -> PeerCraftUi.setScreen(this.mc, this.lastScreen))
+                .bounds(x, dialog.top + dialog.height - dialog.buttonHeight() - 12, w, dialog.buttonHeight()).build());
     }
 
     @Override
     public void onGuiClosed() {
         Keyboard.enableRepeatEvents(false);
-    }
-
-    private void toggleOverride() {
-        this.overrideVisible = !this.overrideVisible;
-        this.overrideBox.setVisible(this.overrideVisible);
-        this.overrideToggleButton.displayString = PeerCraftLang.tr(
-                this.overrideVisible ? "peercraft.gui.join.override_address_hide" : "peercraft.gui.join.override_address_show");
     }
 
     @Override
@@ -106,8 +85,9 @@ public class PeerCraftJoinScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (this.roomCodeBox.textboxKeyTyped(typedChar, keyCode)
-                || (this.overrideVisible && this.overrideBox.textboxKeyTyped(typedChar, keyCode))) {
+        if (keyCode == Keyboard.KEY_ESCAPE) { PeerCraftUi.setScreen(this.mc, this.lastScreen); return; }
+        if (keyCode == Keyboard.KEY_RETURN && this.connectButton.enabled) { onConnect(); return; }
+        if (this.roomCodeBox.textboxKeyTyped(typedChar, keyCode)) {
             return;
         }
         super.keyTyped(typedChar, keyCode);
@@ -117,54 +97,27 @@ public class PeerCraftJoinScreen extends GuiScreen {
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         super.mouseClicked(mouseX, mouseY, mouseButton);
         this.roomCodeBox.mouseClicked(mouseX, mouseY, mouseButton);
-        if (this.overrideVisible) {
-            this.overrideBox.mouseClicked(mouseX, mouseY, mouseButton);
-        }
+
     }
 
     @Override
     public void updateScreen() {
         this.roomCodeBox.updateCursorCounter();
-        this.overrideBox.updateCursorCounter();
+
     }
 
     private void onConnect() {
+        if (PeerCraftProgressNoticeScreen.beforeConnecting(this, this::onConnect)) return;
         String code = this.roomCodeBox.getText().trim().toUpperCase(Locale.ROOT);
         if (code.isEmpty()) {
             this.statusMessage = PeerCraftLang.tr("peercraft.gui.join.enter_code_error");
             return;
         }
 
-        HostPort target = (this.overrideVisible && !this.overrideBox.getText().trim().isEmpty())
-                ? parseHostPort(this.overrideBox.getText().trim(), PeerCraftConfig.rendezvousPort())
-                : new HostPort(PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort());
-
         this.connectButton.enabled = false;
         this.statusMessage = PeerCraftLang.tr("peercraft.gui.join.connecting");
-        P2PBridge.INSTANCE.startClientViaRendezvous(code, target.host, target.port, this.listener,
+        P2PBridge.INSTANCE.startClientViaRendezvous(code, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(), this.listener,
                 new ClientModSyncAgent(this, code));
-    }
-
-    private static final class HostPort {
-        private final String host;
-        private final int port;
-
-        HostPort(String host, int port) {
-            this.host = host;
-            this.port = port;
-        }
-    }
-
-    private static HostPort parseHostPort(String text, int defaultPort) {
-        int idx = text.lastIndexOf(':');
-        if (idx > 0 && idx < text.length() - 1) {
-            try {
-                return new HostPort(text.substring(0, idx), Integer.parseInt(text.substring(idx + 1)));
-            } catch (NumberFormatException ignored) {
-                // not a number after ':' — treat it as part of the host, not a port separator
-            }
-        }
-        return new HostPort(text, defaultPort);
     }
 
     private void runOnClientThread(Runnable action) {
@@ -202,15 +155,18 @@ public class PeerCraftJoinScreen extends GuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        this.drawDefaultBackground();
+        boolean inWorld = this.mc.world != null;
+        if (inWorld) this.drawDefaultBackground();
+        dialog.background(this.fontRenderer, width, height, System.currentTimeMillis() - openedAt, inWorld);
+        this.fontRenderer.drawStringWithShadow(PeerCraftLang.tr("peercraft.gui.join.room_code_field"), dialog.contentX(), dialog.contentTop(), net.peercraft.client.theme.SteampunkPalette.MUTED);
         this.roomCodeBox.drawTextBox();
-        if (this.overrideVisible) {
-            this.overrideBox.drawTextBox();
-        }
         super.drawScreen(mouseX, mouseY, partialTicks);
-        this.drawCenteredString(this.fontRenderer, PeerCraftLang.tr("peercraft.gui.join.title"), this.width / 2, this.height / 2 - 90, 0xFFFFFFFF);
-        if (!this.statusMessage.isEmpty()) {
-            this.drawCenteredString(this.fontRenderer, this.statusMessage, this.width / 2, this.height / 2 + 60, 0xFFFFFF55);
-        }
+        boolean idle = statusMessage.isEmpty();
+        String message = idle ? PeerCraftLang.tr("peercraft.gui.join.code_help") : statusMessage;
+        dialog.status(this.fontRenderer, message,
+                dialog.contentTop() + 14 + dialog.buttonPitch() * 2,
+                Math.max(0, dialog.top + dialog.height - dialog.buttonHeight() - 20
+                        - (dialog.contentTop() + 14 + dialog.buttonPitch() * 2)),
+                idle ? net.peercraft.client.theme.SteampunkPalette.MUTED : net.peercraft.client.theme.SteampunkPalette.ACCENT);
     }
 }

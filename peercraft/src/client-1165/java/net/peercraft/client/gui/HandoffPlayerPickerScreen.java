@@ -26,42 +26,49 @@ import java.util.concurrent.ThreadLocalRandom;
  * {@code GameProfile.getName()} is unchanged on 1.16.5 (the record conversion was 1.21.9) —
  * no version branch needed for {@code profileName}.
  */
-public class HandoffPlayerPickerScreen extends Screen {
+public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
 
     private final Screen lastScreen;
+    private int scrollOffset;
+    private int listTop, listBottom, shownRows;
+    private List<P2PBridge.HandoffCandidate> candidates;
+    private List<String> introLines;
 
     public HandoffPlayerPickerScreen(Screen lastScreen) {
-        super(new TranslatableComponent("peercraft.handoff.picker.title"));
+        super(new TranslatableComponent("peercraft.handoff.picker.title"), 400);
         this.lastScreen = lastScreen;
     }
 
     @Override
     protected void init() {
-        int cx = this.width / 2;
-        List<P2PBridge.HandoffCandidate> candidates = P2PBridge.INSTANCE.connectedJoiners();
+        super.init();
+        candidates = P2PBridge.INSTANCE.connectedJoiners();
         IntegratedServer server = this.minecraft.getSingleplayerServer();
-
-        int y = this.height / 2 - 40;
-        for (int i = 0; i < candidates.size(); i++) {
-            P2PBridge.HandoffCandidate c = candidates.get(i);
-            String name = displayName(server, c, i);
-            boolean eligible = c.signedIn() && !c.declinedSuccessor();
-            TranslatableComponent label = !c.signedIn()
+        introLines = introLines();
+        int introRows = Math.min(introLines.size(), Math.max(1, (dialog.height - dialog.headerHeight - 100) / 12));
+        listTop = dialog.contentTop() + introRows * 12 + 10;
+        dialogAction(new TranslatableComponent("peercraft.handoff.picker.cancel"), btn -> onClose(), false, 0, 1);
+        listBottom = bodyBottom();
+        shownRows = Math.max(0, (listBottom - listTop) / dialog.buttonPitch());
+        scrollOffset = Math.max(0, Math.min(scrollOffset, candidates.size() - shownRows));
+        int shown = Math.min(shownRows, candidates.size() - scrollOffset);
+        for (int i = 0; i < shown; i++) {
+            int candidateIndex = i + scrollOffset;
+            P2PBridge.HandoffCandidate candidate = candidates.get(candidateIndex);
+            String name = displayName(server, candidate, candidateIndex);
+            boolean eligible = candidate.signedIn() && !candidate.declinedSuccessor();
+            TranslatableComponent label = !candidate.signedIn()
                     ? new TranslatableComponent("peercraft.handoff.picker.row_not_signed_in", name)
-                    : c.declinedSuccessor()
+                    : candidate.declinedSuccessor()
                             ? new TranslatableComponent("peercraft.handoff.picker.row_declined_successor", name)
                             : new TranslatableComponent("peercraft.handoff.picker.hand_off", name);
-            Button b = new Button(cx - 155, y, 310, 20, label, btn -> confirmAndChoose(c, name));
-            b.active = eligible;
-            this.addButton(b);
-            y += 24;
+            Button button = new SteampunkButton(dialog.contentX(), listTop + i * dialog.buttonPitch(), dialog.contentWidth(), dialog.buttonHeight(), label,
+                    btn -> confirmAndChoose(candidate, name));
+            button.active = eligible;
+            addButton(button);
         }
-
-        this.addButton(Btn.builder(new TranslatableComponent("peercraft.handoff.picker.cancel"),
-                        btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen))
-                .bounds(cx - 100, this.height - 40, 200, 20).build());
     }
 
     /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
@@ -71,7 +78,7 @@ public class HandoffPlayerPickerScreen extends Screen {
             return;
         }
         Screen self = this;
-        PeerCraftUi.setScreen(this.minecraft, new net.minecraft.client.gui.screens.ConfirmScreen(
+        PeerCraftUi.setScreen(this.minecraft, new PeerCraftConfirmScreen(
                 confirmed -> {
                     if (confirmed) {
                         choose(c, name);
@@ -155,7 +162,7 @@ public class HandoffPlayerPickerScreen extends Screen {
             @Override public void onStatus(String messageKey) { status.onStatus(messageKey); }
         };
 
-        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), offer, callbacks);
+        boolean session = net.peercraft.client.handoff.SafeHandoffSession.INSTANCE.begin(server, c.peer(), name, offer, callbacks);
         if (!session) {
             status.onAborted("peercraft.handoff.abort.unknown");
         }
@@ -206,28 +213,58 @@ public class HandoffPlayerPickerScreen extends Screen {
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.font,
                 new TranslatableComponent("peercraft.handoff.picker.intro").getString(),
-                Math.min(this.width - 60, 380));
+                dialog.contentWidth() - 10);
     }
 
-    private boolean noneConnected() {
-        return P2PBridge.INSTANCE.connectedJoiners().isEmpty();
-    }
+    @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
 
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(poseStack);
+        renderBackground(poseStack);
+        int introRows = Math.min(introLines.size(), Math.max(1, (listTop - dialog.contentTop() - 10) / 12));
+        for (int i = 0; i < introRows; i++) GuiComponent.drawCenteredString(poseStack, font, introLines.get(i), width / 2,
+                dialog.contentTop() + i * 12, PeerCraftUi.TEXT_MUTED);
+        if (candidates.isEmpty()) dialog.status(poseStack, font, new TranslatableComponent("peercraft.handoff.picker.no_candidates"),
+                listTop, Math.max(12, listBottom - listTop), PeerCraftUi.TEXT_ERROR);
+        if (shownRows > 0 && candidates.size() > shownRows) {
+            int track = shownRows * dialog.buttonPitch();
+            int thumb = Math.max(8, track * shownRows / candidates.size());
+            int y = listTop + (track - thumb) * scrollOffset / (candidates.size() - shownRows);
+            GuiComponent.fill(poseStack, dialog.left + dialog.width - 7, listTop, dialog.left + dialog.width - 5, listTop + track, 0xFF49331F);
+            GuiComponent.fill(poseStack, dialog.left + dialog.width - 7, y, dialog.left + dialog.width - 5, y + thumb, PeerCraftUi.TEXT_ACCENT);
+        }
         super.render(poseStack, mouseX, mouseY, partialTick);
-        int cx = this.width / 2;
-        GuiComponent.drawCenteredString(poseStack, this.font, this.title, cx, 24, 0xFFFFFFFF);
-        int y = 44;
-        for (String line : introLines()) {
-            GuiComponent.drawCenteredString(poseStack, this.font, line, cx, y, 0xFFAAAAAA);
-            y += 11;
+        if (mouseY >= listTop && mouseY < listBottom) {
+            for (net.minecraft.client.gui.components.AbstractWidget button : buttons) {
+                if (button.y >= listTop && button.y < listBottom && button.isMouseOver(mouseX, mouseY)) {
+                    renderTooltip(poseStack, button.getMessage(), mouseX, mouseY);
+                    break;
+                }
+            }
         }
-        if (noneConnected()) {
-            GuiComponent.drawCenteredString(poseStack, this.font,
-                    new TranslatableComponent("peercraft.handoff.picker.no_candidates"),
-                    cx, this.height / 2 - 40, 0xFFFF5555);
+    }
+    private boolean moveRows(int delta) {
+        if (candidates == null || shownRows == 0) return false;
+        int next = Math.max(0, Math.min(Math.max(0, candidates.size() - shownRows), scrollOffset + delta));
+        if (next == scrollOffset) return false;
+        scrollOffset = next;
+        setFocused(null);
+        buttons.clear();
+        children.clear();
+        init();
+        return true;
+    }
+    @Override public boolean keyPressed(int key, int scan, int modifiers) {
+        if ((key == 266 || key == 267) && moveRows((key == 266 ? -1 : 1) * Math.max(1, shownRows))) return true;
+        return super.keyPressed(key, scan, modifiers);
+    }
+    @Override public boolean mouseScrolled(double x, double y, double delta) {
+        if (candidates != null && x >= dialog.contentX() && x < dialog.left + dialog.width && y >= listTop && y < listBottom) {
+            if (shownRows > 0 && candidates.size() > shownRows && delta != 0) {
+                moveRows(-(int) Math.signum(delta) * 3);
+                return true;
+            }
         }
+        return super.mouseScrolled(x, y, delta);
     }
 }

@@ -99,7 +99,7 @@ public final class HandoffNetworkRecovery {
             if (answer.state != COMMITTED && answer.state != ROOM_READY) throw new IOException("Unknown handoff outcome");
             if ("SOURCE".equals(j.role)) {
                 operation.resolve();
-                PeercraftWorldMeta.markHandedOff(savePath(saves, j.source), "");
+                PeercraftWorldMeta.markHandedOff(savePath(saves, j.source), j.successorName);
                 return; // Stale copy remains explicitly openable after its warning.
             }
             if ("OBSERVER".equals(j.role)) return;

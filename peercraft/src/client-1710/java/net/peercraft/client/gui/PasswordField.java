@@ -16,7 +16,7 @@ import org.lwjgl.input.Keyboard;
  * <p>1.7.10 deltas vs the 1.12.2 twin: {@link GuiTextField}'s constructor has no leading
  * {@code componentId} parameter (that arrived in 1.8), so neither does this class.
  */
-class PasswordField extends GuiTextField {
+class PasswordField extends SteampunkField {
 
     private final StringBuilder real = new StringBuilder();
     private int maxLength = 32;
@@ -34,6 +34,11 @@ class PasswordField extends GuiTextField {
     /** The actual typed password (the widget itself only ever holds bullets). */
     String getPassword() {
         return real.toString();
+    }
+
+    void setPassword(String value) {
+        real.setLength(0);
+        appendFiltered(value);
     }
 
     private void resync() {
