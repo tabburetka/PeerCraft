@@ -36,7 +36,9 @@ public class HandoffStaleWorldWarningScreen extends PeerCraftDialogScreen {
     @Override
     protected void init() {
         super.init();
-        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, bodyLines().size()) * 12
+        int renderedLines = 0;
+        for (String paragraph : bodyLines()) renderedLines += Math.max(1, font.split(Component.literal(paragraph), Math.max(1, dialog.contentWidth() - 8)).size());
+        int desiredHeight = dialog.headerHeight + 6 + Math.max(1, renderedLines) * 12
                 + 22 + dialog.buttonHeight() + dialog.buttonPitch();
         dialog = new SteampunkDialog(width, height, desiredHeight, title);
         int cx = this.width / 2;
@@ -65,7 +67,7 @@ public class HandoffStaleWorldWarningScreen extends PeerCraftDialogScreen {
                 ? new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(new Date(meta.handedOffAt() * 1000L))
                 : "?";
         String body = Component.translatable("peercraft.handoff.stale.body", to, when).getString();
-        return PeerCraftUi.wrap(this.font, body, this.dialog.contentWidth());
+        return java.util.Collections.singletonList(body);
     }
 
     //? if <26.1 {
