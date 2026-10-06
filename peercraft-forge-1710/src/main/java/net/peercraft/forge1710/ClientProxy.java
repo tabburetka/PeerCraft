@@ -17,6 +17,8 @@ public class ClientProxy extends CommonProxy {
     public void init() {
         super.init();
         PeerCraftClientCommon.initClient();
-        MinecraftForge.EVENT_BUS.register(new PeerCraftScreenEvents());
+        PeerCraftScreenEvents screenEvents = new PeerCraftScreenEvents();
+        MinecraftForge.EVENT_BUS.register(screenEvents);
+        cpw.mods.fml.common.FMLCommonHandler.instance().bus().register(screenEvents);
     }
 }

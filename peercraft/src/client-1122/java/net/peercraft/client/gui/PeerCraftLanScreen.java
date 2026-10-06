@@ -53,11 +53,14 @@ public class PeerCraftLanScreen extends GuiShareToLan {
     private void relayout() {
         if(internet==null || worldName==null)return;
         boolean online=PeerCraftHostOptions.internetPlayRequested;
-        dialog=new SteampunkDialog(width,height,online?400:220,I18n.format("lanServer.title"),360);
+        int rows=online?8:3;
+        boolean compact=height<300;
+        int preferredPitch=compact?22:28;
+        int desiredHeight=(compact?36:46)+6+rows*preferredPitch+8+(compact?18:24)+(compact?22:30)+12;
+        dialog=new SteampunkDialog(width,height,desiredHeight,I18n.format("lanServer.title"),360);
         int footerHeight=dialog.buttonHeight(), footerPitch=dialog.buttonPitch();
         int cancelY=dialog.top+dialog.height-12-footerHeight;
         int startY=cancelY-footerPitch;
-        int rows=online?8:3;
         int pitch=Math.max(12,Math.min(28,(startY-8-dialog.contentTop())/rows));
         int h=Math.max(10,pitch-2),y=dialog.contentTop();
         place(mode,y,h);y+=pitch;place(commands,y,h);y+=pitch;place(internet,y,h);y+=pitch;

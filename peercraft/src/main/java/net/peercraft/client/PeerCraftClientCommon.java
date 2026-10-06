@@ -1,5 +1,6 @@
 package net.peercraft.client;
 
+import net.minecraft.client.Minecraft;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
@@ -23,6 +24,7 @@ public final class PeerCraftClientCommon {
     }
 
     public static void initClient() {
+        net.peercraft.client.gui.TransportNoticeController.register();
         // Fold the in-game PeerCraft Settings screen's saved flags (config/peercraft/settings.json)
         // into PeerCraftConfig before anything reads a flag. Tolerant — a missing/corrupt file
         // just means the launch flags / built-in defaults apply. An explicit -Dpeercraft.* still wins.
@@ -77,6 +79,12 @@ public final class PeerCraftClientCommon {
 
     private static void attemptSilentRelogin() {
         Optional<AccountState> saved = AccountStorage.load();
+        // First launch and licensed accounts authenticate the current Minecraft identity.
+        // Preserve remembered login for unlicensed accounts.
+        if (!saved.isPresent() || saved.get().licensed()) {
+            attemptLicensedLogin();
+            return;
+        }
         //? if >=1.17
         if (saved.isEmpty()) {
         //? if <1.17
@@ -97,5 +105,50 @@ public final class PeerCraftClientCommon {
                 AccountStorage.clear();
             }
         });
+    }
+
+    private static void attemptLicensedLogin() {
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            String token = mc.getUser().getAccessToken();
+            if (token == null || token.trim().isEmpty() || "0".equals(token) || "null".equalsIgnoreCase(token)) {
+                return;
+            }
+            //? if <1.21.9 {
+            com.mojang.authlib.minecraft.MinecraftSessionService service = mc.getMinecraftSessionService();
+            //?} else {
+            /*com.mojang.authlib.minecraft.MinecraftSessionService service = mc.services().sessionService();*/
+            //?}
+            //? if >=1.17 {
+            // Profile resolution may wait for Mojang HTTP; never join it on the render thread.
+            Thread profileLogin = new Thread(() -> {
+                try {
+                    AccountClient.INSTANCE.loginLicensed(mc.getGameProfile(), token, service, licensedLoginCallback());
+                } catch (RuntimeException failure) {
+                    LOGGER.warn("[PeerCraft] Не удалось получить профиль для автоматического входа: {}",
+                            failure.getClass().getSimpleName());
+                }
+            }, "PeerCraft-LicensedProfile");
+            profileLogin.setDaemon(true);
+            profileLogin.start();
+            //?} else {
+            /*AccountClient.INSTANCE.loginLicensed(mc.getUser().getGameProfile(), token, service, licensedLoginCallback());*/
+            //?}
+        });
+    }
+
+    private static AccountClient.AuthCallback licensedLoginCallback() {
+        return new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession session) {
+                AccountSessionHolder.persist(session);
+                LOGGER.info("[PeerCraft] Автоматический вход с лицензией выполнен: {}", session.displayName());
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                LOGGER.warn("[PeerCraft] Автоматический вход с лицензией не удался: {}", reason);
+            }
+        };
     }
 }

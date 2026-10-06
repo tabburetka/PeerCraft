@@ -53,6 +53,16 @@ public final class AccountStorage {
         save(file(), state);
     }
 
+    public static boolean saveRecoveryCard(AccountState state) {
+        try {
+            AccountRecoveryCard.save(file().getParent().resolve("account-backups"), state);
+            return true;
+        } catch (IOException | RuntimeException e) {
+            LOGGER.warn("[AccountStorage] Could not save account recovery card: {}", e.toString());
+            return false;
+        }
+    }
+
     public static void clear() {
         clear(file());
     }

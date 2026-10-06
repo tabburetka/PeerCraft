@@ -55,6 +55,56 @@ class HandoffLoopbackIntegrationTest {
 
     @Test
     @Timeout(30)
+    void joinerRetentionFailureDeclinesWithoutShowingOffer() throws Exception {
+        CompletableFuture<String> aborted = new CompletableFuture<>();
+        java.util.concurrent.atomic.AtomicInteger releases = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger declines = new java.util.concurrent.atomic.AtomicInteger();
+        HandoffClientAgent agent = new HandoffClientAgent(UUID.randomUUID(), (ip, port, data) -> {
+            if (HandoffProtocol.messageType(data, data.length) == HandoffProtocol.T_DECLINE) declines.incrementAndGet();
+        }, new HandoffClientAgent.Callbacks() {
+            public void onOffer(HandoffProtocol.Offer offer) { aborted.completeExceptionally(new AssertionError("Offer shown without relay hold")); }
+            public void onMigrate(UUID successor, boolean amSuccessor) { aborted.completeExceptionally(new AssertionError("Migration without relay hold")); }
+            public void onAborted(String reason) { aborted.complete(reason); }
+        });
+        agent.setRetention(new HandoffClientAgent.Retention() {
+            public void retain(long offer, InetAddress host, int port) throws java.io.IOException {
+                assertEquals(72, offer); throw new java.io.IOException("broker_unavailable");
+            }
+            public void release(long offer) { assertEquals(72, offer); releases.incrementAndGet(); }
+        });
+        HandoffProtocol.Offer offer = sampleOffer(72);
+        byte[] packet = HandoffProtocol.encodeOffer(offer.offerId(),offer.worldLabel(),offer.estArchiveBytes(),
+                offer.maxPlayers(),offer.flags(),offer.requiredMods(),offer.worldId());
+        agent.onPacket(packet,packet.length,InetAddress.getLoopbackAddress(),50000);
+        assertEquals("peercraft.handoff.abort.transfer_failed",aborted.get(AWAIT,TimeUnit.SECONDS));
+        assertFalse(agent.hasActiveOffer()); assertEquals(1,releases.get());
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (declines.get() == 0 && System.nanoTime() < deadline) Thread.sleep(10);
+        assertTrue(declines.get() > 0);
+    }
+
+    @Test
+    @Timeout(30)
+    void rejectedRelayPreparationDoesNotOfferOrTransfer() throws Exception {
+        CompletableFuture<String> aborted = new CompletableFuture<>();
+        java.util.concurrent.atomic.AtomicInteger offers = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicBoolean transferred = new java.util.concurrent.atomic.AtomicBoolean();
+        HandoffCoordinator coordinator = HandoffCoordinator.start(sampleOffer(71), InetAddress.getLoopbackAddress(),
+                50000, UUID.randomUUID(), (ip, port, data) -> {
+                    if (HandoffProtocol.messageType(data, data.length) == HandoffProtocol.T_OFFER) offers.incrementAndGet();
+                }, List::of, (done, failed) -> transferred.set(true), new HandoffCoordinator.Callbacks() {
+                    public void onAccepted() { fail("No offer was sent"); }
+                    public void onDeclined(String reason) { fail("No offer was sent"); }
+                    public void onSuccessorReady() { fail("No transfer was started"); }
+                    public void onAborted(String reason) { aborted.complete(reason); }
+                    public void onStatus(String reason) { }
+                }, () -> { throw new java.io.IOException("broker_unavailable"); });
+        assertEquals("peercraft.handoff.abort.transfer_failed", aborted.get(AWAIT, TimeUnit.SECONDS));
+        assertTrue(coordinator.isTerminal()); assertEquals(0, offers.get()); assertFalse(transferred.get());
+    }
+
+    @Test
+    @Timeout(30)
     void happyPathOfferAcceptMigrateOk() throws Exception {
         Link link = new Link();
         UUID successorId = UUID.randomUUID();

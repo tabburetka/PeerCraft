@@ -75,6 +75,8 @@ final class RoomRegistry {
     }
 
     private final Map<String, Room> roomsByCode = new ConcurrentHashMap<>();
+    private record CandidateRoute(String room, RendezvousProtocol.Address joiner, Room.JoinerSlot slot) { }
+    private final Map<UUID, CandidateRoute> candidateRoutes = new ConcurrentHashMap<>();
     private final LongSupplier clock;
     private final CodeGenerator codeGenerator = new CodeGenerator(CODE_LENGTH);
     private final RateLimiter<InetAddress> registerRateLimiter;
@@ -106,6 +108,67 @@ final class RoomRegistry {
     }
 
     record JoinRejected(byte reason) implements JoinResult {
+    }
+
+    record NetworkOffers(RendezvousProtocol.NetworkOffer host, RendezvousProtocol.NetworkOffer joiner,
+                         Optional<UUID> hostAccountId, Optional<UUID> joinerAccountId, boolean relayEligible) { }
+
+    void connectivity(String code, RendezvousProtocol.Address host,
+                      Optional<RendezvousProtocol.ConnectivityAdvertisement> advertisement) {
+        Room room = roomsByCode.get(code);
+        if (room != null && room.hostAddress.equals(host)) synchronized (room) {
+            if (room.connectivity.isPresent() && advertisement.isPresent()
+                    && !room.connectivity.get().clientAttemptId().equals(advertisement.get().clientAttemptId())) room.joiners.clear();
+            room.connectivity = advertisement;
+        }
+    }
+
+    Optional<NetworkOffers> networkOffers(String code, Matched matched, Optional<UUID> joinerAccount,
+                                         Optional<RendezvousProtocol.ConnectivityAdvertisement> joinerAd, String brokerUrl) {
+        Room room = roomsByCode.get(code);
+        if (room == null || room.connectivity.isEmpty() || joinerAd.isEmpty()) return Optional.empty();
+        synchronized (room) {
+            Room.JoinerSlot slot = room.joiners.get(matched.joinerAddress());
+            if (slot == null || slot.token != matched.token()) return Optional.empty();
+            if (slot.networkOffers != null) return Optional.of(slot.networkOffers);
+            var hostAd = room.connectivity.get(); var joinAd = joinerAd.get();
+            boolean eligible = !brokerUrl.isEmpty() && hostAd.relayCapable() && joinAd.relayCapable()
+                    && hostAd.relayConsent() && room.hostAccountId.isPresent() && joinerAccount.isPresent();
+            UUID attempt = UUID.randomUUID(); byte[] key = new byte[32]; new java.security.SecureRandom().nextBytes(key);
+            boolean sharedPublicIp = matched.hostAddress().host().equals(matched.joinerAddress().host());
+            var joinCandidates = safeCandidates(joinAd.candidates(), sharedPublicIp);
+            var hostCandidates = safeCandidates(hostAd.candidates(), sharedPublicIp);
+            slot.networkOffers = new NetworkOffers(
+                    new RendezvousProtocol.NetworkOffer(attempt, key, joinCandidates, eligible, eligible ? brokerUrl : ""),
+                    new RendezvousProtocol.NetworkOffer(attempt, key, hostCandidates, eligible, eligible ? brokerUrl : ""),
+                    room.hostAccountId, joinerAccount, eligible);
+            candidateRoutes.put(attempt, new CandidateRoute(code, matched.joinerAddress(), slot));
+            return Optional.of(slot.networkOffers);
+        }
+    }
+
+    Optional<RendezvousProtocol.Address> forwardCandidate(byte[] data, RendezvousProtocol.Address from) {
+        Optional<UUID> attempt = RendezvousProtocol.directCandidateAttempt(data, data.length);
+        if (attempt.isEmpty()) return Optional.empty();
+        CandidateRoute route = candidateRoutes.get(attempt.get());
+        if (route == null) return Optional.empty();
+        Room room = roomsByCode.get(route.room());
+        if (room == null) return Optional.empty();
+        synchronized (room) {
+            if (room.joiners.get(route.joiner()) != route.slot() || clock.getAsLong() - route.slot().lastMatchedAt > 120_000L)
+                return Optional.empty();
+            boolean hostRole = room.hostAddress.equals(from);
+            if (!hostRole && !route.joiner().equals(from)) return Optional.empty();
+            var offer = hostRole ? route.slot().networkOffers.host() : route.slot().networkOffers.joiner();
+            if (RendezvousProtocol.decodeDirectCandidate(data, data.length, offer, hostRole).isEmpty()) return Optional.empty();
+            return Optional.of(hostRole ? route.joiner() : room.hostAddress);
+        }
+    }
+
+    private static List<RendezvousProtocol.Address> safeCandidates(List<RendezvousProtocol.Address> addresses, boolean sharedPublicIp) {
+        return addresses.stream().filter(address -> !address.host().isAnyLocalAddress() && !address.host().isMulticastAddress()
+                && !address.host().isLoopbackAddress() && !address.host().isLinkLocalAddress()
+                && (sharedPublicIp || !address.host().isSiteLocalAddress())).toList();
     }
 
     RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
@@ -213,6 +276,11 @@ final class RoomRegistry {
      */
     JoinResult join(String code, RendezvousProtocol.Address joinerAddress, Optional<UUID> joinerAccountId,
                      BiPredicate<UUID, UUID> friendChecker) {
+        return join(code, joinerAddress, joinerAccountId, friendChecker, null);
+    }
+
+    JoinResult join(String code, RendezvousProtocol.Address joinerAddress, Optional<UUID> joinerAccountId,
+                    BiPredicate<UUID, UUID> friendChecker, UUID clientAttemptId) {
         if (handoffSuspended.containsKey(code)) return new JoinRejected(RendezvousProtocol.REASON_SERVER_BUSY);
         Room room = roomsByCode.get(code);
         if (room == null) {
@@ -240,7 +308,10 @@ final class RoomRegistry {
             room.lastSeenAt = now;
 
             Room.JoinerSlot slot = room.joiners.get(joinerAddress);
-            boolean sameRecentMatch = slot != null && (now - slot.lastMatchedAt) <= REMATCH_DEBOUNCE_MILLIS;
+            boolean detailed = clientAttemptId != null && room.connectivity.isPresent();
+            long debounce = detailed ? 60_000L : REMATCH_DEBOUNCE_MILLIS;
+            boolean sameRecentMatch = slot != null && (now - slot.lastMatchedAt) <= debounce
+                    && (!detailed || clientAttemptId.equals(slot.clientAttemptId));
             if (sameRecentMatch) {
                 return new Matched(room.hostAddress, joinerAddress, slot.token);
             }
@@ -256,7 +327,9 @@ final class RoomRegistry {
             }
 
             long token = ThreadLocalRandom.current().nextLong();
-            room.joiners.put(joinerAddress, new Room.JoinerSlot(joinerAddress, token, now));
+            Room.JoinerSlot freshSlot = new Room.JoinerSlot(joinerAddress, token, now);
+            freshSlot.clientAttemptId = clientAttemptId;
+            room.joiners.put(joinerAddress, freshSlot);
 
             return new Matched(room.hostAddress, joinerAddress, token);
         }
@@ -272,6 +345,11 @@ final class RoomRegistry {
         roomsByCode.values().removeIf(room -> now - room.lastSeenAt > ROOM_TTL_MILLIS);
         handoffSuspended.keySet().retainAll(roomsByCode.keySet());
         handoffRoomKeys.keySet().retainAll(roomsByCode.keySet());
+        candidateRoutes.entrySet().removeIf(entry -> {
+            CandidateRoute route = entry.getValue(); Room room = roomsByCode.get(route.room());
+            if (room == null || now - route.slot().lastMatchedAt > 120_000L) return true;
+            synchronized (room) { return room.joiners.get(route.joiner()) != route.slot(); }
+        });
     }
 
     int roomCount() {

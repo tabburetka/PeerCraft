@@ -10,6 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // so this stub is byte-identical to src/main.
 @Mixin(Minecraft.class)
 public class ExampleClientMixin {
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void peercraft$transportNotices(CallbackInfo info) {
+        net.peercraft.client.gui.TransportNoticeController.tick();
+    }
+
 	@Inject(at = @At("HEAD"), method = "run")
 	private void init(CallbackInfo info) {
 		// This code is injected into the start of Minecraft.run()V

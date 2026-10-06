@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.network.account.AccountClient;
+import net.peercraft.network.account.AccountLoginIdentifier;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Locale;
@@ -40,7 +41,7 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
         this.buttonList.clear();
         int x = dialog.contentX(), w = dialog.contentWidth(), y = dialog.contentTop() + 12;
         this.friendCodeBox = new SteampunkField(this.fontRendererObj, x, y, w, dialog.buttonHeight());
-        this.friendCodeBox.setMaxStringLength(6);
+        this.friendCodeBox.setMaxStringLength(36);
         this.friendCodeBox.setText(previous == null ? "" : previous);
         this.friendCodeBox.setFocused(true);
         y += dialog.buttonPitch() + 12;
@@ -108,7 +109,9 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
     private void onLogin() {
         String friendCode = this.friendCodeBox.getText().trim().toUpperCase(Locale.ROOT);
         String password = this.passwordBox.getPassword();
-        if (friendCode.length() != 6) {
+        try {
+            AccountLoginIdentifier.parse(friendCode);
+        } catch (IllegalArgumentException invalid) {
             this.statusMessage = PeerCraftLang.tr("peercraft.gui.login_code.code_length_error");
             this.statusColor = PeerCraftUi.TEXT_ERROR;
             return;
@@ -122,7 +125,7 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
         this.loginButton.enabled = false;
         this.statusMessage = PeerCraftLang.tr("peercraft.gui.login_code.logging_in");
         this.statusColor = PeerCraftUi.TEXT_MUTED;
-        AccountClient.INSTANCE.loginByFriendCode(friendCode, password.toCharArray(), new AccountClient.AuthCallback() {
+        AccountClient.INSTANCE.loginByIdentifier(friendCode, password.toCharArray(), new AccountClient.AuthCallback() {
             @Override
             public void onSuccess(AccountClient.AccountSession session) {
                 runOnClientThread(() -> {

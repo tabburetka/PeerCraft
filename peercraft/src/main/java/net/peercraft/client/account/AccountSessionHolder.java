@@ -23,8 +23,10 @@ public final class AccountSessionHolder {
 
     /** Call after any successful login/register/rename — persists the session for next launch. */
     public static void persist(AccountClient.AccountSession session) {
-        AccountStorage.save(new AccountState(session.accountId(), session.licensed(), session.friendCode(),
-                session.displayName(), session.rememberToken()));
+        AccountState state = new AccountState(session.accountId(), session.licensed(), session.friendCode(),
+                session.displayName(), session.rememberToken());
+        AccountStorage.save(state);
+        AccountStorage.saveRecoveryCard(state);
     }
 
     public static void logout() {

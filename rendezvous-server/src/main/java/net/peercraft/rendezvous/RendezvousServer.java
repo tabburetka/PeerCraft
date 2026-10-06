@@ -1,6 +1,7 @@
 package net.peercraft.rendezvous;
 
 import net.peercraft.rendezvous.account.AccountService;
+import net.peercraft.rendezvous.relay.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -23,7 +24,7 @@ import java.util.function.LongSupplier;
  * so both sides can attempt UDP hole punching directly with each other. The server's
  * job ends there — it never sees or relays any actual game traffic.
  */
-public final class RendezvousServer {
+public final class RendezvousServer implements AutoCloseable {
 
     private static final int DEFAULT_PORT = 51000;
     // Every real INCOMING request here comfortably fits (the largest is TYPE_SEARCH_ACCOUNTS
@@ -49,6 +50,12 @@ public final class RendezvousServer {
     private final AccountService accountService;
     private final AnalyticsStore analytics;
     private final Path dataDir;
+    private final RelayMatchRegistry relayMatches;
+    private final LongSupplier clock;
+    private volatile RelayBroker relayBroker;
+    private volatile RelayHttpServer relayHttp;
+    private RelayConfig injectedRelayConfig;
+    private TurnProvider injectedTurnProvider;
     private volatile DatagramSocket socket;
     // Anonymous, unauthenticated poll (Phase 7, TYPE_ROOM_LIST) — anyone can ask, so it needs
     // its own throttle independent of the account/friends rate limiters (which all key off a
@@ -63,6 +70,7 @@ public final class RendezvousServer {
     private static final int ROOM_LIST_RATE_LIMIT = 120;
     private static final long ROOM_LIST_RATE_WINDOW_MILLIS = 60_000L;
     private final RateLimiter<InetAddress> roomListRateLimiter;
+    private final RateLimiter<InetAddress> candidateRateLimiter;
 
     /**
      * Test-only convenience — an isolated temp-dir account store and {@code fakeMojang=true}
@@ -81,13 +89,16 @@ public final class RendezvousServer {
     /** Package-private seam so tests can point at a real data dir and/or the real Mojang verifier. */
     RendezvousServer(int port, LongSupplier clock, Path dataDir, boolean fakeMojang) {
         this.port = port;
+        this.clock = clock;
         this.dataDir = dataDir;
         this.registry = new RoomRegistry(clock);
         this.handoffIo = new HandoffDispatch(clock);
         try { this.handoffs = new HandoffRegistry(dataDir.resolve("handoffs"), clock); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
         this.accountService = new AccountService(dataDir.resolve("accounts.json"), fakeMojang, clock);
+        this.relayMatches = new RelayMatchRegistry(clock);
         this.roomListRateLimiter = new RateLimiter<>(ROOM_LIST_RATE_LIMIT, ROOM_LIST_RATE_WINDOW_MILLIS, clock);
+        this.candidateRateLimiter = new RateLimiter<>(120, 60_000L, clock);
         AnalyticsStore opened;
         try { opened = new AnalyticsStore(dataDir.resolve("analytics"), clock); }
         catch (Exception e) {
@@ -95,6 +106,20 @@ public final class RendezvousServer {
             opened = null;
         }
         this.analytics = opened;
+    }
+
+    /** Injectable provider seam for local integration tests; no external provider is contacted. */
+    public RendezvousServer(int port, LongSupplier clock, Path dataDir, boolean fakeMojang,
+                            RelayConfig relayConfig, TurnProvider turnProvider) {
+        this(port, clock, dataDir, fakeMojang);
+        injectedRelayConfig = relayConfig; injectedTurnProvider = turnProvider;
+    }
+
+    public int getRelayBoundPort() { RelayHttpServer http = relayHttp; return http == null ? 0 : http.port(); }
+    @Override public void close() {
+        DatagramSocket udp = socket; if (udp != null) udp.close();
+        RelayHttpServer http = relayHttp; if (http != null) http.close();
+        if (analytics != null) analytics.flush();
     }
 
     private static Path tempDataDir() {
@@ -115,6 +140,7 @@ public final class RendezvousServer {
         try (DatagramSocket socket = new DatagramSocket(port)) {
             this.socket = socket;
             log("Listening on UDP port " + socket.getLocalPort());
+            startRelay();
             AnalyticsDashboard dashboard = null;
             if (port != 0 && analytics != null) {
                 try {
@@ -152,7 +178,7 @@ public final class RendezvousServer {
 
             byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            while (true) {
+            while (!Thread.currentThread().isInterrupted() && !socket.isClosed()) {
                 try {
                     packet.setLength(buffer.length);
                     socket.receive(packet);
@@ -160,12 +186,29 @@ public final class RendezvousServer {
                     System.arraycopy(packet.getData(), 0, data, 0, packet.getLength());
                     handle(socket, data, packet.getAddress(), packet.getPort());
                 } catch (Exception e) {
+                    if (socket.isClosed()) break;
                     InetAddress fromAddr = packet.getAddress();
                     String from = fromAddr != null ? fromAddr.getHostAddress() + ":" + packet.getPort() : "unknown sender";
                     logErr("Error handling packet from " + from + ": " + e);
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    private void startRelay() {
+        try {
+            RelayConfig config = injectedRelayConfig != null ? injectedRelayConfig : RelayConfig.load(dataDir);
+            if (!config.enabled()) return;
+            RelayBroker broker = new RelayBroker(config, injectedTurnProvider != null ? injectedTurnProvider : TurnProviders.load(dataDir, config), relayMatches,
+                    accountService::resolveSession, clock);
+            RelayHttpServer http = new RelayHttpServer(config, broker);
+            relayBroker = broker; relayHttp = http; http.start();
+            Runtime.getRuntime().addShutdownHook(new Thread(http::close, "peercraft-relay-revoke"));
+            log("Relay control service configured; admission waits for provider checks");
+        } catch (IOException | RuntimeException unavailable) {
+            // Do not expose provider response bodies, credentials or environment secrets.
+            logErr("Relay remains disabled: configuration or provider initialization failed");
         }
     }
 
@@ -207,6 +250,14 @@ public final class RendezvousServer {
         if (analytics != null) analytics.request(requestKind(type), fromAddr, data.length);
 
         RendezvousProtocol.Address from = new RendezvousProtocol.Address(fromAddr, fromPort);
+
+        if (type == RendezvousProtocol.TYPE_CONNECTIVITY_CHECK) {
+            if (candidateRateLimiter.allow(fromAddr)) {
+                var peer = registry.forwardCandidate(data, from);
+                if (peer.isPresent()) send(socket, data, peer.get());
+            }
+            return;
+        }
 
         switch (type) {
             case RendezvousProtocol.TYPE_REGISTER -> handleRegister(socket, data, from);
@@ -272,6 +323,10 @@ public final class RendezvousServer {
         RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(),
                 verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion());
         if (result instanceof RoomRegistry.Registered registered) {
+            registry.connectivity(registered.code(), from, register.connectivity());
+            relayMatches.observeHost(registered.code(), verifiedAccountId.orElse(null),
+                    register.connectivity().map(ad -> ad.relayCapable() && ad.relayConsent()).orElse(false),
+                    register.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));
             if (analytics != null) {
                 analytics.event(registered.reused() ? "room.keepalive" : "room.created");
                 if (!registered.reused()) {
@@ -302,17 +357,28 @@ public final class RendezvousServer {
         // that token. Reused both for the friends-only gate below and for PEER_FOUND's account
         // trailer to the host.
         java.util.Optional<java.util.UUID> joinerAccountId = join.sessionToken().flatMap(accountService::resolveSession);
-        RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend);
+        RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend,
+                join.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));
         if (result instanceof RoomRegistry.Matched matched) {
             if (analytics != null) {
                 analytics.event("join.matched");
                 joinerAccountId.ifPresent(analytics::account);
             }
-            byte[] hostPayload = joinerAccountId
+            RelayBroker broker = relayBroker;
+            String brokerUrl = broker != null && broker.configured() ? broker.advertisedUrl() : "";
+            java.util.Optional<RoomRegistry.NetworkOffers> offers = registry.networkOffers(join.code(), matched,
+                    joinerAccountId, join.connectivity(), brokerUrl);
+            offers.ifPresent(offer -> relayMatches.observeMatch(join.code(), matched.token(), offer.host().attemptId(),
+                    offer.hostAccountId().orElse(null), offer.joinerAccountId().orElse(null), offer.relayEligible()));
+            byte[] hostPayload = offers.map(offer -> RendezvousProtocol.encodePeerFoundDetailed(matched.joinerAddress(),
+                    matched.token(), joinerAccountId, offer.host())).orElseGet(() -> joinerAccountId
                     .map(id -> RendezvousProtocol.encodePeerFoundWithAccount(matched.joinerAddress(), matched.token(), id))
-                    .orElseGet(() -> RendezvousProtocol.encodePeerFound(matched.joinerAddress(), matched.token()));
+                    .orElseGet(() -> RendezvousProtocol.encodePeerFound(matched.joinerAddress(), matched.token())));
             send(socket, hostPayload, matched.hostAddress());
-            send(socket, RendezvousProtocol.encodePeerFound(matched.hostAddress(), matched.token()), matched.joinerAddress());
+            byte[] joinPayload = offers.map(offer -> RendezvousProtocol.encodePeerFoundDetailed(matched.hostAddress(),
+                    matched.token(), java.util.Optional.empty(), offer.joiner()))
+                    .orElseGet(() -> RendezvousProtocol.encodePeerFound(matched.hostAddress(), matched.token()));
+            send(socket, joinPayload, matched.joinerAddress());
             log("Room " + join.code() + " matched: " + describe(matched.hostAddress()) + " <-> " + describe(matched.joinerAddress()));
         } else {
             RoomRegistry.JoinRejected rejected = (RoomRegistry.JoinRejected) result;

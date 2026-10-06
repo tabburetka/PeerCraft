@@ -125,19 +125,16 @@ public final class RendezvousProtocol {
     public static final class Join {
         private final String code;
         private final Optional<byte[]> sessionToken;
-
-        public Join(String code, Optional<byte[]> sessionToken) {
+        private final Optional<ConnectivityAdvertisement> connectivity;
+        public Join(String code, Optional<byte[]> sessionToken) { this(code, sessionToken, Optional.empty()); }
+        public Join(String code, Optional<byte[]> sessionToken, Optional<ConnectivityAdvertisement> connectivity) {
             this.code = code;
             this.sessionToken = sessionToken;
+            this.connectivity = connectivity;
         }
-
-        public String code() {
-            return code;
-        }
-
-        public Optional<byte[]> sessionToken() {
-            return sessionToken;
-        }
+        public String code() { return code; }
+        public Optional<byte[]> sessionToken() { return sessionToken; }
+        public Optional<ConnectivityAdvertisement> connectivity() { return connectivity; }
     }
 
     /**
@@ -160,9 +157,9 @@ public final class RendezvousProtocol {
         private final boolean publicRoom;
         private final String worldName;
         private final String mcVersion;
-
-        public Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly,
-                        boolean publicRoom, String worldName, String mcVersion) {
+        private final Optional<ConnectivityAdvertisement> connectivity;
+        public Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion) { this(maxPlayers, currentPlayerCount, account, friendsOnly, publicRoom, worldName, mcVersion, Optional.empty()); }
+        public Register(int maxPlayers, int currentPlayerCount, Optional<AccountRef> account, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, Optional<ConnectivityAdvertisement> connectivity) {
             this.maxPlayers = maxPlayers;
             this.currentPlayerCount = currentPlayerCount;
             this.account = account;
@@ -170,35 +167,16 @@ public final class RendezvousProtocol {
             this.publicRoom = publicRoom;
             this.worldName = worldName;
             this.mcVersion = mcVersion;
+            this.connectivity = connectivity;
         }
-
-        public int maxPlayers() {
-            return maxPlayers;
-        }
-
-        public int currentPlayerCount() {
-            return currentPlayerCount;
-        }
-
-        public Optional<AccountRef> account() {
-            return account;
-        }
-
-        public boolean friendsOnly() {
-            return friendsOnly;
-        }
-
-        public boolean publicRoom() {
-            return publicRoom;
-        }
-
-        public String worldName() {
-            return worldName;
-        }
-
-        public String mcVersion() {
-            return mcVersion;
-        }
+        public int maxPlayers() { return maxPlayers; }
+        public int currentPlayerCount() { return currentPlayerCount; }
+        public Optional<AccountRef> account() { return account; }
+        public boolean friendsOnly() { return friendsOnly; }
+        public boolean publicRoom() { return publicRoom; }
+        public String worldName() { return worldName; }
+        public String mcVersion() { return mcVersion; }
+        public Optional<ConnectivityAdvertisement> connectivity() { return connectivity; }
     }
 
     /** {@code sessionToken} must be re-validated server-side (see RendezvousServer.handleRegister) — a REGISTER must never be trusted to self-report its own accountId unchecked. */
@@ -225,24 +203,18 @@ public final class RendezvousProtocol {
         private final Address peer;
         private final long token;
         private final Optional<UUID> joinerAccountId;
-
-        public PeerFound(Address peer, long token, Optional<UUID> joinerAccountId) {
+        private final Optional<NetworkOffer> networkOffer;
+        public PeerFound(Address peer, long token, Optional<UUID> joinerAccountId) { this(peer, token, joinerAccountId, Optional.empty()); }
+        public PeerFound(Address peer, long token, Optional<UUID> joinerAccountId, Optional<NetworkOffer> networkOffer) {
             this.peer = peer;
             this.token = token;
             this.joinerAccountId = joinerAccountId;
+            this.networkOffer = networkOffer;
         }
-
-        public Address peer() {
-            return peer;
-        }
-
-        public long token() {
-            return token;
-        }
-
-        public Optional<UUID> joinerAccountId() {
-            return joinerAccountId;
-        }
+        public Address peer() { return peer; }
+        public long token() { return token; }
+        public Optional<UUID> joinerAccountId() { return joinerAccountId; }
+        public Optional<NetworkOffer> networkOffer() { return networkOffer; }
     }
 
     /** One row of the public game browser (Phase 7) — {@code hostDisplayName} is "" for an anonymous host; {@code mcVersion} is the host's running Minecraft version, see Register's doc comment. */
@@ -300,6 +272,61 @@ public final class RendezvousProtocol {
         }
     }
 
+    /** New clients advertise checks independently of relay/account eligibility. */
+    public static final class ConnectivityAdvertisement {
+        private final boolean relayCapable, relayConsent;
+        private final List<Address> candidates;
+        private final UUID clientAttemptId;
+        public ConnectivityAdvertisement(boolean relayCapable, boolean relayConsent, List<Address> candidates) {
+            this(relayCapable, relayConsent, candidates, UUID.randomUUID());
+        }
+        public ConnectivityAdvertisement(boolean relayCapable, boolean relayConsent, List<Address> candidates, UUID clientAttemptId) {
+            if (clientAttemptId == null) throw new IllegalArgumentException("Missing client attempt identity");
+            this.relayCapable = relayCapable; this.relayConsent = relayConsent;
+            this.candidates = checkedCandidates(candidates); this.clientAttemptId = clientAttemptId;
+        }
+        public UUID clientAttemptId() { return clientAttemptId; }
+        public boolean relayCapable() { return relayCapable; }
+        public boolean relayConsent() { return relayConsent; }
+        public List<Address> candidates() { return candidates; }
+    }
+
+    /** Per-match direct check proof; identical attempt/key on both sides. */
+    public static final class NetworkOffer {
+        private final UUID attemptId;
+        private final byte[] challengeKey;
+        private final List<Address> peerCandidates;
+        private final boolean relayCapable;
+        private final String brokerUrl;
+        public NetworkOffer(UUID attemptId, byte[] challengeKey, List<Address> peerCandidates,
+                            boolean relayCapable, String brokerUrl) {
+            if (attemptId == null || challengeKey == null || challengeKey.length != 32)
+                throw new IllegalArgumentException("Invalid connectivity proof");
+            if (brokerUrl == null || brokerUrl.getBytes(StandardCharsets.UTF_8).length > 512)
+                throw new IllegalArgumentException("Invalid broker URL length");
+            this.attemptId = attemptId; this.challengeKey = challengeKey.clone();
+            this.peerCandidates = checkedCandidates(peerCandidates);
+            this.relayCapable = relayCapable; this.brokerUrl = brokerUrl;
+        }
+        public UUID attemptId() { return attemptId; }
+        public byte[] challengeKey() { return challengeKey.clone(); }
+        public List<Address> peerCandidates() { return peerCandidates; }
+        public boolean relayCapable() { return relayCapable; }
+        public String brokerUrl() { return brokerUrl; }
+    }
+
+    private static List<Address> checkedCandidates(List<Address> candidates) {
+        if (candidates == null || candidates.size() > 8) throw new IllegalArgumentException("Too many candidates");
+        List<Address> copy = new ArrayList<>();
+        for (Address address : candidates) {
+            if (address == null || address.host() == null || address.port() < 1 || address.port() > 65535
+                    || address.host().isAnyLocalAddress() || address.host().isMulticastAddress())
+                throw new IllegalArgumentException("Invalid candidate");
+            if (!copy.contains(address)) copy.add(address);
+        }
+        return java.util.Collections.unmodifiableList(copy);
+    }
+
     /** @return the {@code type} byte, or -1 if this isn't a rendezvous datagram at all (wrong magic/too short). */
     public static int messageType(byte[] data, int length) {
         if (length < 2 || data[0] != MAGIC) {
@@ -317,6 +344,8 @@ public final class RendezvousProtocol {
 
     private static Address readAddress(ByteBuffer buf) {
         int addrLen = buf.get() & 0xFF;
+        if ((addrLen != 4 && addrLen != 16) || buf.remaining() < addrLen + 2)
+            throw new IllegalArgumentException("Invalid endpoint length");
         byte[] addrBytes = new byte[addrLen];
         buf.get(addrBytes);
         int port = buf.getShort() & 0xFFFF;
@@ -331,6 +360,137 @@ public final class RendezvousProtocol {
 
     private static int addressSize(Address address) {
         return 1 + address.host().getAddress().length + 2;
+    }
+
+    public static final int TYPE_CONNECTIVITY_CHECK = 0x12;
+    public static final int DIRECT_CANDIDATE_UPDATE = 5;
+    private static final int DIRECT_CONTROL_HEADER = 29;
+    private static final int DIRECT_CONTROL_TAG = 16;
+
+    /** Untrusted identifier for looking up an existing match; it grants no permission itself. */
+    public static Optional<UUID> directCandidateAttempt(byte[] bytes, int length) {
+        if (bytes == null || length < DIRECT_CONTROL_HEADER + DIRECT_CONTROL_TAG || length > bytes.length
+                || bytes[0] != MAGIC || (bytes[1] & 255) != TYPE_CONNECTIVITY_CHECK
+                || bytes[2] != 1 || bytes[3] != DIRECT_CANDIDATE_UPDATE) return Optional.empty();
+        ByteBuffer b = ByteBuffer.wrap(bytes, 5, 16);
+        return Optional.of(new UUID(b.getLong(), b.getLong()));
+    }
+    public static boolean isGlobalCandidate(Address address) {
+        if (address == null || address.host() == null || address.port() < 1 || address.port() > 65535) return false;
+        InetAddress ip = address.host(); byte[] bytes = ip.getAddress();
+        if (ip.isAnyLocalAddress() || ip.isLoopbackAddress() || ip.isLinkLocalAddress()
+                || ip.isSiteLocalAddress() || ip.isMulticastAddress()) return false;
+        if (bytes.length == 16) return (bytes[0] & 0xe0) == 0x20;
+        if (bytes.length != 4) return false;
+        int a = bytes[0] & 255, b = bytes[1] & 255;
+        return a != 0 && a < 224 && !(a == 100 && b >= 64 && b <= 127)
+                && !(a == 198 && (b == 18 || b == 19));
+    }
+    public static byte[] encodeDirectCandidate(NetworkOffer offer, boolean hostRole, Address candidate) {
+        if (!isGlobalCandidate(candidate)) throw new IllegalArgumentException("Candidate must be global unicast");
+        ByteBuffer b = ByteBuffer.allocate(DIRECT_CONTROL_HEADER + addressSize(candidate) + DIRECT_CONTROL_TAG);
+        b.put(MAGIC).put((byte) TYPE_CONNECTIVITY_CHECK).put((byte) 1).put((byte) DIRECT_CANDIDATE_UPDATE);
+        b.put((byte) (hostRole ? 1 : 0));
+        b.putLong(offer.attemptId().getMostSignificantBits()).putLong(offer.attemptId().getLeastSignificantBits());
+        b.putLong(0); writeAddress(b, candidate);
+        byte[] bytes = b.array(); byte[] tag = directControlTag(java.util.Arrays.copyOf(bytes, bytes.length - DIRECT_CONTROL_TAG), offer.challengeKey());
+        System.arraycopy(tag, 0, bytes, bytes.length - DIRECT_CONTROL_TAG, DIRECT_CONTROL_TAG); return bytes;
+    }
+    public static Optional<Address> decodeDirectCandidate(byte[] bytes, int length, NetworkOffer offer, boolean expectedHostRole) {
+        Optional<UUID> attempt = directCandidateAttempt(bytes, length);
+        if (!attempt.isPresent() || !attempt.get().equals(offer.attemptId())
+                || (bytes[4] & 255) != (expectedHostRole ? 1 : 0) || length > 64) return Optional.empty();
+        byte[] expected = directControlTag(java.util.Arrays.copyOf(bytes, length - DIRECT_CONTROL_TAG), offer.challengeKey());
+        if (!java.security.MessageDigest.isEqual(expected,
+                java.util.Arrays.copyOfRange(bytes, length - DIRECT_CONTROL_TAG, length))) return Optional.empty();
+        try {
+            ByteBuffer b = ByteBuffer.wrap(bytes, DIRECT_CONTROL_HEADER, length - DIRECT_CONTROL_HEADER - DIRECT_CONTROL_TAG);
+            Address candidate = readAddress(b);
+            return !b.hasRemaining() && isGlobalCandidate(candidate) ? Optional.of(candidate) : Optional.empty();
+        } catch (RuntimeException malformed) { return Optional.empty(); }
+    }
+    private static byte[] directControlTag(byte[] bytes, byte[] key) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"));
+            return java.util.Arrays.copyOf(mac.doFinal(bytes), DIRECT_CONTROL_TAG);
+        } catch (java.security.GeneralSecurityException unavailable) {
+            throw new IllegalStateException("HmacSHA256 is required for candidate updates", unavailable);
+        }
+    }
+
+    // Connectivity extension: 0xCA, version 1; legacy overloads preserve their exact bytes.
+    private static final byte CONNECTIVITY_EXTENSION = (byte) 0xCA;
+    private static byte[] append(byte[] base, byte[] extension) {
+        byte[] result = java.util.Arrays.copyOf(base, base.length + extension.length);
+        System.arraycopy(extension, 0, result, base.length, extension.length); return result;
+    }
+    private static byte[] encodeConnectivity(ConnectivityAdvertisement advertisement) {
+        int size = 20; for (Address a : advertisement.candidates()) size += addressSize(a);
+        ByteBuffer b = ByteBuffer.allocate(size);
+        b.put(CONNECTIVITY_EXTENSION).put((byte) 1);
+        b.putLong(advertisement.clientAttemptId().getMostSignificantBits()).putLong(advertisement.clientAttemptId().getLeastSignificantBits());
+        b.put((byte) ((advertisement.relayCapable() ? 1 : 0) | (advertisement.relayConsent() ? 2 : 0)));
+        b.put((byte) advertisement.candidates().size());
+        for (Address a : advertisement.candidates()) writeAddress(b, a);
+        return b.array();
+    }
+    private static Optional<ConnectivityAdvertisement> readConnectivity(ByteBuffer b) {
+        if (!b.hasRemaining()) return Optional.empty();
+        if (b.remaining() < 2 || b.get() != CONNECTIVITY_EXTENSION || b.get() != 1) return Optional.empty();
+        if (b.remaining() < 18) throw new IllegalArgumentException("Truncated connectivity extension");
+        UUID clientAttempt = new UUID(b.getLong(), b.getLong());
+        int flags = b.get() & 255, count = b.get() & 255;
+        if (count > 8 || (flags & ~3) != 0) throw new IllegalArgumentException("Invalid connectivity extension");
+        List<Address> candidates = new ArrayList<>();
+        for (int i = 0; i < count; i++) candidates.add(readAddress(b));
+        return Optional.of(new ConnectivityAdvertisement((flags & 1) != 0, (flags & 2) != 0, candidates, clientAttempt));
+    }
+    public static byte[] encodeRegisterAnonymous(int maxPlayers, int currentPlayerCount, boolean publicRoom,
+                                                String worldName, String mcVersion, ConnectivityAdvertisement connectivity) {
+        return append(encodeRegisterAnonymous(maxPlayers, currentPlayerCount, publicRoom, worldName, mcVersion), encodeConnectivity(connectivity));
+    }
+    public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken,
+                                                 boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion,
+                                                 ConnectivityAdvertisement connectivity) {
+        return append(encodeRegisterWithAccount(maxPlayers, currentPlayerCount, accountId, sessionToken, friendsOnly,
+                publicRoom, worldName, mcVersion), encodeConnectivity(connectivity));
+    }
+    public static byte[] encodeJoin(String code, ConnectivityAdvertisement connectivity) {
+        return append(append(encodeJoin(code), new byte[] { 0 }), encodeConnectivity(connectivity));
+    }
+    public static byte[] encodeJoinWithAccount(String code, byte[] token, ConnectivityAdvertisement connectivity) {
+        return append(encodeJoinWithAccount(code, token), encodeConnectivity(connectivity));
+    }
+    public static byte[] encodePeerFoundDetailed(Address peer, long token, Optional<UUID> account, NetworkOffer offer) {
+        byte[] base = account.isPresent() ? encodePeerFoundWithAccount(peer, token, account.get())
+                : append(encodePeerFound(peer, token), new byte[] { 0 });
+        byte[] url = offer.brokerUrl().getBytes(StandardCharsets.UTF_8);
+        int size = 2 + 16 + 32 + 1 + 1 + 2 + url.length;
+        for (Address a : offer.peerCandidates()) size += addressSize(a);
+        ByteBuffer b = ByteBuffer.allocate(size);
+        b.put(CONNECTIVITY_EXTENSION).put((byte) 1);
+        b.putLong(offer.attemptId().getMostSignificantBits()).putLong(offer.attemptId().getLeastSignificantBits());
+        b.put(offer.challengeKey()).put((byte) (offer.relayCapable() ? 1 : 0));
+        b.put((byte) offer.peerCandidates().size());
+        for (Address a : offer.peerCandidates()) writeAddress(b, a);
+        b.putShort((short) url.length).put(url);
+        return append(base, b.array());
+    }
+    private static Optional<NetworkOffer> readNetworkOffer(ByteBuffer b) {
+        if (!b.hasRemaining()) return Optional.empty();
+        if (b.remaining() < 2 || b.get() != CONNECTIVITY_EXTENSION || b.get() != 1) return Optional.empty();
+        if (b.remaining() < 52) throw new IllegalArgumentException("Truncated network offer");
+        UUID attempt = new UUID(b.getLong(), b.getLong()); byte[] key = new byte[32]; b.get(key);
+        int flags = b.get() & 255, count = b.get() & 255;
+        if (flags > 1 || count > 8) throw new IllegalArgumentException("Invalid network offer");
+        List<Address> candidates = new ArrayList<>();
+        for (int i = 0; i < count; i++) candidates.add(readAddress(b));
+        if (b.remaining() < 2) throw new IllegalArgumentException("Truncated broker URL");
+        int size = b.getShort() & 65535;
+        if (size > 512 || size > b.remaining()) throw new IllegalArgumentException("Invalid broker URL length");
+        byte[] url = new byte[size]; b.get(url);
+        return Optional.of(new NetworkOffer(attempt, key, candidates, flags != 0, new String(url, StandardCharsets.UTF_8)));
     }
 
     // ---- REGISTER: host -> server ----
@@ -431,7 +591,7 @@ public final class RendezvousProtocol {
             boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
             String worldName = publicRoom ? readShortString(buf) : "";
             String mcVersion = publicRoom ? readShortString(buf) : "";
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, publicRoom, worldName, mcVersion);
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, publicRoom, worldName, mcVersion, readConnectivity(buf));
         }
         UUID accountId = new UUID(buf.getLong(), buf.getLong());
         byte[] sessionToken = new byte[16];
@@ -440,7 +600,7 @@ public final class RendezvousProtocol {
         boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
         String worldName = publicRoom ? readShortString(buf) : "";
         String mcVersion = publicRoom ? readShortString(buf) : "";
-        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly, publicRoom, worldName, mcVersion);
+        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly, publicRoom, worldName, mcVersion, readConnectivity(buf));
     }
 
     // ---- ROOM_CREATED: server -> host ----
@@ -494,22 +654,15 @@ public final class RendezvousProtocol {
     }
 
     public static Join decodeJoin(byte[] data, int length) {
-        ByteBuffer buf = ByteBuffer.wrap(data, 0, length);
-        buf.get();
-        buf.get();
-        int codeLen = buf.get() & 0xFF;
-        byte[] codeBytes = new byte[codeLen];
-        buf.get(codeBytes);
+        ByteBuffer buf = ByteBuffer.wrap(data, 2, length - 2);
+        int codeLen = buf.get() & 255; byte[] codeBytes = new byte[codeLen]; buf.get(codeBytes);
         String code = new String(codeBytes, StandardCharsets.US_ASCII);
-        if (buf.remaining() >= 1) {
-            boolean hasToken = buf.get() != 0;
-            if (hasToken && buf.remaining() >= 16) {
-                byte[] sessionToken = new byte[16];
-                buf.get(sessionToken);
-                return new Join(code, Optional.of(sessionToken));
-            }
+        Optional<byte[]> token = Optional.empty();
+        if (buf.hasRemaining()) {
+            boolean present = buf.get() != 0;
+            if (present) { byte[] value = new byte[16]; buf.get(value); token = Optional.of(value); }
         }
-        return new Join(code, Optional.empty());
+        return new Join(code, token, readConnectivity(buf));
     }
 
     // ---- JOIN_FAIL: server -> requester ----
@@ -548,19 +701,14 @@ public final class RendezvousProtocol {
     }
 
     public static PeerFound decodePeerFound(byte[] data, int length) {
-        ByteBuffer buf = ByteBuffer.wrap(data, 0, length);
-        buf.get();
-        buf.get();
-        Address peer = readAddress(buf);
-        long token = buf.getLong();
-        if (buf.remaining() >= 1) {
-            boolean hasAccount = buf.get() != 0;
-            if (hasAccount && buf.remaining() >= 16) {
-                UUID accountId = new UUID(buf.getLong(), buf.getLong());
-                return new PeerFound(peer, token, Optional.of(accountId));
-            }
+        ByteBuffer buf = ByteBuffer.wrap(data, 2, length - 2);
+        Address peer = readAddress(buf); long token = buf.getLong();
+        Optional<UUID> account = Optional.empty();
+        if (buf.hasRemaining()) {
+            boolean present = buf.get() != 0;
+            if (present) account = Optional.of(new UUID(buf.getLong(), buf.getLong()));
         }
-        return new PeerFound(peer, token, Optional.empty());
+        return new PeerFound(peer, token, account, readNetworkOffer(buf));
     }
 
     // ---- ROOM_LIST: client -> server (Phase 7, anonymous poll — no session, anyone can ask) ----
@@ -701,4 +849,3 @@ public final class RendezvousProtocol {
         return new String(c, StandardCharsets.US_ASCII);
     }
 }
-

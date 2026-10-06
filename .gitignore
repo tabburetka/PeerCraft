@@ -9,3 +9,8 @@ FOR_CLAUDE.txt
 /local-test/
 *-DEVELOP.jar
 /rendezvous-server/data/
+
+# Private self-hosted TURN deployment output.
+/rendezvous-server/deploy/coturn/generated/
+/rendezvous-server/deploy/coturn/packages/
+/rendezvous-server/deploy/coturn/__pycache__/

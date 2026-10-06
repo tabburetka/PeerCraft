@@ -40,6 +40,11 @@ import java.util.List;
  * </ul>
  */
 public class PeerCraftScreenEvents {
+    @SubscribeEvent
+    public void onTransportNoticeTick(cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent event) {
+        if (event.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.END) TransportNoticeController.tick();
+    }
+
 
     private final List<GuiButton> internetGated = new ArrayList<GuiButton>();
 

@@ -1,0 +1,12 @@
+# Copy to the EXISTING rendezvous data directory. Disabled until closed validation.
+enabled=false
+advertisedUrl=
+bindHost=127.0.0.1
+port=51081
+tlsReverseProxy=true
+billingPeriodVerified=false
+# Obtain actual subscription period in UTC from Cloudflare Billing.
+# billingStart=...
+# billingEnd=...
+# Set true only while ALL account Realtime usage is TURN, without SFU.
+exclusiveTurnAccount=false

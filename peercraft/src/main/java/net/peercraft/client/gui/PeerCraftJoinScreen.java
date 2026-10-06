@@ -71,7 +71,7 @@ public class PeerCraftJoinScreen extends Screen {
         this.roomCodeBox = new SteampunkSettingsTheme.Field(this.font, centerX - 100, y, 200, 20, Component.translatable("peercraft.gui.join.room_code_field"));
         this.roomCodeBox.setMaxLength(32);
         this.roomCodeBox.setHint(Component.translatable("peercraft.gui.join.room_code_hint"));
-        String prefillCode = PeerCraftConfig.roomCode();
+        String prefillCode = PeerCraftConfig.roomCode().isEmpty() ? P2PBridge.INSTANCE.lastJoinedRoomCode() : PeerCraftConfig.roomCode();
         if (!prefillCode.isBlank()) {
             this.roomCodeBox.setValue(prefillCode);
         }

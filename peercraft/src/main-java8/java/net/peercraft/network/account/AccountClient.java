@@ -15,7 +15,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Talks to the rendezvous server's account/friends/presence endpoints — deliberately its own
@@ -25,9 +25,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * active at all.
  *
  * Every request/reply exchange here follows the same shape: send, retry on a timer until a
- * matching reply arrives or a timeout expires. Concurrent GUI calls are queued: the wire
- * protocol has no request IDs for list replies or friend acknowledgements, so only the head
- * request is sent. Its timeout starts when it is sent, not while it waits in the queue.
+ * matching reply arrives or a timeout expires. Only one exchange is tracked at a time (see
+ * {@link #pending}) — concurrent calls from the GUI aren't expected (each screen only has one
+ * "in flight" action at a time), and a stray late timeout callback from an abandoned attempt
+ * is a harmless no-op once a newer attempt has taken the pending slot.
  *
  * <p><b>Java 8 backport</b> of {@code src/main/java/.../AccountClient.java} for the Minecraft
  * 1.16.5 target: {@code record} session/friend carriers become final classes, the three
@@ -271,7 +272,7 @@ public final class AccountClient {
     private volatile int rendezvousPort;
     private volatile AccountSession currentSession;
     private volatile Thread heartbeatThread;
-    private final ConcurrentLinkedQueue<PendingRequest> pending = new ConcurrentLinkedQueue<>();
+    private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
 
     /** Public (not a hard singleton) so tests can create isolated instances — see {@link #INSTANCE} for production use. */
     public AccountClient() {
@@ -406,7 +407,7 @@ public final class AccountClient {
             return;
         }
         int type = RendezvousProtocol.messageType(data, length);
-        PendingRequest current = pending.peek();
+        PendingRequest current = pending.get();
         if (current != null) {
             current.tryHandle(type, data, length);
         }
@@ -463,6 +464,13 @@ public final class AccountClient {
         byte[] hash = PasswordCrypto.hash(password, salt);
         byte[] payload = AccountProtocol.encodeAccountRegister(nickname, salt, hash);
         sendRequest(payload, authOkOrFailHandler(cb));
+    }
+
+    /** Accept the public friend code or the stable ID from an account recovery card. */
+    public void loginByIdentifier(String identifier, char[] password, AuthCallback cb) {
+        AccountLoginIdentifier parsed = AccountLoginIdentifier.parse(identifier);
+        if (parsed.accountId() != null) loginByAccountId(parsed.accountId(), password, cb);
+        else loginByFriendCode(parsed.friendCode(), password, cb);
     }
 
     public void loginByFriendCode(String friendCode, char[] password, AuthCallback cb) {
@@ -820,23 +828,8 @@ public final class AccountClient {
         void onTimeout();
     }
 
-    private synchronized void sendRequest(byte[] payload, ReplyHandler handler) {
-        PendingRequest request = new PendingRequest(payload, handler);
-        pending.add(request);
-        if (pending.peek() == request) {
-            request.start();
-        }
-    }
-
-    private synchronized void finishRequest(PendingRequest request) {
-        if (pending.peek() != request) {
-            return;
-        }
-        pending.remove();
-        PendingRequest next = pending.peek();
-        if (next != null) {
-            next.start();
-        }
+    private void sendRequest(byte[] payload, ReplyHandler handler) {
+        new PendingRequest(payload, handler).start();
     }
 
     private final class PendingRequest {
@@ -850,12 +843,13 @@ public final class AccountClient {
         }
 
         void start() {
+            pending.set(this);
             Thread retryThread = new Thread(this::retryLoop, "PeerCraft-AccountClient-Retry");
             retryThread.setDaemon(true);
             retryThread.start();
         }
 
-        synchronized void tryHandle(int type, byte[] data, int length) {
+        void tryHandle(int type, byte[] data, int length) {
             if (done.get()) {
                 return;
             }
@@ -884,22 +878,15 @@ public final class AccountClient {
                     return;
                 }
             }
-            timeout();
-        }
-
-        private synchronized void timeout() {
             if (done.compareAndSet(false, true)) {
-                try {
-                    handler.onTimeout();
-                } finally {
-                    finishRequest(this);
-                }
+                pending.compareAndSet(this, null);
+                handler.onTimeout();
             }
         }
 
         private void finish() {
             if (done.compareAndSet(false, true)) {
-                finishRequest(this);
+                pending.compareAndSet(this, null);
             }
         }
     }

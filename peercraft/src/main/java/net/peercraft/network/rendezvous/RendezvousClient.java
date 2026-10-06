@@ -61,7 +61,19 @@ public final class RendezvousClient implements RawPacketListener {
 
     public interface MatchCallback {
         void onMatched(RendezvousProtocol.Address peer, long token);
+        default void onMatchedDetailed(RendezvousProtocol.PeerFound peerFound) {
+            onMatched(peerFound.peer(), peerFound.token());
+        }
         void onFailed(String reason);
+    }
+
+    private volatile RendezvousProtocol.ConnectivityAdvertisement connectivity =
+            new RendezvousProtocol.ConnectivityAdvertisement(false, false, java.util.Collections.emptyList());
+
+    /** Set before register/join; direct checks remain independent of relay/account availability. */
+    public void setConnectivityAdvertisement(RendezvousProtocol.ConnectivityAdvertisement advertisement) {
+        if (advertisement == null) throw new IllegalArgumentException("Missing connectivity advertisement");
+        this.connectivity = advertisement;
     }
 
     private final P2PSender sender;
@@ -178,18 +190,18 @@ public final class RendezvousClient implements RawPacketListener {
         java.util.UUID accId = this.accountId;
         byte[] token = this.accountSessionToken;
         if (accId != null && token != null) {
-            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly, this.publicRoom, this.worldName, this.mcVersion);
+            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly, this.publicRoom, this.worldName, this.mcVersion, connectivity);
         }
         if (this.publicRoom) {
-            return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion);
+            return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion, connectivity);
         }
-        return RendezvousProtocol.encodeRegister(this.maxPlayers, count);
+        return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, false, "", "", connectivity);
     }
 
     public void joinRoom(String code, MatchCallback matchCallback) {
         this.matchCallback = matchCallback;
         this.state = State.JOINING;
-        byte[] payload = RendezvousProtocol.encodeJoin(code);
+        byte[] payload = RendezvousProtocol.encodeJoin(code, connectivity);
         startRetryLoop(() -> payload, State.JOINING);
     }
 
@@ -197,7 +209,7 @@ public final class RendezvousClient implements RawPacketListener {
     public void joinRoom(String code, byte[] accountSessionToken, MatchCallback matchCallback) {
         this.matchCallback = matchCallback;
         this.state = State.JOINING;
-        byte[] payload = RendezvousProtocol.encodeJoinWithAccount(code, accountSessionToken);
+        byte[] payload = RendezvousProtocol.encodeJoinWithAccount(code, accountSessionToken, connectivity);
         startRetryLoop(() -> payload, State.JOINING);
     }
 
@@ -343,7 +355,7 @@ public final class RendezvousClient implements RawPacketListener {
             }
             MatchCallback callback = matchCallback;
             if (callback != null) {
-                callback.onMatched(peerFound.peer(), peerFound.token());
+                callback.onMatchedDetailed(peerFound);
             }
             return;
         }
@@ -354,7 +366,7 @@ public final class RendezvousClient implements RawPacketListener {
         if (resultDelivered.compareAndSet(false, true)) {
             MatchCallback callback = matchCallback;
             if (callback != null) {
-                callback.onMatched(peerFound.peer(), peerFound.token());
+                callback.onMatchedDetailed(peerFound);
             }
         }
     }

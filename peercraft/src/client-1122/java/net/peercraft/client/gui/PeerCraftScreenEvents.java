@@ -33,6 +33,11 @@ import java.util.List;
  * </ul>
  */
 public class PeerCraftScreenEvents {
+    @SubscribeEvent
+    public void onTransportNoticeTick(net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent event) {
+        if (event.phase == net.minecraftforge.fml.common.gameevent.TickEvent.Phase.END) TransportNoticeController.tick();
+    }
+
 
     private final List<GuiButton> internetGated = new ArrayList<GuiButton>();
 

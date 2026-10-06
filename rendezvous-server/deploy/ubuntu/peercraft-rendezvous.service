@@ -1,0 +1,24 @@
+[Unit]
+Description=PeerCraft rendezvous and relay credential broker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=peercraft
+Group=peercraft
+WorkingDirectory=/var/lib/peercraft
+EnvironmentFile=/etc/peercraft/relay.env
+ExecStart=/usr/bin/java -Dpeercraft.rendezvous.dataDir=/var/lib/peercraft/data -jar /opt/peercraft/rendezvous-server.jar 51000
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/peercraft
+
+[Install]
+WantedBy=multi-user.target

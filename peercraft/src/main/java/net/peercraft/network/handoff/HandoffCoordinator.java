@@ -46,6 +46,7 @@ public final class HandoffCoordinator {
     public interface Transfer {
         void run(Runnable onDone, java.util.function.Consumer<String> onFail);
     }
+    public interface Preparation { void prepare() throws java.io.IOException; }
 
     public interface Callbacks {
         void onAccepted();
@@ -98,11 +99,19 @@ public final class HandoffCoordinator {
                                            PeerSender sender,
                                            java.util.function.Supplier<List<java.net.SocketAddress>> joinerAddresses,
                                            Transfer transfer, Callbacks callbacks) {
+        return start(offer, successorIp, successorPort, successorAccountId, sender, joinerAddresses,
+                transfer, callbacks, () -> {});
+    }
+    public static HandoffCoordinator start(HandoffProtocol.Offer offer,
+                                           InetAddress successorIp, int successorPort, UUID successorAccountId,
+                                           PeerSender sender,
+                                           java.util.function.Supplier<List<java.net.SocketAddress>> joinerAddresses,
+                                           Transfer transfer, Callbacks callbacks, Preparation preparation) {
         byte[] datagram = HandoffProtocol.encodeOffer(offer.offerId(), offer.worldLabel(), offer.estArchiveBytes(),
                 offer.maxPlayers(), offer.flags(), offer.requiredMods(), offer.worldId());
         HandoffCoordinator c = new HandoffCoordinator(offer, datagram, successorIp, successorPort, successorAccountId,
                 sender, joinerAddresses, transfer, callbacks);
-        c.begin();
+        c.begin(preparation);
         return c;
     }
 
@@ -126,11 +135,18 @@ public final class HandoffCoordinator {
         return s == State.MIGRATING || s == State.WAITING_OK || s == State.DONE;
     }
 
-    private void begin() {
+    private void begin(Preparation preparation) {
         if (!started.compareAndSet(false, true)) {
             return;
         }
-        worker = new Thread(this::runOfferLoop, "PeerCraft-Handoff-Host");
+        worker = new Thread(() -> {
+            try {
+                preparation.prepare();
+                if (!isTerminal()) runOfferLoop();
+            } catch (java.io.IOException | RuntimeException failure) {
+                cancel("peercraft.handoff.abort.transfer_failed");
+            }
+        }, "PeerCraft-Handoff-Host");
         worker.setDaemon(true);
         worker.start();
     }
