@@ -32,6 +32,7 @@ final class Room {
     // publicRoom-only lifetime as worldName. Lets the browser warn about (or filter out)
     // rooms a joiner's vanilla client protocol can't actually connect to.
     volatile String mcVersion = "";
+    volatile Optional<RendezvousProtocol.ConnectivityAdvertisement> connectivity = Optional.empty();
 
     // Refreshed on every REGISTER (host keepalive) or JOIN — drives RoomRegistry's
     // sweepExpired(). A room stays alive indefinitely, claimed or not, as long as the
@@ -64,6 +65,8 @@ final class Room {
         final RendezvousProtocol.Address address;
         long token;
         long lastMatchedAt;
+        RoomRegistry.NetworkOffers networkOffers;
+        UUID clientAttemptId;
 
         JoinerSlot(RendezvousProtocol.Address address, long token, long lastMatchedAt) {
             this.address = address;

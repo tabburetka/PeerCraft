@@ -477,6 +477,14 @@ public final class WorldTransfer {
         // Do not interrupt the worker: it must continue requesting the verified result.
     }
 
+    /** Local route loss is terminal for an incomplete transfer, without implying authority COMMIT. */
+    public synchronized void transportFailed(String reasonKey) {
+        if (stopped.get() || finished) return;
+        stop();
+        if (isHost && hostCb != null) hostCb.onFailed(reasonKey);
+        else if (!isHost && recvCb != null) recvCb.onFailed(reasonKey);
+    }
+
     public void abort(String reasonKey) {
         send(WorldTransferProtocol.encodeAbort(transferId, reasonKey));
         stop();

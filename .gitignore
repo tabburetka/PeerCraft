@@ -4,8 +4,17 @@ FOR_CLAUDE.txt
 # Личный учебный разбор проекта (Java + архитектура мода) — не для коммита.
 РАЗБОР_ПРОЕКТА.md
 
+# Локальные перспективы развития — не для коммита.
+/ПЕРСПЕКТИВЫ_РАЗВИТИЯ.md
+/CONTEX.txt
+
 # Local-only solo mod-sync test rig: the local rendezvous server (its runtime
 # account/room data) and the baked-config "-DEVELOP" jars. See local-test/.
 /local-test/
 *-DEVELOP.jar
 /rendezvous-server/data/
+
+# Private self-hosted TURN deployment output.
+/rendezvous-server/deploy/coturn/generated/
+/rendezvous-server/deploy/coturn/packages/
+/rendezvous-server/deploy/coturn/__pycache__/

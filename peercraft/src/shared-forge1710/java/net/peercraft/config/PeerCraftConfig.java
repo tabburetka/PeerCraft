@@ -103,6 +103,11 @@ public final class PeerCraftConfig {
         return stringValue("rendezvousHost", "91.146.31.165");
     }
 
+    /** Client consent; the broker itself stays disabled until deployment is configured. */
+    public static boolean relayEnabled() { return boolValue("relay.enabled", true); }
+    /** Trusted HTTPS endpoint. Never accept account-token destinations supplied only by UDP. */
+    public static String relayBrokerUrl() { return stringValue("relay.brokerUrl", ""); }
+
     public static int rendezvousPort() {
         return intValue("rendezvousPort", 51000);
     }

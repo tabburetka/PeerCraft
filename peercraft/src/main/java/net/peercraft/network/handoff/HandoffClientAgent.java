@@ -61,6 +61,30 @@ public final class HandoffClientAgent {
     private final AtomicReference<Long> activeOfferId = new AtomicReference<>();
     private final AtomicBoolean accepted = new AtomicBoolean(false);
     private final AtomicBoolean migrateSeen = new AtomicBoolean(false);
+    public interface Retention {
+        void retain(long offer, InetAddress host, int port) throws java.io.IOException;
+        void release(long offer);
+    }
+    private volatile Retention retention;
+    public void setRetention(Retention retention) { this.retention = retention; }
+    private void retainedAction(long offer, Runnable action) {
+        Retention hold = retention;
+        if (hold == null) { action.run(); return; }
+        InetAddress host = hostIp.get(); int port = hostPort;
+        Thread worker = new Thread(() -> {
+            try {
+                hold.retain(offer, host, port);
+                if (terminalOfferId != null && terminalOfferId == offer) { hold.release(offer); return; }
+                action.run();
+            } catch (java.io.IOException | RuntimeException failure) {
+                terminalOfferId = offer; activeOfferId.set(null); accepted.set(false); migrateSeen.set(false);
+                repeat(HandoffProtocol.encodeDecline(offer, "peercraft.handoff.abort.transfer_failed"));
+                hold.release(offer); callbacks.onAborted("peercraft.handoff.abort.transfer_failed");
+            }
+        }, "PeerCraft-Handoff-Relay-Hold");
+        worker.setDaemon(true); worker.start();
+    }
+    private void releaseRetention(long offer) { Retention hold = retention; if (hold != null) hold.release(offer); }
 
     public HandoffClientAgent(UUID localAccountId, Sender sender, Callbacks callbacks) {
         this.localAccountId = localAccountId;
@@ -89,7 +113,7 @@ public final class HandoffClientAgent {
                     accepted.set(false); migrateSeen.set(false);
                     LOGGER.info("[Handoff] Получено предложение стать новым хостом (offerId={}, мир='{}', ~{} байт)",
                             offer.offerId(), offer.worldLabel(), offer.estArchiveBytes());
-                    callbacks.onOffer(offer);
+                    retainedAction(offer.offerId(), () -> callbacks.onOffer(offer));
                 }
                 break;
             }
@@ -104,7 +128,11 @@ public final class HandoffClientAgent {
                             && localAccountId.equals(m.successorAccountId());
                     LOGGER.info("[Handoff] Хост инициировал миграцию мира к {} (я преемник: {})",
                             m.successorAccountId(), amSuccessor);
-                    callbacks.onMigrate(m.successorAccountId(), amSuccessor);
+                    activeOfferId.compareAndSet(null, m.offerId());
+                    retainedAction(m.offerId(), () -> {
+                        callbacks.onMigrate(m.successorAccountId(), amSuccessor);
+                        if (!amSuccessor) releaseRetention(m.offerId());
+                    });
                 }
                 break;
             }
@@ -114,6 +142,7 @@ public final class HandoffClientAgent {
                 if (active != null && a.offerId() == active) {
                     terminalOfferId = active;
                     activeOfferId.set(null); accepted.set(false); migrateSeen.set(false);
+                    releaseRetention(a.offerId());
                     LOGGER.info("[Handoff] Хост отменил передачу: {}", a.reasonKey());
                     callbacks.onAborted(a.reasonKey().isEmpty() ? "peercraft.handoff.abort.unknown" : a.reasonKey());
                 }
@@ -139,7 +168,7 @@ public final class HandoffClientAgent {
         if (id == null) {
             return;
         }
-        repeat(HandoffProtocol.encodeDecline(id, reasonKey));
+        repeat(HandoffProtocol.encodeDecline(id, reasonKey), () -> releaseRetention(id));
         terminalOfferId = id;
         activeOfferId.set(null); accepted.set(false); migrateSeen.set(false);
     }
@@ -148,7 +177,7 @@ public final class HandoffClientAgent {
     public void signalReady() {
         Long id = activeOfferId.get();
         if (id == null || !accepted.get() || !migrateSeen.get()) return;
-        repeat(HandoffProtocol.encodeMigrateOk(id));
+        repeat(HandoffProtocol.encodeMigrateOk(id), () -> releaseRetention(id));
     }
 
     public boolean hasActiveOffer() {
@@ -156,6 +185,9 @@ public final class HandoffClientAgent {
     }
 
     private void repeat(byte[] datagram) {
+        repeat(datagram, () -> {});
+    }
+    private void repeat(byte[] datagram, Runnable completed) {
         InetAddress ip = hostIp.get();
         if (ip == null) {
             return;
@@ -171,6 +203,7 @@ public final class HandoffClientAgent {
                     return;
                 }
             }
+            completed.run();
         }, "PeerCraft-Handoff-Reply");
         t.setDaemon(true);
         t.start();

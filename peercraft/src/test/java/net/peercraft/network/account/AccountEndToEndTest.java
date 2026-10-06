@@ -28,10 +28,11 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class AccountEndToEndTest {
 
-    private static final int SERVER_PORT = 51092;
+    private int serverPort;
 
     private Process serverProcess;
     private Path dataDir;
+    private Path serverLog;
 
     @BeforeEach
     void startServer() throws Exception {
@@ -39,33 +40,43 @@ class AccountEndToEndTest {
         Assumptions.assumeTrue(jar != null,
                 "rendezvous-server jar not built — run its own `./gradlew jar` first to enable this test");
 
+        // Every version has its own server: concurrent matrix tests must not share accounts or rate limits.
+        try (DatagramSocket reservation = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
+            serverPort = reservation.getLocalPort();
+        }
         dataDir = Files.createTempDirectory("peercraft-account-e2e");
+        serverLog = dataDir.resolve("server-startup.log");
         serverProcess = new ProcessBuilder("java",
                 "-Dpeercraft.rendezvous.fakeMojang=true",
+                "-Dpeercraft.analytics.httpPort=0",
                 "-Dpeercraft.rendezvous.dataDir=" + dataDir,
-                "-jar", jar.toString(), String.valueOf(SERVER_PORT))
+                "-jar", jar.toString(), String.valueOf(serverPort))
                 .redirectErrorStream(true)
+                .redirectOutput(serverLog.toFile())
                 .start();
 
-        long deadline = System.currentTimeMillis() + 3000;
-        while (!isServerUp() && System.currentTimeMillis() < deadline) {
+        long deadline = System.currentTimeMillis() + 15_000;
+        while (serverProcess.isAlive() && !isServerUp() && System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
-        assertTrue(isServerUp(), "rendezvous-server subprocess did not come up in time");
+        assertTrue(isServerUp(), () -> "rendezvous-server subprocess did not come up in time; "
+                + (serverProcess.isAlive() ? "process still alive" : "exit=" + serverProcess.exitValue())
+                + "; startup log: " + serverLog);
     }
 
     @AfterEach
-    void stopServer() {
+    void stopServer() throws InterruptedException {
         if (serverProcess != null) {
             serverProcess.destroyForcibly();
+            assertTrue(serverProcess.waitFor(5, TimeUnit.SECONDS), "server subprocess did not stop");
         }
     }
 
-    private static boolean isServerUp() {
+    private boolean isServerUp() {
         try (DatagramSocket probe = new DatagramSocket()) {
             probe.setSoTimeout(200);
             byte[] register = RendezvousProtocol.encodeRegister(1, 0);
-            probe.send(new DatagramPacket(register, register.length, InetAddress.getByName("127.0.0.1"), SERVER_PORT));
+            probe.send(new DatagramPacket(register, register.length, InetAddress.getByName("127.0.0.1"), serverPort));
             byte[] buf = new byte[64];
             probe.receive(new DatagramPacket(buf, buf.length));
             return true;
@@ -75,20 +86,104 @@ class AccountEndToEndTest {
     }
 
     private static Path findServerJar() throws IOException {
-        Path libsDir = Path.of("../rendezvous-server/build/libs");
-        if (!Files.isDirectory(libsDir)) {
-            return null;
+        // Gradle runs each Stonecutter test from its version directory, not the root.
+        for (Path root = Path.of("").toAbsolutePath(); root != null; root = root.getParent()) {
+            Path libsDir = root.resolve("rendezvous-server/build/libs");
+            if (!Files.isDirectory(libsDir)) continue;
+            try (var stream = Files.list(libsDir)) {
+                return stream.filter(p -> p.getFileName().toString().matches("rendezvous-server-[0-9.]+\\.jar"))
+                        .findFirst().orElse(null);
+            }
         }
-        try (var stream = Files.list(libsDir)) {
-            return stream.filter(p -> p.toString().endsWith(".jar")).findFirst().orElse(null);
-        }
+        return null;
+    }
+
+    @Test
+    @Timeout(20)
+    void lostFriendCodeCanBeRecoveredWithAccountIdAndPassword() throws Exception {
+        AccountClient registerer = new AccountClient();
+        registerer.connect("127.0.0.1", serverPort);
+
+        CompletableFuture<AccountClient.AccountSession> registered = new CompletableFuture<>();
+        registerer.registerUnlicensed("Pirate1", "hunter2".toCharArray(), new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession session) {
+                registered.complete(session);
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                registered.completeExceptionally(new AssertionError("register failed: " + reason));
+            }
+        });
+        AccountClient.AccountSession originalSession = registered.get(10, TimeUnit.SECONDS);
+        assertFalse(originalSession.licensed());
+
+        // Simulates logging in from a brand-new device — a fresh AccountClient with no
+        // client-local state, only the saved recovery ID and password.
+        AccountClient newDevice = new AccountClient();
+        newDevice.connect("127.0.0.1", serverPort);
+
+        CompletableFuture<AccountClient.AccountSession> loggedIn = new CompletableFuture<>();
+        newDevice.loginByIdentifier(originalSession.accountId().toString(), "hunter2".toCharArray(), new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession session) {
+                loggedIn.complete(session);
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                loggedIn.completeExceptionally(new AssertionError("login failed: " + reason));
+            }
+        });
+        AccountClient.AccountSession reloggedSession = loggedIn.get(10, TimeUnit.SECONDS);
+
+        assertEquals(originalSession.accountId(), reloggedSession.accountId());
+        assertEquals("Pirate1", reloggedSession.displayName());
+    }
+
+    @Test
+    @Timeout(20)
+    void recoveryIdDoesNotBypassPasswordAuthentication() throws Exception {
+        AccountClient registerer = new AccountClient();
+        registerer.connect("127.0.0.1", serverPort);
+        CompletableFuture<AccountClient.AccountSession> registered = new CompletableFuture<>();
+        registerer.registerUnlicensed("Pirate2", "correcthorse".toCharArray(), new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession session) {
+                registered.complete(session);
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                registered.completeExceptionally(new AssertionError("register failed: " + reason));
+            }
+        });
+        AccountClient.AccountSession session = registered.get(10, TimeUnit.SECONDS);
+
+        AccountClient attacker = new AccountClient();
+        attacker.connect("127.0.0.1", serverPort);
+        CompletableFuture<String> failure = new CompletableFuture<>();
+        attacker.loginByIdentifier(session.accountId().toString(), "wrongpassword".toCharArray(), new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession s) {
+                failure.completeExceptionally(new AssertionError("expected failure but login succeeded"));
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                failure.complete(reason);
+            }
+        });
+
+        assertNotNull(failure.get(10, TimeUnit.SECONDS));
     }
 
     @Test
     @Timeout(20)
     void registerThenLoginByFriendCodeFromASecondClientSucceeds() throws Exception {
         AccountClient registerer = new AccountClient();
-        registerer.connect("127.0.0.1", SERVER_PORT);
+        registerer.connect("127.0.0.1", serverPort);
 
         CompletableFuture<AccountClient.AccountSession> registered = new CompletableFuture<>();
         registerer.registerUnlicensed("Pirate1", "hunter2".toCharArray(), new AccountClient.AuthCallback() {
@@ -108,7 +203,7 @@ class AccountEndToEndTest {
         // Simulates logging in from a brand-new device — a fresh AccountClient with no
         // client-local state, only the friend code + password the player would type in.
         AccountClient newDevice = new AccountClient();
-        newDevice.connect("127.0.0.1", SERVER_PORT);
+        newDevice.connect("127.0.0.1", serverPort);
 
         CompletableFuture<AccountClient.AccountSession> loggedIn = new CompletableFuture<>();
         newDevice.loginByFriendCode(originalSession.friendCode(), "hunter2".toCharArray(), new AccountClient.AuthCallback() {
@@ -132,7 +227,7 @@ class AccountEndToEndTest {
     @Timeout(20)
     void loginByFriendCodeWithWrongPasswordFails() throws Exception {
         AccountClient registerer = new AccountClient();
-        registerer.connect("127.0.0.1", SERVER_PORT);
+        registerer.connect("127.0.0.1", serverPort);
         CompletableFuture<AccountClient.AccountSession> registered = new CompletableFuture<>();
         registerer.registerUnlicensed("Pirate2", "correcthorse".toCharArray(), new AccountClient.AuthCallback() {
             @Override
@@ -148,7 +243,7 @@ class AccountEndToEndTest {
         AccountClient.AccountSession session = registered.get(10, TimeUnit.SECONDS);
 
         AccountClient attacker = new AccountClient();
-        attacker.connect("127.0.0.1", SERVER_PORT);
+        attacker.connect("127.0.0.1", serverPort);
         CompletableFuture<String> failure = new CompletableFuture<>();
         attacker.loginByFriendCode(session.friendCode(), "wrongpassword".toCharArray(), new AccountClient.AuthCallback() {
             @Override
@@ -169,7 +264,7 @@ class AccountEndToEndTest {
     @Timeout(20)
     void licensedLoginAgainstFakeMojangCreatesLicensedAccount() throws Exception {
         AccountClient client = new AccountClient();
-        client.connect("127.0.0.1", SERVER_PORT);
+        client.connect("127.0.0.1", serverPort);
 
         // FakeMojangVerifier (server-side, -Dpeercraft.rendezvous.fakeMojang=true) confirms
         // any username deterministically — we drive the same 0x20/0x22 wire steps a real
@@ -183,14 +278,14 @@ class AccountEndToEndTest {
         try (DatagramSocket probe = new DatagramSocket()) {
             probe.setSoTimeout(3000);
             byte[] begin = net.peercraft.network.rendezvous.AccountProtocol.encodeLicensedBegin("RealSteve");
-            probe.send(new DatagramPacket(begin, begin.length, InetAddress.getByName("127.0.0.1"), SERVER_PORT));
+            probe.send(new DatagramPacket(begin, begin.length, InetAddress.getByName("127.0.0.1"), serverPort));
             byte[] buf = new byte[256];
             DatagramPacket reply = new DatagramPacket(buf, buf.length);
             probe.receive(reply);
             var challenge = net.peercraft.network.rendezvous.AccountProtocol.decodeServerIdChallenge(reply.getData(), reply.getLength());
 
             byte[] confirm = net.peercraft.network.rendezvous.AccountProtocol.encodeLicensedConfirm(challenge.requestId());
-            probe.send(new DatagramPacket(confirm, confirm.length, InetAddress.getByName("127.0.0.1"), SERVER_PORT));
+            probe.send(new DatagramPacket(confirm, confirm.length, InetAddress.getByName("127.0.0.1"), serverPort));
             DatagramPacket authReply = new DatagramPacket(buf, buf.length);
             probe.receive(authReply);
             assertEquals(net.peercraft.network.rendezvous.AccountProtocol.TYPE_AUTH_OK,
@@ -205,9 +300,9 @@ class AccountEndToEndTest {
     @Timeout(20)
     void friendRequestSentThenAcceptedMakesBothClientsSeeEachOtherAsFriends() throws Exception {
         AccountClient alice = new AccountClient();
-        alice.connect("127.0.0.1", SERVER_PORT);
+        alice.connect("127.0.0.1", serverPort);
         AccountClient bob = new AccountClient();
-        bob.connect("127.0.0.1", SERVER_PORT);
+        bob.connect("127.0.0.1", serverPort);
 
         AccountClient.AccountSession aliceSession = registerVia(alice, "Alice");
         AccountClient.AccountSession bobSession = registerVia(bob, "Bob");

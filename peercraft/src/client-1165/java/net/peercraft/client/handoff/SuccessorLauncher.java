@@ -67,7 +67,13 @@ public final class SuccessorLauncher {
     private SuccessorLauncher() {
     }
 
-    public static Path savesDirectory() { return Minecraft.getInstance().getLevelSource().getBaseDir(); }
+    public static Path savesDirectory() {
+        Minecraft mc = Minecraft.getInstance();
+        // Fabric invokes its client entrypoint before 1.16.5 creates LevelStorageSource.
+        // The configured game directory already exists at that point.
+        return mc.getLevelSource() == null ? mc.gameDirectory.toPath().resolve("saves")
+                : mc.getLevelSource().getBaseDir();
+    }
     public static final class TargetChoice {
         public final Path directory;
         public final boolean keepBackup;

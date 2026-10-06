@@ -8,14 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Drives the actual UDP hole-punch attempt once a peer's rendezvous-observed address
- * is known: sends PUNCH datagrams to it repeatedly while listening for a PUNCH or
- * PUNCH_ACK back from exactly that address with the matching token. No relay fallback
- * — a peer this can't reach within the timeout is reported as a clean failure (see the
- * project plan: a home-hosted rendezvous server can't sustain relaying full game
- * traffic for multiple pairs, so that's not attempted).
- */
+/** Legacy small-packet punching. Compatible peers use DirectConnectivityCoordinator instead. */
 public final class PunchCoordinator implements RawPacketListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
@@ -28,7 +21,8 @@ public final class PunchCoordinator implements RawPacketListener {
     }
 
     private final P2PSender sender;
-    private final RendezvousProtocol.Address peer;
+    private volatile RendezvousProtocol.Address peer;
+    private volatile boolean cancelled, verifyingRemap;
     private final long token;
     private final Callback callback;
     private final AtomicBoolean done = new AtomicBoolean(false);
@@ -51,16 +45,16 @@ public final class PunchCoordinator implements RawPacketListener {
     // when this listener is silently replaced by a new one before the timeout elapses.
     @Override
     public void cancel() {
+        cancelled = true;
         done.set(true);
     }
 
     private void runPunchLoop() {
         long deadline = System.currentTimeMillis() + TIMEOUT_MILLIS;
         byte[] punch = RendezvousProtocol.encodePunch(token);
-        String peerIp = peer.host().getHostAddress();
-
         while (!done.get() && System.currentTimeMillis() < deadline) {
-            sender.sendData(punch, peerIp, peer.port());
+            RendezvousProtocol.Address endpoint = peer;
+            sender.sendData(punch, endpoint.host().getHostAddress(), endpoint.port());
             try {
                 Thread.sleep(RETRY_INTERVAL_MILLIS);
             } catch (InterruptedException e) {
@@ -72,46 +66,30 @@ public final class PunchCoordinator implements RawPacketListener {
         if (done.compareAndSet(false, true)) {
             LOGGER.warn("[PunchCoordinator] Не удалось установить прямое P2P-соединение с {}:{} за {} мс "
                     + "(возможно, симметричный NAT или файрвол блокирует UDP) — hole punching не удался.",
-                    peerIp, peer.port(), TIMEOUT_MILLIS);
+                    peer.host().getHostAddress(), peer.port(), TIMEOUT_MILLIS);
             callback.onFailure("hole punching timeout");
         }
     }
 
     @Override
-    public void onPacket(byte[] data, int length, InetAddress address, int port) {
+    public synchronized void onPacket(byte[] data, int length, InetAddress address, int port) {
+        if (cancelled || address == null || port < 1 || port > 65535) return;
         int type = RendezvousProtocol.messageType(data, length);
-        if (type != RendezvousProtocol.TYPE_PUNCH && type != RendezvousProtocol.TYPE_PUNCH_ACK) {
-            // Usually harmless (e.g. a stray repeat PEER_FOUND from the rendezvous server
-            // arriving after we've already switched to the punch phase) — but we still log
-            // it in case it turns out to be something else.
-            LOGGER.debug("[PunchCoordinator] Получен пакет типа {} от {}:{} во время hole punching — не PUNCH/PUNCH_ACK, игнорируем", type, address.getHostAddress(), port);
+        if (type != RendezvousProtocol.TYPE_PUNCH && type != RendezvousProtocol.TYPE_PUNCH_ACK) return;
+        // Check attempt ownership before considering a changed NAT port.
+        if (RendezvousProtocol.decodeToken(data, length) != token || !address.equals(peer.host())) return;
+        if (port != peer.port()) {
+            if (done.get()) return;
+            peer = new RendezvousProtocol.Address(address, port); verifyingRemap = true;
+            // Probe first: an old counterpart can answer before its success callback unbinds it.
+            sender.sendData(RendezvousProtocol.encodePunch(token), address.getHostAddress(), port);
+            if (type == RendezvousProtocol.TYPE_PUNCH)
+                sender.sendData(RendezvousProtocol.encodePunchAck(token), address.getHostAddress(), port);
             return;
         }
-        if (!address.equals(peer.host()) || port != peer.port()) {
-            // Symmetric/CGNAT diagnostics: a packet from the peer ACTUALLY arrived, just from
-            // a different address/port than the rendezvous server told us — meaning one side's
-            // NAT is remapping the external port per destination, not a firewall/packet-loss
-            // issue. Without this log, such a packet would just vanish without a trace.
-            LOGGER.warn("[PunchCoordinator] Получен {} от {}:{}, но сервер знакомств называл пира как {}:{} — не совпадает, пакет отброшен. "
-                            + "Похоже на симметричный NAT/CGNAT у одной из сторон: внешний порт для прямого потока к пиру отличается от того, что видел сервер знакомств.",
-                    type == RendezvousProtocol.TYPE_PUNCH ? "PUNCH" : "PUNCH_ACK", address.getHostAddress(), port,
-                    peer.host().getHostAddress(), peer.port());
-            return;
-        }
-        long receivedToken = RendezvousProtocol.decodeToken(data, length);
-        if (receivedToken != token) {
-            // Correct address/port but a foreign token — most likely a stray PUNCH from a
-            // previous attempt at the same peer (a new token is issued for every match).
-            LOGGER.debug("[PunchCoordinator] Получен {} от {}:{} с несовпадающим токеном ({} != {}) — игнорируем",
-                    type == RendezvousProtocol.TYPE_PUNCH ? "PUNCH" : "PUNCH_ACK", address.getHostAddress(), port, receivedToken, token);
-            return;
-        }
-
-        if (type == RendezvousProtocol.TYPE_PUNCH) {
-            // Ack once so the other side (which might still be waiting on its own ack) can stop too.
+        if (type == RendezvousProtocol.TYPE_PUNCH)
             sender.sendData(RendezvousProtocol.encodePunchAck(token), address.getHostAddress(), port);
-        }
-
+        if (verifyingRemap && type != RendezvousProtocol.TYPE_PUNCH_ACK) return;
         if (done.compareAndSet(false, true)) {
             LOGGER.info("[PunchCoordinator] Пробили NAT до {}:{}", address.getHostAddress(), port);
             callback.onSuccess(address.getHostAddress(), port);

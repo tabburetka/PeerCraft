@@ -154,6 +154,8 @@ tasks.jar {
 }
 
 tasks.processResources {
+	// Track the legacy resource filter change: the list theme now has a physical 1.16.5 twin.
+	inputs.property("peercraftLegacyListTheme", true)
 	val expandProps = mapOf(
 		"version" to version,
 		"minecraft_version_range" to project.property("minecraft_version_range"),
@@ -182,7 +184,7 @@ tasks.processResources {
 	// resource files stay untouched for the other targets (mirror of the JAVA_25 rewrite in
 	// build.fabric-unmapped.gradle.kts).
 	filesMatching(listOf("peercraft.mixins.json", "peercraft.client.mixins.json")) {
-		filter { line -> line.replace("\"JAVA_21\"", "\"JAVA_8\"") }
+		filter { line -> if (line.contains("PeerCraftWidgetTooltipAccessor")) "" else line.replace("\"JAVA_21\"", "\"JAVA_8\"") }
 	}
 }
 

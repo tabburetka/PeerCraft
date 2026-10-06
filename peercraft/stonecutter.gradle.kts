@@ -18,6 +18,14 @@ stonecutter parameters {
 	constants.match(current.project.substringAfterLast('-'), "fabric", "neoforge")
 }
 
+allprojects {
+    tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+        // An opt-in coturn run must not reuse results from a run where it was skipped.
+        inputs.property("coturnExecutable", providers.environmentVariable("PEERCRAFT_TEST_COTURN_BIN").orElse(""))
+        inputs.property("coturnLibraries", providers.environmentVariable("LD_LIBRARY_PATH").orElse(""))
+    }
+}
+
 tasks.register("buildAll") {
 	group = "project"
 	description = "Builds the mod jar for every registered Minecraft version and loader."

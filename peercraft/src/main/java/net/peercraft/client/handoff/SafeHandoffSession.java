@@ -79,12 +79,13 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             bridge.sendRawDatagram(peer.endpoint.getAddress(), peer.endpoint.getPort(), packet);
         }
         long initialEpoch;
-        void retain() {
+        void retain() throws IOException {
             bridge.retainHandoffTransport(offer.offerId(), new HashSet<>(peers.keySet()), endpoint -> {
                 Peer p = peers.get(endpoint);
                 return HandoffControlProtocol.encode(new HandoffControlProtocol.Message(HEARTBEAT, journal.session,
                         offer.offerId(), initialEpoch, p.control, new byte[0]));
             });
+            bridge.awaitHandoffRetention(offer.offerId());
         }
         CompletableFuture<Void> stopWorkers() {
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -360,7 +361,18 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
         journal.role = successor ? "SUCCESSOR" : "OBSERVER"; journal.authorityHost = bridge.handoffAuthorityHost();
         journal.authorityPort = net.peercraft.config.PeerCraftConfig.rendezvousPort(); journal.save();
         Context c = new Context(offer, journal, false, successor); c.initialEpoch = m.epoch;
-        Peer source = new Peer(sender, m.authority, key, false); c.peers.put(sender, source); current = c; c.retain();
+        Peer source = new Peer(sender, m.authority, key, false); c.peers.put(sender, source); current = c;
+        try { c.retain(); }
+        catch (IOException | RuntimeException retentionFailure) {
+            // Authority has not confirmed ABORT: preserve the journal for recovery.
+            // No consent or world transfer may begin with an unconfirmed relay hold.
+            try { c.send(source, DECLINE, new byte[0]); }
+            finally {
+                c.stopWorkers();
+                c.terminal("peercraft.handoff.abort.transfer_failed", false);
+            }
+            throw retentionFailure;
+        }
         c.authorityIo.submit(() -> {
             long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(20);
             while (!c.frozen && !c.closed.get()) {

@@ -86,14 +86,14 @@ No — as a player (host or joiner) you never need to touch your router. Only th
 Yes. They register a nickname + password account in-game instead of logging in with Mojang. A host can choose whether to allow this.
 
 **Why did hole punching fail / why can't we connect?**
-Most commonly one side is on a network type that blocks direct peer-to-peer connections (symmetric NAT, or carrier-grade NAT on mobile data). There's no relay fallback in the current version — if punching fails, try a different network (e.g. switch off mobile data / try a different Wi-Fi).
+Some NAT and firewall configurations prevent direct peer-to-peer connectivity. Compatible clients now check their supported direct routes for 20 seconds before attempting TURN fallback. Relay requires registered PeerCraft accounts on both sides and a configured HTTPS broker. Self-hosted coturn uses a local health guard and conservative capacity limits; Cloudflare TURN uses an account-wide usage guard. Relay remains disabled on the server by default and awaits closed real-network/gameplay validation; an unconfigured server still requires a working direct route.
 
 **Is this safe to use with a real Mojang account?**
 PeerCraft never asks for or stores your Mojang password — licensed login uses the same session-verification method Mojang's own multiplayer uses. That said, this is a hobby project without a security audit, so avoid reusing sensitive passwords for a pirate account, and treat it as you would any small independent mod.
 
 ## Known limitations
 
-- No relay/TURN fallback when direct hole punching fails.
+- TURN fallback requires server configuration and closed validation before public enablement. Complete UDP blocking is outside the first release; the rendezvous control channel still uses UDP.
 - Only one host per session (a star topology, not a full mesh) — everyone connects through the host.
 - No moderation or ban system yet.
 - No account recovery if you lose your friend code.
@@ -113,6 +113,8 @@ Released under [CC BY-NC 4.0](LICENSE) — free to use, modify, and share with a
 ## Development
 
 The rest of this document is for people building or contributing to PeerCraft, not for players.
+
+Player identity, one-time save migration and vanilla compatibility during host handoff are documented in [player-data-migration.md](peercraft/docs/player-data-migration.md).
 
 ### Repository layout
 
@@ -188,7 +190,7 @@ Run the two Minecraft instances from separate working directories (`peercraft/ru
 
 For two players on different networks, PeerCraft uses the standalone rendezvous server (`rendezvous-server/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream is the same relay protocol validated locally above, just talking to a real remote address instead of `127.0.0.1`.
 
-**v1 scope, by design**: no relay/TURN fallback if hole punching fails (a home-hosted rendezvous server's uplink can't sustain relaying full game traffic for multiple pairs). Only the rendezvous server itself needs a forwarded port.
+**TURN fallback (implementation awaiting closed validation):** game, mod synchronization and handoff traffic can use self-hosted coturn or Cloudflare TURN after direct checks fail. The home-hosted server issues temporary credentials through an HTTPS broker. The [coturn preparation](rendezvous-server/deploy/coturn/README.ru.md) starts with two connections and 512 KiB/s file transfers, without requiring Cloudflare payment registration. The relay is disabled by default. In Cloudflare mode, the account-wide guard closes relay sessions at 800 GB or when complete usage statistics become stale; this is a best-effort spending safeguard, not a guarantee of a zero bill. See [broker configuration](rendezvous-server/README.md). Older clients retain direct connectivity.
 
 #### Running your own rendezvous server
 

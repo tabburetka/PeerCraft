@@ -68,6 +68,14 @@ public class LocalProxy {
             return;
         }
 
+        try {
+            serverSocket = new ServerSocket(port, 50, InetAddress.getLoopbackAddress());
+            boundPort = serverSocket.getLocalPort();
+            running = true;
+        } catch (IOException failed) {
+            LOGGER.error("[LocalProxy] TCP-прокси не смог занять локальный порт {}", port, failed);
+            return;
+        }
         Thread proxyThread = new Thread(() -> runProxy(port), "PeerCraft-LocalProxy");
         proxyThread.setDaemon(true);
         proxyThread.start();
@@ -87,10 +95,7 @@ public class LocalProxy {
         // sometimes get logged as an ERROR.
         boolean bindSucceeded = false;
         try {
-            serverSocket = new ServerSocket(port, 50, InetAddress.getLoopbackAddress());
             bindSucceeded = true;
-            running = true;
-            boundPort = serverSocket.getLocalPort();
             LOGGER.info("[LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:{}", boundPort);
             LOGGER.info("[LocalProxy] Во втором Minecraft-клиенте подключайся к адресу 127.0.0.1:{}", boundPort);
 

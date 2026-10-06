@@ -11,6 +11,7 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.network.account.AccountClient;
+import net.peercraft.network.account.AccountLoginIdentifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
@@ -45,7 +46,7 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
         int y = dialog.contentTop() + 6;
 
         this.friendCodeBox = new SteampunkField(this.font, dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(), new TranslatableComponent("peercraft.gui.login_code.friend_code_field"));
-        this.friendCodeBox.setMaxLength(6);
+        this.friendCodeBox.setMaxLength(36);
         PeerCraftUi.placeholder(this.friendCodeBox, new TranslatableComponent("peercraft.gui.login_code.friend_code_hint").getString());
         if (previousfriendCodeBox != null) this.friendCodeBox.setValue(previousfriendCodeBox);
         this.addButton(this.friendCodeBox);
@@ -84,7 +85,9 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
     private void onLogin() {
         String friendCode = this.friendCodeBox.getValue().trim().toUpperCase(Locale.ROOT);
         String password = this.passwordBox.getValue();
-        if (friendCode.length() != 6) {
+        try {
+            AccountLoginIdentifier.parse(friendCode);
+        } catch (IllegalArgumentException invalid) {
             this.statusMessage = new TranslatableComponent("peercraft.gui.login_code.code_length_error");
             this.statusColor = PeerCraftUi.TEXT_ERROR;
             return;
@@ -98,7 +101,7 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
         this.loginButton.active = false;
         this.statusMessage = new TranslatableComponent("peercraft.gui.login_code.logging_in");
         this.statusColor = PeerCraftUi.TEXT_MUTED;
-        AccountClient.INSTANCE.loginByFriendCode(friendCode, password.toCharArray(), new AccountClient.AuthCallback() {
+        AccountClient.INSTANCE.loginByIdentifier(friendCode, password.toCharArray(), new AccountClient.AuthCallback() {
             @Override
             public void onSuccess(AccountClient.AccountSession session) {
                 runOnClientThread(() -> {

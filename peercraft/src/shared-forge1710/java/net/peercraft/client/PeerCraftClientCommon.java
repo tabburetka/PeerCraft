@@ -4,6 +4,7 @@ package net.peercraft.client;
 // (the `//? if <1.17` gates resolve to the same Java 8 / pre-1.13 branch for both).
 // Keep all three copies (src/main, shared-forge1122, shared-forge1710) in sync.
 
+import net.minecraft.client.Minecraft;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.client.account.AccountState;
 import net.peercraft.client.account.AccountStorage;
@@ -25,6 +26,7 @@ public final class PeerCraftClientCommon {
     }
 
     public static void initClient() {
+        net.peercraft.client.gui.TransportNoticeController.register();
         // Fold the in-game PeerCraft Settings screen's saved flags (config/peercraft/settings.json)
         // into PeerCraftConfig before anything reads a flag. Tolerant; an explicit -Dpeercraft.* still wins.
         try {
@@ -68,6 +70,12 @@ public final class PeerCraftClientCommon {
 
     private static void attemptSilentRelogin() {
         Optional<AccountState> saved = AccountStorage.load();
+        // First launch and licensed accounts authenticate the current Minecraft identity.
+        // Preserve remembered login for unlicensed accounts.
+        if (!saved.isPresent() || saved.get().licensed()) {
+            attemptLicensedLogin();
+            return;
+        }
         if (!saved.isPresent()) {
             return;
         }
@@ -85,5 +93,32 @@ public final class PeerCraftClientCommon {
                 AccountStorage.clear();
             }
         });
+    }
+
+    private static void attemptLicensedLogin() {
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.func_152344_a(() -> {
+            String token = mc.getSession().getToken();
+            if (token == null || token.trim().isEmpty() || "0".equals(token) || "null".equalsIgnoreCase(token)) {
+                return;
+            }
+            AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e(), token,
+                    mc.func_152347_ac(), licensedLoginCallback());
+        });
+    }
+
+    private static AccountClient.AuthCallback licensedLoginCallback() {
+        return new AccountClient.AuthCallback() {
+            @Override
+            public void onSuccess(AccountClient.AccountSession session) {
+                AccountSessionHolder.persist(session);
+                LOGGER.info("[PeerCraft] Автоматический вход с лицензией выполнен: {}", session.displayName());
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                LOGGER.warn("[PeerCraft] Автоматический вход с лицензией не удался: {}", reason);
+            }
+        };
     }
 }

@@ -1,9 +1,6 @@
 package net.peercraft.network.p2p;
 
-// Forge 1.7.10 backport of src/main/java/net/peercraft/network/p2p/P2PBridge.java — byte-identical to the
-// src/shared-forge1122 twin (the `//? if <1.17` gates resolve to the same Java 8 / pre-1.13 branch for both).
-// Keep all three copies (src/main, shared-forge1122, shared-forge1710) in sync.
-
+import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.handoff.HandoffClientAgent;
 import net.peercraft.network.handoff.HandoffCoordinator;
@@ -16,6 +13,16 @@ import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.modsync.ModSyncLink;
 import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.network.proxy.LocalProxy;
+import net.peercraft.network.connectivity.DirectCandidates;
+import net.peercraft.network.connectivity.DirectConnectivityCoordinator;
+import net.peercraft.network.relay.DirectPeerTransport;
+import net.peercraft.network.relay.RelayBrokerClient;
+import net.peercraft.network.relay.RelayPeerTransport;
+import net.peercraft.network.transport.PeerTransport;
+import net.peercraft.network.transport.SecureDatagramChannel;
+import java.net.InetSocketAddress;
+import java.util.UUID;
+import java.util.function.Consumer;
 import net.peercraft.network.rendezvous.PunchCoordinator;
 import net.peercraft.network.rendezvous.RendezvousClient;
 import net.peercraft.network.rendezvous.RendezvousProtocol;
@@ -127,6 +134,25 @@ public class P2PBridge {
     // joiner role, where only one attempt can ever be in flight at once).
     private final Map<PeerAddress, PunchCoordinator> activePunches = new ConcurrentHashMap<>();
 
+    // Physical endpoints never become identity keys for negotiated routes.
+    private final Map<PeerAddress, NetworkAttempt> networkAttempts = new ConcurrentHashMap<>();
+    private final Map<PeerAddress, DirectConnectivityCoordinator> activeDirectChecks = new ConcurrentHashMap<>();
+    private final Map<PeerAddress, PeerTransport> peerRoutes = new ConcurrentHashMap<>();
+    private final Map<UUID, DirectBinding> directBindings = new ConcurrentHashMap<>();
+    private final Map<PeerAddress, PeerTransport> retainedPeerRoutes = new ConcurrentHashMap<>();
+    private final Set<PeerAddress> securedPeers = ConcurrentHashMap.newKeySet();
+    private volatile Consumer<String> onTransportFailure;
+    private volatile Consumer<String> onTransportSelected;
+    public void setOnTransportFailure(Consumer<String> hook) { onTransportFailure = hook; }
+    public void setOnTransportSelected(Consumer<String> hook) { onTransportSelected = hook; }
+    private volatile String lastJoinedRoomCode = "";
+    public String lastJoinedRoomCode() { return lastJoinedRoomCode; }
+    public boolean isClientSessionActive() { return currentClientSession != null; }
+    public String currentTransportMode() {
+        PeerTransport route = clientTargetPeer == null ? null : peerRoutes.get(clientTargetPeer);
+        return route == null ? "direct" : route.mode();
+    }
+
     // HOST: one mod-sync coordinator per authorized joiner, keyed by peer address. Lives from
     // the joiner's first 0xE2 datagram (after its punch succeeded) until it graduates to a real
     // relay session (startNewHostConnection) or the world closes (cancelRendezvous). Only an
@@ -164,6 +190,20 @@ public class P2PBridge {
     private volatile HandoffCoordinator handoffHostSession;
     private volatile net.peercraft.network.handoff.HandoffTransport independentHandoff;
 
+    private volatile java.util.concurrent.CompletableFuture<Void> handoffRetention = java.util.concurrent.CompletableFuture.completedFuture(null);
+    /** Called only from a handoff worker, before sending OFFER/PREPARE or stopping a world. */
+    public void awaitHandoffRetention(long offerId) throws IOException {
+        java.util.concurrent.CompletableFuture<Void> confirmation;
+        synchronized (this) {
+            if (independentHandoff == null || independentHandoff.offerId != offerId)
+                throw new IOException("No matching handoff transport");
+            confirmation = handoffRetention;
+        }
+        try { confirmation.get(20, java.util.concurrent.TimeUnit.SECONDS); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException("Relay retention interrupted", e); }
+        catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) { throw new IOException("Relay retention is unconfirmed", e); }
+    }
+
     /** V2 operation ownership must be established before the game connection is closed. */
     public synchronized void retainHandoffTransport(long offerId, java.util.Set<java.net.InetSocketAddress> participants) {
         if (independentHandoff != null && !independentHandoff.isClosed())
@@ -174,6 +214,13 @@ public class P2PBridge {
             java.util.function.Function<java.net.InetSocketAddress, byte[]> heartbeat) {
         if (independentHandoff != null && !independentHandoff.isClosed())
             throw new IllegalStateException("Another handoff transport is active");
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> holds = new java.util.ArrayList<>();
+        for (InetSocketAddress peer : participants) {
+            PeerAddress logical = new PeerAddress(peer.getAddress(), peer.getPort());
+            PeerTransport route = peerRoutes.get(logical);
+            if (route != null) { retainedPeerRoutes.put(logical, route); holds.add(route.retainHandoff(offerId)); }
+        }
+        handoffRetention = java.util.concurrent.CompletableFuture.allOf(holds.toArray(new java.util.concurrent.CompletableFuture<?>[0]));
         independentHandoff = new net.peercraft.network.handoff.HandoffTransport(offerId, participants,
                 (peer, bytes) -> sendRawDatagram(peer.getAddress(), peer.getPort(), bytes), heartbeat);
     }
@@ -182,6 +229,8 @@ public class P2PBridge {
         net.peercraft.network.handoff.HandoffTransport transport = independentHandoff;
         if (transport == null || transport.offerId != offerId)
             throw new IllegalStateException("No matching handoff transport");
+        if (!handoffRetention.isDone() || handoffRetention.isCompletedExceptionally())
+            throw new IllegalStateException("Relay handoff retention is unconfirmed");
         transport.sourceStopping();
     }
 
@@ -190,6 +239,11 @@ public class P2PBridge {
         if (transport != null && transport.offerId == offerId) {
             independentHandoff = null;
             transport.close();
+            for (Map.Entry<PeerAddress, PeerTransport> entry : retainedPeerRoutes.entrySet()) {
+                entry.getValue().releaseHandoff(offerId);
+                if (peerRoutes.get(entry.getKey()) != entry.getValue()) closeRoute(entry.getValue());
+            }
+            retainedPeerRoutes.clear();
         }
     }
 
@@ -230,7 +284,6 @@ public class P2PBridge {
         }, "PeerCraft-Handoff-Room");
         wait.setDaemon(true); wait.start();
     }
-
 
 
     // JOINER: receives handoff control traffic (0xE3) from the current host for the whole
@@ -383,8 +436,9 @@ public class P2PBridge {
 
     /**
      * As {@link #startHostViaRendezvous(int, int, boolean, boolean, String, String, HostListener)},
-     * but also answers joiners' mod-sync handshakes from {@code modSyncProvider}. A {@code null}
-     * provider means this host doesn't participate — joiners get no manifest and connect through.
+     * but also answers joiners' mod-sync handshakes from {@code modSyncProvider} (see
+     * {@link ModSyncHostProvider}). A {@code null} provider means this host doesn't participate —
+     * joiners get no manifest and connect straight through.
      */
     public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, HostListener listener, ModSyncHostProvider modSyncProvider) {
         this.isHost = true;
@@ -409,6 +463,8 @@ public class P2PBridge {
 
         LOGGER.info("[P2PBridge] Регистрируемся на сервере знакомств {}:{} (макс. игроков: {})...", rendezvousAddress.getHostAddress(), rendezvousPort, maxPlayers);
         RendezvousClient client = new RendezvousClient(sender, rendezvousAddress, rendezvousPort);
+        client.setConnectivityAdvertisement(new RendezvousProtocol.ConnectivityAdvertisement(
+                PeerCraftConfig.relayEnabled(), PeerCraftConfig.relayEnabled(), DirectCandidates.gather(receiver.getBoundPort())));
         setHostRendezvousClient(client);
 
         // Attach the host's logged-in account (if any) so their room shows up as "hosting" in
@@ -442,6 +498,11 @@ public class P2PBridge {
                     @Override
                     public void onMatched(RendezvousProtocol.Address peer, long token) {
                         beginHostPunch(peer, token, client.accountIdForPeer(peer));
+                    }
+                    @Override public void onMatchedDetailed(RendezvousProtocol.PeerFound info) {
+                        if (!info.networkOffer().isPresent()) { onMatched(info.peer(), info.token()); return; }
+                        beginNegotiatedConnection(info, true, registeredRoomCode, rendezvousAddress, rendezvousPort,
+                                session != null ? session.sessionToken() : null, LOGGING_LISTENER, null);
                     }
 
                     @Override
@@ -508,7 +569,7 @@ public class P2PBridge {
      * mod-sync handshake with the host over the punched link. A {@code null} agent (or
      * {@code peercraft.modSync=false}) skips it and connects immediately, exactly as before.
      */
-    public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, final ModSyncAgent modSync) {
+    public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, ModSyncAgent modSync) {
         if (code == null || code.trim().isEmpty()) {
             listener.onFailed("peercraft.p2p.fail.no_code");
             return;
@@ -522,9 +583,12 @@ public class P2PBridge {
             listener.onFailed("peercraft.p2p.fail.already_connecting");
             return;
         }
-        // Safety net: if rendezvousClientBusy is never cleared normally (screen navigated away
-        // before onConnected could start ConnectScreen, mod-sync aborted the join, etc.),
-        // force-clear it after a grace period if no local MC session ever opened.
+        // Safety net: rendezvousClientBusy is normally cleared on failure, on a clean
+        // LocalProxy disconnect (endClientSession), or by abortModSyncClient(). If none of
+        // those fire (e.g. the join screen navigated away before onConnected could start
+        // ConnectScreen, or ConnectScreen bounced straight back), the flag would stick true
+        // and every later "Connect" would say "already connecting". Force-clear it after a
+        // grace period if no local MC session ever opened.
         armBusyWatchdog();
         ConnectListener guardedListener = new ConnectListener() {
             @Override
@@ -550,11 +614,13 @@ public class P2PBridge {
 
             @Override
             public void onFailed(String reason) {
+                closeClientRoute();
                 rendezvousClientBusy.set(false);
                 listener.onFailed(reason);
             }
         };
 
+        lastJoinedRoomCode = code.trim();
         this.isHost = false;
         // Someone who was hosting earlier in this same launch (and so stopped LocalProxy
         // when opening to LAN — see OpenToLanMixin) may have left the world and now wants to
@@ -562,6 +628,10 @@ public class P2PBridge {
         // ConnectScreen.startConnecting(...) runs.
         if (!isProxyRunning()) {
             startProxy(PeerCraftConfig.proxyPort());
+        }
+        if (!isProxyRunning()) {
+            guardedListener.onFailed("peercraft.p2p.fail.proxy_port_busy");
+            return;
         }
         if (!restartReceiver(PeerCraftConfig.clientUdpPort())) {
             // Port already taken (most often a second running Minecraft client with PeerCraft) —
@@ -578,6 +648,8 @@ public class P2PBridge {
 
         guardedListener.onStatus("peercraft.p2p.status.joining");
         RendezvousClient client = new RendezvousClient(sender, rendezvousAddress, rendezvousPort);
+        client.setConnectivityAdvertisement(new RendezvousProtocol.ConnectivityAdvertisement(
+                PeerCraftConfig.relayEnabled(), PeerCraftConfig.relayEnabled(), DirectCandidates.gather(receiver.getBoundPort())));
         setRendezvousListener(client);
 
         // Attaching our account (if logged in) lets the host identify us for save-data
@@ -588,6 +660,11 @@ public class P2PBridge {
             @Override
             public void onMatched(RendezvousProtocol.Address peer, long token) {
                 beginClientPunch(peer, token, guardedListener, modSync);
+            }
+            @Override public void onMatchedDetailed(RendezvousProtocol.PeerFound info) {
+                if (!info.networkOffer().isPresent()) { onMatched(info.peer(), info.token()); return; }
+                beginNegotiatedConnection(info, false, code, rendezvousAddress, rendezvousPort,
+                        joinerSession != null ? joinerSession.sessionToken() : null, guardedListener, modSync);
             }
 
             @Override
@@ -607,7 +684,18 @@ public class P2PBridge {
     // honestly reset after a SUCCESSFUL join, without permanently blocking a repeat Join
     // after leaving the world.
     public void endClientSession(long sessionId) {
-        if (this.currentClientSession != null && this.currentClientSession.sessionId == sessionId) {
+        ClientSession session = this.currentClientSession;
+        if (session == null || session.sessionId != sessionId) return;
+        if (session != null && session.sessionId == sessionId) {
+            // Tell the host we're gone *now* with a best-effort FIN, so it drops its TCP
+            // connection to the integrated server and that server runs its normal
+            // player-quit path immediately. Without this the host only notices once its
+            // own keep-alive to us times out (~15-30s), and until then the joiner's
+            // avatar is still standing in the world — damageable, and not kickable.
+            PeerAddress dest = this.clientTargetPeer;
+            if (dest != null) {
+                sendFramed(dest, sessionId, session.outSeq.getAndIncrement(), (byte) FramedPacket.FLAG_FIN, new byte[0]);
+            }
             this.currentClientSession = null;
         }
         // The handoff GUI (HostMigrationScreen / the successor launcher) captures everything
@@ -617,6 +705,7 @@ public class P2PBridge {
             rendezvousClientBusy.set(false);
             return;
         }
+        closeClientRoute();
         this.handoffClientAgent = null;
         WorldTransfer wt = this.successorWorldTransfer;
         if (wt != null) {
@@ -631,9 +720,11 @@ public class P2PBridge {
 
     // Called by a non-successor joiner (HostMigrationScreen) right before reconnecting to the
     // new host after a handoff MIGRATE. At that point the vanilla client is still nominally
-    // connected to the OLD host — the caller disconnects it, but that teardown is async, so the
-    // very next startClientViaRendezvous(...) call for the NEW host would otherwise be rejected
-    // as "already connecting". Clears this bridge's own client-session bookkeeping immediately
+    // connected to the OLD host — the caller disconnects it, but that teardown is async (the
+    // LocalProxy socket close that would normally clear rendezvousClientBusy via
+    // endClientSession hasn't necessarily been noticed yet), so the very next
+    // startClientViaRendezvous(...) call for the NEW host would otherwise be rejected as
+    // "already connecting". Clears this bridge's own client-session bookkeeping immediately
     // instead of waiting on that.
     public void prepareForHandoffReconnect() {
         this.currentClientSession = null;
@@ -651,6 +742,172 @@ public class P2PBridge {
         } catch (UnknownHostException e) {
             listener.onFailed("peercraft.p2p.fail.resolve_rendezvous");
             return null;
+        }
+    }
+
+    private static final class NetworkAttempt {
+        final PeerAddress peer;
+        final RendezvousProtocol.NetworkOffer offer;
+        final boolean host;
+        final ConnectListener listener;
+        final ModSyncAgent modSync;
+        final AtomicBoolean selected = new AtomicBoolean(), relayStarted = new AtomicBoolean();
+        volatile boolean cancelled;
+        volatile RelayPeerTransport relay;
+        NetworkAttempt(PeerAddress peer, RendezvousProtocol.NetworkOffer offer, boolean host,
+                ConnectListener listener, ModSyncAgent modSync) {
+            this.peer = peer; this.offer = offer; this.host = host; this.listener = listener; this.modSync = modSync;
+        }
+    }
+    private static final class DirectBinding {
+        final PeerAddress peer; final DirectPeerTransport route;
+        DirectBinding(PeerAddress peer, DirectPeerTransport route) { this.peer = peer; this.route = route; }
+    }
+
+    private int pendingNetworkAttemptCount() {
+        int count = 0;
+        for (NetworkAttempt attempt : networkAttempts.values()) if (!attempt.selected.get() && !attempt.cancelled) count++;
+        return count;
+    }
+    private void beginNegotiatedConnection(RendezvousProtocol.PeerFound info, boolean hostRole,
+            String room, InetAddress rendezvousAddress, int rendezvousPort, byte[] sessionToken, ConnectListener listener, ModSyncAgent modSync) {
+        PeerAddress peer = new PeerAddress(info.peer().host(), info.peer().port());
+        NetworkAttempt existing = networkAttempts.get(peer);
+        if (existing != null && existing.offer.attemptId().equals(info.networkOffer().get().attemptId())) return;
+        if (hostRole && existing == null && hostConnectionsByAddress.size() + activePunches.size()
+                + pendingNetworkAttemptCount() >= maxPlayers) return;
+        if (existing != null) cancelAttempt(existing);
+        if (hostRole && info.joinerAccountId().isPresent()) joinerAccountIdByAddress.put(peer, info.joinerAccountId().get());
+        NetworkAttempt attempt = new NetworkAttempt(peer, info.networkOffer().get(), hostRole, listener, modSync);
+        networkAttempts.put(peer, attempt);
+        if (!hostRole) clientTargetPeer = peer;
+        listener.onStatus("peercraft.p2p.status.checking_direct");
+        DirectConnectivityCoordinator checks = new DirectConnectivityCoordinator(sender, peer, attempt.offer, hostRole,
+                new DirectConnectivityCoordinator.Callback() {
+                    @Override public void onSuccess(String ip, int port) {
+                        try {
+                            DirectPeerTransport route = new DirectPeerTransport(sender,
+                                    new InetSocketAddress(InetAddress.getByName(ip), port), attempt.offer.attemptId(),
+                                    attempt.offer.challengeKey(), hostRole);
+                            if (selectRoute(attempt, route)) {
+                                directBindings.put(attempt.offer.attemptId(), new DirectBinding(peer, route));
+                                RelayPeerTransport pending = attempt.relay;
+                                if (pending != null) pending.close();
+                                finishConnection(attempt, route);
+                            }
+                        } catch (UnknownHostException error) { failAttempt(attempt, "peercraft.p2p.fail.hole_punching"); }
+                    }
+                    @Override public void onFailure(String reason) {
+                        DirectConnectivityCoordinator checks = activeDirectChecks.get(attempt.peer);
+                        LOGGER.info("[P2PBridge] {}: {}; candidates={}", attempt.offer.attemptId(), reason,
+                                checks == null ? java.util.Collections.emptyMap() : checks.diagnostics());
+                        beginRelay(attempt, info.token(), room, sessionToken);
+                    }
+                });
+        DirectConnectivityCoordinator previous = activeDirectChecks.put(peer, checks);
+        if (previous != null) previous.cancel();
+        checks.setCandidateRelay(rendezvousAddress, rendezvousPort);
+        try { checks.addDiscoveryServer(InetAddress.getByName("stun.cloudflare.com"), 3478); }
+        catch (UnknownHostException unavailable) { LOGGER.debug("[P2PBridge] STUN discovery unavailable"); }
+        checks.start();
+    }
+
+    private void beginRelay(NetworkAttempt attempt, long token, String room, byte[] sessionToken) {
+        if (attempt.cancelled || attempt.selected.get() || !attempt.relayStarted.compareAndSet(false, true)) return;
+        String refusal = null;
+        if (sessionToken == null) refusal = "peercraft.p2p.fail.relay_account_required";
+        else if (!PeerCraftConfig.relayEnabled()) refusal = "peercraft.p2p.fail.relay_disabled";
+        else if (!attempt.offer.relayCapable()) refusal = "peercraft.p2p.fail.relay_unavailable";
+        else if (PeerCraftConfig.relayBrokerUrl().isEmpty()
+                || !PeerCraftConfig.relayBrokerUrl().equals(attempt.offer.brokerUrl())) refusal = "peercraft.p2p.fail.relay_not_configured";
+        if (refusal != null) { failAttempt(attempt, refusal); return; }
+        try {
+            RelayBrokerClient broker = new RelayBrokerClient(PeerCraftConfig.relayBrokerUrl(), sessionToken);
+            RelayPeerTransport relay = new RelayPeerTransport(broker, token, room, attempt.offer.attemptId(), attempt.host,
+                    new RelayPeerTransport.Listener() {
+                        @Override public void onConnected(RelayPeerTransport route) {
+                            if (!selectRoute(attempt, route)) return;
+                            DirectConnectivityCoordinator checks = activeDirectChecks.remove(attempt.peer);
+                            if (checks != null) checks.cancel();
+                            finishConnection(attempt, route);
+                        }
+                        @Override public void onData(byte[] bytes) {
+                            PeerTransport route = attempt.relay;
+                            if ((!attempt.cancelled || retainedPeerRoutes.get(attempt.peer) == route) && (peerRoutes.get(attempt.peer) == route
+                                    || retainedPeerRoutes.get(attempt.peer) == route))
+                                dispatchDecoded(bytes, bytes.length, attempt.peer.host(), attempt.peer.port());
+                        }
+                        @Override public void onFailure(String reason) {
+                            if (!attempt.selected.get()) failAttempt(attempt, reason);
+                            else if (peerRoutes.get(attempt.peer) == attempt.relay
+                                    || retainedPeerRoutes.get(attempt.peer) == attempt.relay)
+                                transportFailed(attempt.peer, attempt.relay, reason, attempt.host);
+                        }
+                    });
+            attempt.relay = relay;
+            if (attempt.cancelled || attempt.selected.get()) { relay.close(); return; }
+            attempt.listener.onStatus("peercraft.p2p.status.relay_connecting");
+            relay.start();
+        } catch (IOException error) { failAttempt(attempt, "peercraft.p2p.fail.relay_not_configured"); }
+    }
+
+    private synchronized boolean selectRoute(NetworkAttempt attempt, PeerTransport route) {
+        if (attempt.cancelled || networkAttempts.get(attempt.peer) != attempt
+                || !attempt.selected.compareAndSet(false, true)) { route.close(); return false; }
+        PeerTransport previous = peerRoutes.put(attempt.peer, route);
+        if (previous != null && retainedPeerRoutes.get(attempt.peer) != previous) closeRoute(previous);
+        securedPeers.add(attempt.peer);
+        authorizedPeers.add(attempt.peer);
+        if (!attempt.host) clientTargetPeer = attempt.peer;
+        return true;
+    }
+    private void finishConnection(NetworkAttempt attempt, PeerTransport route) {
+        attempt.listener.onStatus("peercraft.p2p.status." + route.mode() + "_connected");
+        Consumer<String> modeHook = onTransportSelected;
+        if (modeHook != null && !attempt.host) modeHook.accept("peercraft.p2p.mode." + route.mode());
+        if (attempt.host) return;
+        clearRendezvousListener();
+        if (attempt.modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) attempt.listener.onConnected();
+        else runModSyncHandshake(attempt.modSync, attempt.listener);
+    }
+    private void failAttempt(NetworkAttempt attempt, String reason) {
+        if (attempt.cancelled || attempt.selected.get() || networkAttempts.get(attempt.peer) != attempt) return;
+        cancelAttempt(attempt);
+        networkAttempts.remove(attempt.peer, attempt);
+        if (!attempt.host) clearRendezvousListener();
+        attempt.listener.onFailed(reason);
+    }
+    private void cancelAttempt(NetworkAttempt attempt) {
+        attempt.cancelled = true;
+        DirectConnectivityCoordinator checks = activeDirectChecks.remove(attempt.peer);
+        if (checks != null) checks.cancel();
+        if (attempt.relay != null && retainedPeerRoutes.get(attempt.peer) != attempt.relay) attempt.relay.close();
+    }
+    private void closeRoute(PeerTransport route) {
+        route.close();
+        for (Map.Entry<UUID, DirectBinding> binding : directBindings.entrySet())
+            if (binding.getValue().route == route) directBindings.remove(binding.getKey(), binding.getValue());
+    }
+    private synchronized void transportFailed(PeerAddress peer, PeerTransport route, String reason, boolean hostRole) {
+        if (route == null) return;
+        boolean retained = retainedPeerRoutes.get(peer) == route;
+        peerRoutes.remove(peer, route); retainedPeerRoutes.remove(peer, route); closeRoute(route);
+        WorldTransfer transfer = hostRole ? hostWorldTransfer : successorWorldTransfer;
+        if (transfer != null && (hostRole ? peer.equals(handoffSuccessorPeer)
+                : peer.equals(clientTargetPeer) || retained))
+            transfer.transportFailed("peercraft.handoff.abort.transfer_failed");
+        authorizedPeers.remove(peer);
+        NetworkAttempt attempt = networkAttempts.get(peer);
+        if (attempt != null) { cancelAttempt(attempt); networkAttempts.remove(peer, attempt); }
+        if (hostRole) {
+            HostConnection conn = hostConnectionsByAddress.get(peer);
+            if (conn != null) closeHostConnection(conn);
+        } else {
+            Consumer<String> hook = onTransportFailure;
+            if (hook != null && (currentClientSession != null || retainingHandoffTransport())) hook.accept(reason);
+            if (proxy != null) proxy.disconnectClient();
+            rendezvousClientBusy.set(false);
+            if (attempt != null && currentClientSession == null) attempt.listener.onFailed(reason);
         }
     }
 
@@ -682,7 +939,11 @@ public class P2PBridge {
             @Override
             public void onSuccess(String ip, int port) {
                 activePunches.remove(addr);
-                authorizedPeers.add(addr);
+                try {
+                    PeerAddress actual = new PeerAddress(InetAddress.getByName(ip), port);
+                    authorizedPeers.add(actual);
+                    if (joinerAccountId.isPresent()) joinerAccountIdByAddress.put(actual, joinerAccountId.get());
+                } catch (UnknownHostException invalid) { return; }
                 LOGGER.info("[P2PBridge] (Хост) P2P-соединение установлено напрямую с {}:{}", ip, port);
             }
 
@@ -705,7 +966,7 @@ public class P2PBridge {
     // JOINER: starts a NAT punch to the host. A joiner always punches to exactly one peer
     // at a time, so a single rendezvousListener slot here is correct (unlike the host, see
     // beginHostPunch above).
-    private void beginClientPunch(RendezvousProtocol.Address peer, long token, final ConnectListener listener, final ModSyncAgent modSync) {
+    private void beginClientPunch(RendezvousProtocol.Address peer, long token, ConnectListener listener, ModSyncAgent modSync) {
         LOGGER.info("[P2PBridge] Пир найден: {}:{}, начинаем hole punching...", peer.host().getHostAddress(), peer.port());
         listener.onStatus("peercraft.p2p.status.peer_found");
         PunchCoordinator punch = new PunchCoordinator(sender, peer, token, new PunchCoordinator.Callback() {
@@ -714,7 +975,7 @@ public class P2PBridge {
                 clearRendezvousListener();
                 setClientTargetPeer(ip, port);
                 LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
-                if (modSync == null || PeerCraftConfig.modSyncClientMode() == net.peercraft.config.ModSyncMode.OFF) {
+                if (modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) {
                     listener.onConnected();
                     return;
                 }
@@ -735,7 +996,7 @@ public class P2PBridge {
     // JOINER: the mod-sync handshake occupies the single rendezvousListener slot between a
     // successful punch and onConnected(). The agent (client layer) drives the handshake over
     // the link and calls exactly one Outcome method.
-    private void runModSyncHandshake(ModSyncAgent modSync, final ConnectListener listener) {
+    private void runModSyncHandshake(ModSyncAgent modSync, ConnectListener listener) {
         modSyncActive.set(true);
         ModSyncLink link = new ModSyncLink() {
             @Override
@@ -778,8 +1039,19 @@ public class P2PBridge {
 
     // JOINER: mod sync finished without a live LocalProxy TCP session (mods installed and a
     // restart is needed, or the player cancelled), so neither endClientSession nor
-    // guardedListener.onFailed will reset rendezvousClientBusy — do it here.
+    // guardedListener.onFailed will reset rendezvousClientBusy — do it here, or a second
+    // "Connect" this launch wedges on peercraft.p2p.fail.already_connecting.
+    private void closeClientRoute() {
+        if (retainingHandoffTransport() || clientTargetPeer == null) return;
+        Consumer<String> modeHook = onTransportSelected;
+        if (modeHook != null) modeHook.accept(null);
+        NetworkAttempt attempt = networkAttempts.remove(clientTargetPeer);
+        if (attempt != null) cancelAttempt(attempt);
+        PeerTransport route = peerRoutes.remove(clientTargetPeer);
+        if (route != null) closeRoute(route);
+    }
     public void abortModSyncClient() {
+        closeClientRoute();
         modSyncActive.set(false);
         clearRendezvousListener();
         rendezvousClientBusy.set(false);
@@ -791,38 +1063,36 @@ public class P2PBridge {
     // the watchdog waits it out instead of yanking the listener. An absolute cap still fires so
     // a genuinely wedged attempt can't pin the busy flag forever.
     private void armBusyWatchdog() {
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final long start = System.currentTimeMillis();
-                final long idleLimitMillis = 45_000L;
-                final long absoluteCapMillis = 40 * 60_000L;
-                while (true) {
-                    try {
-                        Thread.sleep(5_000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                    if (!rendezvousClientBusy.get() || currentClientSession != null) {
-                        return; // resolved normally (connected, failed, or cleared elsewhere)
-                    }
-                    long elapsed = System.currentTimeMillis() - start;
-                    if (modSyncActive.get()) {
-                        if (elapsed < absoluteCapMillis) {
-                            continue; // mod sync still working — keep waiting
-                        }
-                        LOGGER.warn("[P2PBridge] Mod sync висит уже {} мин — принудительно снимаем флаг \"идёт подключение\".", elapsed / 60_000);
-                    } else if (elapsed < idleLimitMillis) {
-                        continue;
-                    } else {
-                        LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за {} с — снимаем флаг \"идёт подключение\".", elapsed / 1000);
-                    }
-                    modSyncActive.set(false);
-                    rendezvousClientBusy.set(false);
-                    clearRendezvousListener();
+        Thread t = new Thread(() -> {
+            long start = System.currentTimeMillis();
+            long idleLimitMillis = 120_000L;
+            long absoluteCapMillis = 40 * 60_000L;
+            while (true) {
+                try {
+                    Thread.sleep(5_000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     return;
                 }
+                if (!rendezvousClientBusy.get() || currentClientSession != null) {
+                    return; // resolved normally (connected, failed, or cleared elsewhere)
+                }
+                long elapsed = System.currentTimeMillis() - start;
+                if (modSyncActive.get()) {
+                    if (elapsed < absoluteCapMillis) {
+                        continue; // mod sync still working — keep waiting
+                    }
+                    LOGGER.warn("[P2PBridge] Mod sync висит уже {} мин — принудительно снимаем флаг \"идёт подключение\".", elapsed / 60_000);
+                } else if (elapsed < idleLimitMillis) {
+                    continue;
+                } else {
+                    LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за {} с — снимаем флаг \"идёт подключение\".", elapsed / 1000);
+                }
+                modSyncActive.set(false);
+                closeClientRoute();
+                rendezvousClientBusy.set(false);
+                clearRendezvousListener();
+                return;
             }
         }, "PeerCraft-Busy-Watchdog");
         t.setDaemon(true);
@@ -869,6 +1139,13 @@ public class P2PBridge {
     private void cancelRendezvousUnconditionally() {
         setHostRendezvousClient(null);
         clearRendezvousListener();
+        for (NetworkAttempt attempt : networkAttempts.values()) cancelAttempt(attempt);
+        networkAttempts.clear();
+        for (Map.Entry<PeerAddress, PeerTransport> entry : peerRoutes.entrySet()) {
+            if (retainedPeerRoutes.get(entry.getKey()) != entry.getValue()) closeRoute(entry.getValue());
+        }
+        peerRoutes.clear();
+        securedPeers.removeIf(peer -> !retainedPeerRoutes.containsKey(peer));
         for (PeerAddress addr : activePunches.keySet()) {
             PunchCoordinator punch = activePunches.remove(addr);
             if (punch != null) {
@@ -903,9 +1180,12 @@ public class P2PBridge {
     /**
      * One currently-connected joiner, as material for the host's successor picker.
      * {@code localPort} is the loopback TCP port that joiner's relay connection uses to the
-     * integrated server — the reliable key to correlate this candidate with a player entity
-     * (their connection's remote-address port), since a licensed player's profile UUID is
-     * their Mojang UUID, not their PeerCraft {@code accountId}.
+     * integrated server — the reliable key to correlate this candidate with a {@code ServerPlayer}
+     * (their {@code connection.getRemoteAddress()} port), since a licensed player's profile UUID
+     * is their Mojang UUID, not their PeerCraft {@code accountId}.
+     *
+     * <p>Plain class rather than a record: {@code P2PBridge} is shared into the Java-8 1.16.5
+     * backport build, where records don't compile.
      */
     public static final class HandoffCandidate {
         private final PeerAddress peer;
@@ -950,7 +1230,7 @@ public class P2PBridge {
 
     /** HOST: the joiners connected right now (a snapshot), for the "hand off hosting" screen. */
     public java.util.List<HandoffCandidate> connectedJoiners() {
-        java.util.List<HandoffCandidate> out = new java.util.ArrayList<HandoffCandidate>();
+        java.util.List<HandoffCandidate> out = new java.util.ArrayList<>();
         for (Map.Entry<PeerAddress, HostConnection> e : hostConnectionsByAddress.entrySet()) {
             out.add(new HandoffCandidate(e.getKey(), joinerAccountIdByAddress.get(e.getKey()),
                     e.getValue().sessionId, e.getValue().localPort,
@@ -982,22 +1262,29 @@ public class P2PBridge {
             return null;
         }
         HandoffCoordinator.PeerSender peerSender =
-                (ip, port, bytes) -> sender.sendData(bytes, ip.getHostAddress(), port);
+                this::sendRawDatagram;
         java.util.function.Supplier<java.util.List<java.net.SocketAddress>> joiners = () -> {
-            java.util.List<java.net.SocketAddress> list = new java.util.ArrayList<java.net.SocketAddress>();
+            java.util.List<java.net.SocketAddress> list = new java.util.ArrayList<>();
             for (PeerAddress p : hostConnectionsByAddress.keySet()) {
                 list.add(new java.net.InetSocketAddress(p.host(), p.port()));
             }
             return list;
         };
+        java.util.Set<java.net.InetSocketAddress> participants = new java.util.HashSet<>();
+        for (PeerAddress peer : hostConnectionsByAddress.keySet())
+            participants.add(new java.net.InetSocketAddress(peer.host(), peer.port()));
+        participants.add(new java.net.InetSocketAddress(successor.host(), successor.port()));
+        retainHandoffTransport(offer.offerId(), participants);
         this.handoffSuccessorPeer = successor;
         HandoffCoordinator session = HandoffCoordinator.start(offer, successor.host(), successor.port(),
-                successorAccountId, peerSender, joiners, transfer, wrapClearingCallbacks(callbacks));
+                successorAccountId, peerSender, joiners, transfer,
+                wrapClearingCallbacks(callbacks, offer.offerId()),
+                () -> awaitHandoffRetention(offer.offerId()));
         this.handoffHostSession = session;
         return session;
     }
 
-    private HandoffCoordinator.Callbacks wrapClearingCallbacks(final HandoffCoordinator.Callbacks inner) {
+    private HandoffCoordinator.Callbacks wrapClearingCallbacks(HandoffCoordinator.Callbacks inner, long offerId) {
         return new HandoffCoordinator.Callbacks() {
             @Override public void onAccepted() { inner.onAccepted(); }
             @Override public void onDeclined(String reasonKey) { clear(); inner.onDeclined(reasonKey); }
@@ -1005,6 +1292,7 @@ public class P2PBridge {
             @Override public void onAborted(String reasonKey) { clear(); inner.onAborted(reasonKey); }
             @Override public void onStatus(String messageKey) { inner.onStatus(messageKey); }
             private void clear() {
+                releaseHandoffTransport(offerId);
                 handoffHostSession = null;
                 handoffSuccessorPeer = null;
                 WorldTransfer wt = hostWorldTransfer;
@@ -1018,6 +1306,18 @@ public class P2PBridge {
 
     /** JOINER: install the agent that listens for handoff traffic from the host for this session. */
     public void installHandoffClientAgent(HandoffClientAgent agent) {
+        if (agent != null) agent.setRetention(new HandoffClientAgent.Retention() {
+            public void retain(long offer, InetAddress host, int port) throws IOException {
+                synchronized (P2PBridge.this) {
+                    if (independentHandoff == null || independentHandoff.isClosed())
+                        retainHandoffTransport(offer, java.util.Collections.singleton(new InetSocketAddress(host, port)));
+                    else if (independentHandoff.offerId != offer)
+                        throw new IOException("Another handoff transport is active");
+                }
+                awaitHandoffRetention(offer);
+            }
+            public void release(long offer) { releaseHandoffTransport(offer); }
+        });
         this.handoffClientAgent = agent;
     }
 
@@ -1047,12 +1347,21 @@ public class P2PBridge {
 
     /** Sends a raw datagram on the shared socket — used by the handoff client agent to reply to the host. */
     public void sendRawDatagram(InetAddress ip, int port, byte[] data) {
-        sender.sendData(data, ip.getHostAddress(), port);
+        // Rendezvous and handoff authority remain server control traffic.
+        if (data.length > 0 && (data[0] == RendezvousProtocol.MAGIC
+                || data[0] == net.peercraft.network.handoff.HandoffAuthorityProtocol.MAGIC)) {
+            if (sender != null) sender.sendData(data, ip.getHostAddress(), port);
+            return;
+        }
+        sendEncoded(new PeerAddress(ip, port), data);
     }
 
     // Returns false if the UDP socket could not be bound (port already in use, etc.) — the
     // rendezvous callers surface that to the player instead of pressing on with a null sender.
     private boolean restartReceiver(int port) {
+        // A retained direct route owns this socket across a handoff role change.
+        if (retainingHandoffTransport() && receiver != null && receiver.getSocket() != null
+                && !receiver.getSocket().isClosed()) return true;
         if (this.receiver != null) {
             this.receiver.stop();
         }
@@ -1119,7 +1428,17 @@ public class P2PBridge {
             LOGGER.error("[P2PBridge] Отмена отправки: P2PSender не инициализирован!");
             return;
         }
-        sender.sendData(framed, dest.ip(), dest.port());
+        PeerTransport route = retainedPeerRoutes.get(dest);
+        // Handoff operation owns its original route until release; game uses current route.
+        boolean handoffPacket = framed.length > 0 && (framed[0] == HandoffProtocol.MAGIC
+                || framed[0] == WorldTransferProtocol.MAGIC
+                || framed[0] == net.peercraft.network.handoff.HandoffControlProtocol.MAGIC
+                || framed[0] == net.peercraft.network.handoff.HandoffCapabilities.MAGIC);
+        if (route == null || !handoffPacket) route = peerRoutes.get(dest);
+        if (route != null) {
+            try { route.send(framed); }
+            catch (IOException error) { LOGGER.debug("[P2PBridge] Peer transport send failed: {}", error.toString()); }
+        } else if (!securedPeers.contains(dest)) sender.sendData(framed, dest.ip(), dest.port());
     }
 
     private void sendFramed(PeerAddress dest, long sessionId, long seq, byte flags, byte[] data) {
@@ -1187,14 +1506,42 @@ public class P2PBridge {
 
     // Receives a UDP packet from P2PReceiver: strips the framing and forwards it to the local Minecraft TCP socket
     public void handleIncomingPacket(byte[] data, int length, InetAddress senderAddress, int senderPort) {
+        if (length < 1 || length > data.length) return;
+        byte[] packet = Arrays.copyOf(data, length);
+        if (SecureDatagramChannel.isPacket(packet)) {
+            DirectBinding binding = directBindings.get(SecureDatagramChannel.peekLinkId(packet));
+            if (binding == null) return;
+            byte[] decoded = binding.route.accept(packet, new InetSocketAddress(senderAddress, senderPort));
+            if (decoded != null) dispatchDecoded(decoded, decoded.length, binding.peer.host(), binding.peer.port());
+            return;
+        }
+        for (DirectConnectivityCoordinator checks : activeDirectChecks.values()) {
+            if (checks.onDiscoveryPacket(packet, length, senderAddress, senderPort)) return;
+        }
+        if (length >= 2 && data[0] == RendezvousProtocol.MAGIC
+                && (data[1] & 0xFF) == DirectConnectivityCoordinator.MESSAGE_TYPE) {
+            for (DirectConnectivityCoordinator checks : activeDirectChecks.values()) checks.onPacket(packet, length, senderAddress, senderPort);
+            return;
+        }
+        boolean control = data[0] == RendezvousProtocol.MAGIC
+                || data[0] == net.peercraft.network.handoff.HandoffAuthorityProtocol.MAGIC;
+        if (!control) {
+            PeerAddress source = new PeerAddress(senderAddress, senderPort);
+            if (securedPeers.contains(source) || peerRoutes.containsKey(source) || retainedPeerRoutes.containsKey(source)
+                    || (!isHost && clientTargetPeer != null && peerRoutes.containsKey(clientTargetPeer))) return;
+        }
+        dispatchDecoded(packet, length, senderAddress, senderPort);
+    }
+
+    private synchronized void dispatchDecoded(byte[] data, int length, InetAddress senderAddress, int senderPort) {
         // Mod-sync control traffic has its own magic byte (0xE2), routed before the relay path
         // and separately from rendezvous (0xE1). On the joiner it goes to the single
         // rendezvousListener slot (which the ModSyncAgent binds its coordinator into via
         // ModSyncLink); on the host, one coordinator per already-punched joiner address.
         if (length >= 2 && data[0] == ModSyncProtocol.MAGIC) {
             if (this.isHost) {
-                final PeerAddress from = new PeerAddress(senderAddress, senderPort);
-                final ModSyncHostProvider provider = this.modSyncHostProvider;
+                PeerAddress from = new PeerAddress(senderAddress, senderPort);
+                ModSyncHostProvider provider = this.modSyncHostProvider;
                 if (provider == null || !authorizedPeers.contains(from)) {
                     return;
                 }
@@ -1205,12 +1552,7 @@ public class P2PBridge {
                 // single-threaded (the P2PReceiver processing thread), so no lock is needed.
                 ModSyncCoordinator coord = modSyncHostSessions.get(from);
                 if (coord == null || coord.isCancelled()) {
-                    coord = ModSyncCoordinator.host(new ModSyncCoordinator.Sender() {
-                        @Override
-                        public void send(byte[] bytes) {
-                            sendEncoded(from, bytes);
-                        }
-                    }, provider, provider.servingTempDir());
+                    coord = ModSyncCoordinator.host(bytes -> sendEncoded(from, bytes), provider, provider.servingTempDir());
                     modSyncHostSessions.put(from, coord);
                 }
                 coord.onPacket(data, length, senderAddress, senderPort);
@@ -1253,6 +1595,8 @@ public class P2PBridge {
 
         if (length >= 2 && data[0] == HandoffProtocol.MAGIC) {
             if (this.isHost) {
+                // Out-of-band preference, not part of any one offer's handshake — handled here
+                // directly so it's tracked whether or not a handoff attempt is currently running.
                 if ((data[1] & 0xFF) == (HandoffProtocol.T_SUCCESSOR_PREFERENCE & 0xFF)) {
                     PeerAddress from = new PeerAddress(senderAddress, senderPort);
                     if (authorizedPeers.contains(from)) {
@@ -1345,10 +1689,20 @@ public class P2PBridge {
     private synchronized void handleHostIncoming(FramedPacket frame, PeerAddress sender) {
         HostConnection conn = this.hostConnectionsBySessionId.get(frame.sessionId());
 
+        // A guessed game session ID cannot change a negotiated participant's identity.
+        if (conn != null && !sender.equals(conn.peerAddress)
+                && (peerRoutes.containsKey(conn.peerAddress) || retainedPeerRoutes.containsKey(conn.peerAddress)
+                || peerRoutes.containsKey(sender))) return;
         if (frame.type() == FramedPacket.TYPE_NACK) {
             if (conn != null) {
                 resendIfBuffered(conn.peerAddress, conn.sessionId, frame.nackSeq(), conn.sentPackets);
             }
+            return;
+        }
+
+        if (conn == null && frame.isFin()) {
+            // FIN for a session we hold no connection for — already torn down, or we never
+            // saw its data stream. Nothing to close.
             return;
         }
 
@@ -1364,6 +1718,14 @@ public class P2PBridge {
                 hostConnectionsByAddress.put(sender, conn);
             }
             deliverToHost(conn, frame);
+            if (frame.isFin()) {
+                // Joiner left the world — close our TCP link to the integrated server right
+                // away so it removes their player entity now, instead of waiting out its
+                // keep-alive timeout with a frozen, unkickable, still-damageable avatar.
+                LOGGER.info("[P2PBridge] (Хост) Джойнер {}:{} закрыл сессию {} (FIN) — рвём соединение с локальным MC-сервером",
+                        sender.ip(), sender.port(), frame.sessionId());
+                closeHostConnection(conn);
+            }
             return;
         }
 
@@ -1471,6 +1833,16 @@ public class P2PBridge {
             if (result.requestSeq != null) {
                 sendNack(this.clientTargetPeer, session.sessionId, result.requestSeq);
                 LOGGER.debug("[P2PBridge] Запросили повторную отправку seq={} для клиентской сессии {}", result.requestSeq, session.sessionId);
+            }
+            if (frame.isFin()) {
+                // Host closed our session (they left / closed the world) — drop the local
+                // MC client now so vanilla shows "connection lost" instead of hanging on
+                // the socket until its 30s read timeout.
+                LOGGER.info("[P2PBridge] Хост закрыл сессию {} (FIN) — отключаем локальный MC-клиент", session.sessionId);
+                if (this.currentClientSession == session) endClientSession(session.sessionId);
+                if (this.proxy != null) {
+                    this.proxy.disconnectClient();
+                }
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
             LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, e.getMessage());
