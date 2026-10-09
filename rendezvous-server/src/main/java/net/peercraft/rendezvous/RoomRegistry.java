@@ -29,6 +29,7 @@ final class RoomRegistry {
     // from the same address — is a genuinely new attempt (e.g. reconnecting after a
     // disconnect) and gets a fresh token and a fresh match instead of being rejected.
     static final long REMATCH_DEBOUNCE_MILLIS = 3_000L;
+    private static final long DETAILED_REMATCH_DEBOUNCE_MILLIS = 60_000L;
 
     private static final int MAX_ROOMS = 1000;
     private static final int REGISTER_RATE_LIMIT = 5;
@@ -194,6 +195,20 @@ final class RoomRegistry {
      */
     RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
                              Optional<UUID> hostAccountId, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion) {
+        return register(hostAddress, maxPlayers, currentPlayerCount, hostAccountId, friendsOnly,
+                publicRoom, worldName, mcVersion, Optional.empty());
+    }
+
+    /**
+     * A connectivity attempt ID stays fixed throughout a hosting session, including its
+     * REGISTER retries/keepalives. Reuse its room when NAT changes only the UDP port.
+     * Restrict this to the same IP and verified account: names/IPs alone do not identify
+     * worlds, and two players behind one router may publish identical labels.
+     * Legacy clients without this ID retain address-based registration.
+     */
+    RegisterResult register(RendezvousProtocol.Address hostAddress, int maxPlayers, int currentPlayerCount,
+                             Optional<UUID> hostAccountId, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion,
+                             Optional<RendezvousProtocol.ConnectivityAdvertisement> advertisement) {
         long now = clock.getAsLong();
         int clampedMaxPlayers = clamp(maxPlayers, MIN_MAX_PLAYERS, MAX_MAX_PLAYERS);
         boolean effectivePublicRoom = publicRoom && !friendsOnly;
@@ -207,9 +222,45 @@ final class RoomRegistry {
         // Also self-corrects maxPlayers/currentPlayerCount/hostAccountId/friendsOnly on every
         // keepalive — this is what lets a slot freed up by a leaving player become joinable
         // again within one keepalive interval, without a dedicated "player left" message.
-        for (Room existing : roomsByCode.values()) {
-            if (existing.hostAddress.equals(hostAddress)) {
+        Room reusable = null;
+        if (advertisement.isPresent()) {
+            UUID attempt = advertisement.get().clientAttemptId();
+            for (Room existing : roomsByCode.values()) {
+                if (existing.hostAddress.host().equals(hostAddress.host())
+                        && existing.hostAccountId.equals(hostAccountId)
+                        && now - existing.hostLastSeenAt <= ROOM_TTL_MILLIS
+                        && existing.connectivity.map(ad -> ad.clientAttemptId().equals(attempt)).orElse(false)) {
+                    reusable = existing;
+                    break;
+                }
+            }
+        }
+        // Look up the session before its address: a recycled old port must not select
+        // another session's room in preference to this host's existing code.
+        if (reusable == null) {
+            for (Room existing : roomsByCode.values()) {
+                if (existing.hostAddress.equals(hostAddress)) {
+                    reusable = existing;
+                    break;
+                }
+            }
+        }
+        if (reusable != null) {
+            Room existing = reusable;
+            synchronized (existing) {
+                if (!existing.hostAddress.equals(hostAddress)) {
+                    existing.hostAddress = hostAddress;
+                    // Cached candidate offers describe the previous mapping. Preserve
+                    // known joiners for capacity checks, but force fresh tokens/offers:
+                    // the host client ignores PEER_FOUND with an already-seen token.
+                    existing.joiners.values().forEach(slot -> {
+                        slot.networkOffers = null;
+                        slot.lastMatchedAt = now - DETAILED_REMATCH_DEBOUNCE_MILLIS - 1;
+                    });
+                    candidateRoutes.entrySet().removeIf(entry -> entry.getValue().room().equals(existing.code));
+                }
                 existing.lastSeenAt = now;
+                existing.hostLastSeenAt = now;
                 existing.maxPlayers = clampedMaxPlayers;
                 existing.currentPlayerCount = currentPlayerCount;
                 existing.hostAccountId = hostAccountId;
@@ -217,6 +268,7 @@ final class RoomRegistry {
                 existing.publicRoom = effectivePublicRoom;
                 existing.worldName = effectiveWorldName;
                 existing.mcVersion = effectiveMcVersion;
+                connectivity(existing.code, hostAddress, advertisement);
                 return new Registered(existing.code, true);
             }
         }
@@ -237,6 +289,7 @@ final class RoomRegistry {
         room.publicRoom = effectivePublicRoom;
         room.worldName = effectiveWorldName;
         room.mcVersion = effectiveMcVersion;
+        room.connectivity = advertisement;
         roomsByCode.put(code, room);
         return new Registered(code, false);
     }
@@ -257,7 +310,7 @@ final class RoomRegistry {
             if (!room.publicRoom) {
                 continue;
             }
-            if (now - room.lastSeenAt > PUBLIC_LISTING_STALE_MILLIS) {
+            if (now - room.hostLastSeenAt > PUBLIC_LISTING_STALE_MILLIS) {
                 continue;
             }
             result.add(new PublicRoomInfo(room.code, room.maxPlayers, room.currentPlayerCount, room.hostAccountId, room.worldName, room.mcVersion));
@@ -309,7 +362,7 @@ final class RoomRegistry {
 
             Room.JoinerSlot slot = room.joiners.get(joinerAddress);
             boolean detailed = clientAttemptId != null && room.connectivity.isPresent();
-            long debounce = detailed ? 60_000L : REMATCH_DEBOUNCE_MILLIS;
+            long debounce = detailed ? DETAILED_REMATCH_DEBOUNCE_MILLIS : REMATCH_DEBOUNCE_MILLIS;
             boolean sameRecentMatch = slot != null && (now - slot.lastMatchedAt) <= debounce
                     && (!detailed || clientAttemptId.equals(slot.clientAttemptId));
             if (sameRecentMatch) {

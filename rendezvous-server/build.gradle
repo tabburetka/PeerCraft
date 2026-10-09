@@ -56,4 +56,5 @@ sourceSets.test.java.include('net/peercraft/rendezvous/**', 'net/peercraft/netwo
     'net/peercraft/network/handoff/HandoffJournal.java', 'net/peercraft/network/handoff/HandoffFiles.java',
     'net/peercraft/network/handoff/HandoffPhases.java',
     'net/peercraft/network/handoff/HandoffControlProtocol.java', 'net/peercraft/network/handoff/HandoffParticipant.java',
+    'net/peercraft/network/rendezvous/RendezvousProtocol.java',
     'net/peercraft/network/turn/StunCodec.java', 'net/peercraft/network/turn/TurnUdpClient.java')

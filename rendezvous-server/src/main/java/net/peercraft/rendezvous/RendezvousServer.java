@@ -321,9 +321,8 @@ public final class RendezvousServer implements AutoCloseable {
                 accountService.resolveSession(ref.sessionToken()).filter(resolved -> resolved.equals(ref.accountId())));
         boolean friendsOnly = register.friendsOnly() && verifiedAccountId.isPresent();
         RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(),
-                verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion());
+                verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion(), register.connectivity());
         if (result instanceof RoomRegistry.Registered registered) {
-            registry.connectivity(registered.code(), from, register.connectivity());
             relayMatches.observeHost(registered.code(), verifiedAccountId.orElse(null),
                     register.connectivity().map(ad -> ad.relayCapable() && ad.relayConsent()).orElse(false),
                     register.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));

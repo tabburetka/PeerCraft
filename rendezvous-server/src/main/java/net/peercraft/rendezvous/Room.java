@@ -9,7 +9,7 @@ import java.util.UUID;
 final class Room {
 
     final String code;
-    final RendezvousProtocol.Address hostAddress;
+    volatile RendezvousProtocol.Address hostAddress;
     final long createdAt;
 
     // Self-reported (and server-verified against the REGISTER's sessionToken — see
@@ -39,6 +39,9 @@ final class Room {
     // host keeps hosting; it's only reclaimed once nothing has touched it for a while
     // (host crashed, closed the world, quit the mod).
     volatile long lastSeenAt;
+    // Only REGISTER proves the host is still advertising. JOIN must not revive a stale
+    // public listing (in particular an old NAT mapping left by a legacy client).
+    volatile long hostLastSeenAt;
 
     // Self-reported by the host on every REGISTER (including the 15s keepalive) — this is
     // how a slot freed up by a player leaving becomes joinable again within one keepalive
@@ -58,6 +61,7 @@ final class Room {
         this.hostAddress = hostAddress;
         this.createdAt = createdAt;
         this.lastSeenAt = createdAt;
+        this.hostLastSeenAt = createdAt;
     }
 
     /** Per-joiner pairing state: last issued token and when it was (re)issued. */
