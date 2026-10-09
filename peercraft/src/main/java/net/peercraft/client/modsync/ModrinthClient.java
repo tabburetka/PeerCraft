@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.peercraft.network.modsync.ModEntry;
+import net.peercraft.network.modsync.ModSyncPlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,11 +76,19 @@ public final class ModrinthClient {
         }
     }
 
+    public record Lookup(Optional<Resolved> resolved, ModSyncPlan.CatalogStatus status) {
+    }
+
     /** Looks {@code entry}'s jar up by hash; empty when Modrinth doesn't have it or anything goes wrong. */
     public Optional<Resolved> resolve(ModEntry entry) {
+        return lookup(entry).resolved();
+    }
+
+    /** Separates an absent public listing from a network or API failure. */
+    public Lookup lookup(ModEntry entry) {
         String hashHex = entry.sha512Hex();
         if (hashHex.length() != 128) {
-            return Optional.empty();
+            return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
         }
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(VERSION_FILE_API + hashHex + "?algorithm=sha512"))
@@ -89,26 +98,30 @@ public final class ModrinthClient {
                     .GET()
                     .build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() != 200) {
-                return Optional.empty();
+            if (resp.statusCode() == 404) {
+                return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.NOT_FOUND);
             }
-            return parse(resp.body(), hashHex);
+            if (resp.statusCode() != 200) {
+                return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
+            }
+            return parseLookup(resp.body(), hashHex);
         } catch (Exception e) {
             LOGGER.debug("[ModSync] Modrinth-поиск для {} не удался: {}", entry.id(), e.toString());
-            return Optional.empty();
+            return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
         }
     }
 
-    private Optional<Resolved> parse(String body, String wantHashHex) {
+    static Lookup parseLookup(String body, String wantHashHex) {
         JsonElement root = JsonParser.parseString(body);
         if (!root.isJsonObject()) {
-            return Optional.empty();
+            return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
         }
         JsonObject version = root.getAsJsonObject();
+        boolean listed = version.has("status") && "listed".equals(version.get("status").getAsString());
         String projectId = version.has("project_id") ? version.get("project_id").getAsString() : "";
         JsonElement filesEl = version.get("files");
         if (filesEl == null || !filesEl.isJsonArray()) {
-            return Optional.empty();
+            return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
         }
         for (JsonElement fe : filesEl.getAsJsonArray()) {
             if (!fe.isJsonObject()) {
@@ -124,9 +137,10 @@ public final class ModrinthClient {
             String url = rawUrl.startsWith("https://cdn.modrinth.com/") ? rawUrl : "";
             long size = f.has("size") ? f.get("size").getAsLong() : 0L;
             String fileName = f.has("filename") ? f.get("filename").getAsString() : "";
-            return Optional.of(new Resolved(url, sha, size, fileName, projectId));
+            return new Lookup(Optional.of(new Resolved(url, sha, size, fileName, projectId)),
+                    listed ? ModSyncPlan.CatalogStatus.PUBLISHED : ModSyncPlan.CatalogStatus.NOT_FOUND);
         }
-        return Optional.empty();
+        return new Lookup(Optional.empty(), ModSyncPlan.CatalogStatus.UNAVAILABLE);
     }
 
     /**

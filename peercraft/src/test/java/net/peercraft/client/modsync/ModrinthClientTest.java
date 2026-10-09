@@ -1,6 +1,7 @@
 package net.peercraft.client.modsync;
 
 import net.peercraft.network.modsync.ModEntry;
+import net.peercraft.network.modsync.ModSyncPlan;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -38,5 +39,18 @@ class ModrinthClientTest {
     void caseInsensitive() {
         assertEquals(Optional.of(ModEntry.Env.BOTH), ModrinthClient.sideToEnv("REQUIRED", "REQUIRED"));
         assertEquals(Optional.of(ModEntry.Env.CLIENT), ModrinthClient.sideToEnv("Required", "Optional"));
+    }
+
+    @Test
+    void onlyListedVersionWithMatchingFileHashGetsPublishedStatus() {
+        String hash = "a".repeat(128);
+        String files = "\"files\":[{\"hashes\":{\"sha512\":\"" + hash
+                + "\"},\"url\":\"https://cdn.modrinth.com/file.jar\"}]";
+        assertEquals(ModSyncPlan.CatalogStatus.PUBLISHED,
+                ModrinthClient.parseLookup("{\"status\":\"listed\"," + files + "}", hash).status());
+        assertEquals(ModSyncPlan.CatalogStatus.NOT_FOUND,
+                ModrinthClient.parseLookup("{\"status\":\"unlisted\"," + files + "}", hash).status());
+        assertEquals(ModSyncPlan.CatalogStatus.UNAVAILABLE,
+                ModrinthClient.parseLookup("{\"status\":\"listed\",\"files\":[]}", hash).status());
     }
 }

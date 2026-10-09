@@ -23,6 +23,7 @@ import net.peercraft.client.gui.ModSyncRestartRequiredScreen;
 import net.peercraft.client.gui.ModSyncSecurityNoticeScreen;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModEntry;
+import net.peercraft.network.modsync.ModrinthCatalogClient;
 import net.peercraft.network.modsync.ModSyncAgent;
 import net.peercraft.network.modsync.ModSyncCoordinator;
 import net.peercraft.network.modsync.ModSyncLink;
@@ -230,16 +231,21 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
             boolean forceScreen = PeerCraftConfig.modSyncReofferDeclined();
             boolean anythingNew = !toFetch.isEmpty();
-            if (!forceScreen && (PeerCraftConfig.modSyncAutoAccept() || !anythingNew)) {
-                if (!anythingNew) {
-                    finishProceed();
-                } else {
-                    runDownloads(ModSyncPlan.of(plannedP2p(toFetch)));
-                }
+            if (!forceScreen && !anythingNew) {
+                finishProceed();
                 return;
             }
 
             ModSyncPlan plan = ModSyncPlan.of(plannedP2p(visible));
+            ModSyncPlan selected = plan.excluding(declined);
+            boolean allPublished = true;
+            for (ModSyncPlan.PlannedMod mod : selected.mods()) {
+                if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) allPublished = false;
+            }
+            if (!forceScreen && PeerCraftConfig.modSyncAutoAccept() && allPublished) {
+                runDownloads(selected);
+                return;
+            }
             Set<String> preDeselected = new LinkedHashSet<>();
             for (ModEntry e : visible) {
                 if (e.env() == ModEntry.Env.CLIENT && declined.contains(e.id())) {
@@ -262,10 +268,12 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     }
 
     /** no Modrinth fast-path here — every missing jar is streamed from the host over P2P. */
-    private static List<ModSyncPlan.PlannedMod> plannedP2p(List<ModEntry> missing) {
+    private List<ModSyncPlan.PlannedMod> plannedP2p(List<ModEntry> missing) {
+        ModSyncPlan.CatalogStatus[] statuses = ModrinthCatalogClient.checkAll(missing,
+                count -> prepStatus("peercraft.modsync.prepare.checking", count, missing.size()));
         List<ModSyncPlan.PlannedMod> out = new ArrayList<>(missing.size());
-        for (ModEntry e : missing) {
-            out.add(ModSyncPlan.PlannedMod.p2p(e));
+        for (int i = 0; i < missing.size(); i++) {
+            out.add(ModSyncPlan.PlannedMod.p2p(missing.get(i)).withCatalogStatus(statuses[i]));
         }
         return out;
     }

@@ -231,17 +231,12 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
-            // Show the screen when the host offers something the player hasn't ruled on yet
-            // (or when reofferDeclined forces it). Otherwise go straight through with the
-            // remembered choices — no screen on a plain re-join.
+            // A catalog failure or missing public listing needs a fresh, explicit decision.
+            // Even the opt-in autoAccept setting cannot silently install such a jar.
             boolean forceScreen = PeerCraftConfig.modSyncReofferDeclined();
             boolean anythingNew = !toFetch.isEmpty();
-            if (!forceScreen && (PeerCraftConfig.modSyncAutoAccept() || !anythingNew)) {
-                if (!anythingNew) {
-                    finishProceed();
-                } else {
-                    runDownloads(ModSyncPlan.of(resolveSources(toFetch)));
-                }
+            if (!forceScreen && !anythingNew) {
+                finishProceed();
                 return;
             }
 
@@ -250,6 +245,13 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             // Modrinth, so "is this client-side" matches what the screen will show. In
             // "required only" mode `visible` is already just the join-required mods.
             ModSyncPlan plan = ModSyncPlan.of(resolveSources(visible));
+            ModSyncPlan selected = plan.excluding(declined);
+            boolean allPublished = selected.mods().stream().allMatch(pm ->
+                    pm.catalogStatus() == ModSyncPlan.CatalogStatus.PUBLISHED);
+            if (!forceScreen && PeerCraftConfig.modSyncAutoAccept() && allPublished) {
+                runDownloads(selected);
+                return;
+            }
             Set<String> preDeselected = new LinkedHashSet<>();
             for (ModSyncPlan.PlannedMod pm : plan.mods()) {
                 if (pm.entry().env() == ModEntry.Env.CLIENT && declined.contains(pm.entry().id())) {
@@ -278,7 +280,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
      */
     private List<ModSyncPlan.PlannedMod> resolveSources(List<ModEntry> missing) {
         ModrinthClient modrinth = new ModrinthClient(selfVersion());
-        ModrinthClient.Resolved[] resolved = new ModrinthClient.Resolved[missing.size()];
+        ModrinthClient.Lookup[] lookups = new ModrinthClient.Lookup[missing.size()];
         AtomicInteger done = new AtomicInteger(0);
         int parallel = Math.min(6, Math.max(1, missing.size()));
         ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
@@ -292,7 +294,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 final int idx = i;
                 final ModEntry e = missing.get(i);
                 tasks.add(CompletableFuture.runAsync(() -> {
-                    resolved[idx] = modrinth.resolve(e).orElse(null);
+                    lookups[idx] = modrinth.lookup(e);
                     int n = done.incrementAndGet();
                     prepStatus(Component.translatable("peercraft.modsync.prepare.checking", n, missing.size()));
                 }, pool));
@@ -303,7 +305,8 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
 
         List<String> projectIds = new ArrayList<>();
-        for (ModrinthClient.Resolved r : resolved) {
+        for (ModrinthClient.Lookup lookup : lookups) {
+            ModrinthClient.Resolved r = lookup.resolved().orElse(null);
             if (r != null) {
                 projectIds.add(r.projectId());
             }
@@ -314,14 +317,16 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         List<ModSyncPlan.PlannedMod> out = new ArrayList<>(missing.size());
         for (int i = 0; i < missing.size(); i++) {
             ModEntry e = missing.get(i);
-            ModrinthClient.Resolved r = resolved[i];
+            ModrinthClient.Resolved r = lookups[i].resolved().orElse(null);
             ModEntry.Env env = (r != null) ? sideByProject.getOrDefault(r.projectId(), e.env()) : e.env();
             if (env != e.env()) {
                 reclassified++;
             }
             ModEntry entry = (env == e.env()) ? e : withEnv(e, env);
             boolean httpOk = r != null && r.hasDownloadUrl() && r.sha512Hex().equalsIgnoreCase(e.sha512Hex());
-            out.add(httpOk ? ModSyncPlan.PlannedMod.http(entry, r.url()) : ModSyncPlan.PlannedMod.p2p(entry));
+            ModSyncPlan.PlannedMod planned = httpOk ? ModSyncPlan.PlannedMod.http(entry, r.url())
+                    : ModSyncPlan.PlannedMod.p2p(entry);
+            out.add(planned.withCatalogStatus(lookups[i].status()));
         }
         if (reclassified > 0) {
             LOGGER.info("[ModSync] Modrinth уточнил сторону для {} из {} модов.", reclassified, missing.size());

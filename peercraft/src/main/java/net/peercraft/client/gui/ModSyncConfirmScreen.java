@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  * out; mods needed to join the host's world (client+server and server-only) have no checkbox.
  * A filter button cycles all / client-only / required. What the player unchecks is remembered
  * (see {@code ModSyncDeclinedStore}) so this screen doesn't reappear on every re-join.
- * Skipped entirely when {@code peercraft.modSync.autoAccept} is set.
+ * Auto-accept skips this screen only when every selected jar has a public catalog match.
  */
 public class ModSyncConfirmScreen extends Screen {
 
@@ -132,8 +132,36 @@ public class ModSyncConfirmScreen extends Screen {
     private int panelWidth() { return Math.max(1, Math.min(460, this.width - 16)); }
     private int contentWidth() { return Math.max(1, panelWidth() - 32); }
     private int contentLeft() { return (this.width - panelWidth()) / 2 + 12; }
+    private int unconfirmedCount() {
+        int count = 0;
+        for (ModSyncPlan.PlannedMod mod : allMods) {
+            if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
+        }
+        return count;
+    }
+    private Component intro() {
+        int unconfirmed = unconfirmedCount();
+        return unconfirmed == 0
+                ? Component.translatable("peercraft.modsync.confirm.intro2", allMods.size())
+                : Component.translatable("peercraft.modsync.confirm.catalog_summary", unconfirmed, allMods.size());
+    }
+    private static String catalogKey(ModSyncPlan.PlannedMod mod) {
+        return switch (mod.catalogStatus()) {
+            case PUBLISHED -> "peercraft.modsync.catalog.published";
+            case NOT_FOUND -> "peercraft.modsync.catalog.not_found";
+            case UNAVAILABLE -> "peercraft.modsync.catalog.unavailable";
+        };
+    }
+    private static int catalogColor(ModSyncPlan.PlannedMod mod) {
+        return switch (mod.catalogStatus()) {
+            case PUBLISHED -> PeerCraftUi.TEXT_SUCCESS;
+            case NOT_FOUND -> PeerCraftUi.TEXT_ACCENT;
+            case UNAVAILABLE -> PeerCraftUi.TEXT_MUTED;
+        };
+    }
     private String rowDetails(ModSyncPlan.PlannedMod mod) {
-        return Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
+        return Component.translatable(catalogKey(mod)).getString() + " · "
+                + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
                 : "peercraft.modsync.confirm.tag_required").getString()
                 + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod);
     }
@@ -213,7 +241,8 @@ public class ModSyncConfirmScreen extends Screen {
         if (mouseX < contentLeft() || mouseX >= contentLeft() + contentWidth()
                 || mouseY < LIST_TOP || row >= visibleRows() || row + scroll >= mods.size()) return null;
         ModSyncPlan.PlannedMod mod = mods.get(row + scroll);
-        return Component.literal(rowName(mod.entry()) + "\n" + mod.entry().fileName() + "\n" + rowDetails(mod));
+        return Component.literal(rowName(mod.entry()) + "\n" + mod.entry().fileName() + "\n"
+                + rowDetails(mod) + "\n" + Component.translatable("peercraft.modsync.catalog.explanation").getString());
     }
 
     static String humanSize(long bytes) {
@@ -267,7 +296,8 @@ public class ModSyncConfirmScreen extends Screen {
         int centerX = this.width / 2;
         graphics.drawCenteredString(this.font, this.font.plainSubstrByWidth(this.title.getString(), contentWidth()), centerX, 14, 0xFFE9DFCB);
         graphics.drawCenteredString(this.font,
-                this.font.plainSubstrByWidth(Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()).getString(), contentWidth()), centerX, 28, 0xFFA99D89);
+                this.font.plainSubstrByWidth(intro().getString(), contentWidth()), centerX, 28,
+                unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
         int warningY = 42;
         for (net.minecraft.util.FormattedCharSequence line : this.font.split(
                 Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth())) {
@@ -285,7 +315,7 @@ public class ModSyncConfirmScreen extends Screen {
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
             graphics.drawString(this.font, this.font.plainSubstrByWidth(rowName(e), textWidth), textX, textY, 0xFFE9DFCB, false);
-            graphics.drawString(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, 0xFFA99D89, false);
+            graphics.drawString(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, catalogColor(m), false);
         }
         drawScrollbar(graphics, centerX, vis.size());
         Component details = hoveredDetails(mouseX, mouseY, vis);
@@ -347,7 +377,8 @@ public class ModSyncConfirmScreen extends Screen {
         int centerX = this.width / 2;
         graphics.centeredText(this.font, this.font.plainSubstrByWidth(this.title.getString(), contentWidth()), centerX, 14, 0xFFE9DFCB);
         graphics.centeredText(this.font,
-                this.font.plainSubstrByWidth(Component.translatable("peercraft.modsync.confirm.intro2", allMods.size()).getString(), contentWidth()), centerX, 28, 0xFFA99D89);
+                this.font.plainSubstrByWidth(intro().getString(), contentWidth()), centerX, 28,
+                unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
         int warningY = 42;
         for (net.minecraft.util.FormattedCharSequence line : this.font.split(
                 Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth())) {
@@ -365,7 +396,7 @@ public class ModSyncConfirmScreen extends Screen {
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
             graphics.text(this.font, this.font.plainSubstrByWidth(rowName(e), textWidth), textX, textY, 0xFFE9DFCB, false);
-            graphics.text(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, 0xFFA99D89, false);
+            graphics.text(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, catalogColor(m), false);
         }
         drawScrollbar(graphics, centerX, vis.size());
         Component details = hoveredDetails(mouseX, mouseY, vis);

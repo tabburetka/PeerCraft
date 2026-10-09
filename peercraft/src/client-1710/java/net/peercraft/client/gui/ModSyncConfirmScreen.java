@@ -88,13 +88,22 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
                 Arrays.asList(ViewFilter.values()), filter, this::filterLabel, value -> {
                     filter = value; scroll = 0; rebuildRows();
                 }));
-        listTop = y + dialog.buttonPitch() + warningLines().size() * 12 + 4;
+        listTop = y + dialog.buttonPitch() + (summaryLines().size() + warningLines().size()) * 12 + 4;
         dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.accept"), this::accept, true, 0, 2);
         dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel, false, 1, 2);
         rebuildRows();
     }
     private List<String> warningLines() {
         return PeerCraftUi.wrap(this.fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.trust_reminder"), Math.max(1, dialog.contentWidth() - 8));
+    }
+    private List<String> summaryLines() {
+        int count = 0;
+        for (ModSyncPlan.PlannedMod mod : allMods) {
+            if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
+        }
+        return count == 0 ? java.util.Collections.emptyList()
+                : PeerCraftUi.wrap(this.fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.catalog_summary", count, allMods.size()),
+                        Math.max(1, dialog.contentWidth() - 8));
     }
     private int selectionInfoY() { return backY() - dialog.buttonPitch() - 28; }
 
@@ -216,6 +225,22 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
                 : "peercraft.modsync.confirm.source_p2p");
     }
 
+    private String catalogLabel(ModSyncPlan.PlannedMod m) {
+        switch (m.catalogStatus()) {
+            case PUBLISHED: return PeerCraftLang.tr("peercraft.modsync.catalog.published");
+            case NOT_FOUND: return PeerCraftLang.tr("peercraft.modsync.catalog.not_found");
+            default: return PeerCraftLang.tr("peercraft.modsync.catalog.unavailable");
+        }
+    }
+
+    private int catalogColor(ModSyncPlan.PlannedMod m) {
+        switch (m.catalogStatus()) {
+            case PUBLISHED: return PeerCraftUi.TEXT_SUCCESS;
+            case NOT_FOUND: return PeerCraftUi.TEXT_ACCENT;
+            default: return PeerCraftUi.TEXT_MUTED;
+        }
+    }
+
     private static String rowName(ModEntry e) {
         return e.version().trim().isEmpty() ? e.id() : e.id() + "  " + e.version();
     }
@@ -224,6 +249,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
         int y = dialog.contentTop() + dialog.buttonPitch();
+        for (String line : summaryLines()) { this.drawCenteredString(this.fontRendererObj, line, width / 2, y, PeerCraftUi.TEXT_ACCENT); y += 12; }
         for (String line : warningLines()) { this.drawCenteredString(this.fontRendererObj, line, width / 2, y, PeerCraftUi.TEXT_ERROR); y += 12; }
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, vis.size() - scroll));
@@ -237,11 +263,12 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             if (!client) this.fontRendererObj.drawStringWithShadow("—", dialog.contentX() + 3, rowY + 7, PeerCraftUi.TEXT_MUTED);
             this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(rowName(e), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
             String tag = PeerCraftLang.tr(client ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required");
-            String details = tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
+            String details = catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
             this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(details, textWidth), textX, rowY + 14,
-                    client ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
+                    catalogColor(m));
             if (mouseX >= textX && mouseX < textX + textWidth && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT) {
-                hovered = PeerCraftUi.wrap(this.fontRendererObj, rowName(e) + "\n" + details, dialog.contentWidth());
+                hovered = PeerCraftUi.wrap(this.fontRendererObj, rowName(e) + "\n" + details + "\n"
+                        + PeerCraftLang.tr("peercraft.modsync.catalog.explanation"), dialog.contentWidth());
             }
         }
         drawScrollbar(vis.size());

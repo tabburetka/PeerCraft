@@ -1,17 +1,21 @@
 package net.peercraft.network.modsync;
 
+import net.peercraft.client.modsync.ModJarScanner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.Assumptions;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * End-to-end mod-sync handshake + peer-to-peer jar transfer in a single JVM, no Minecraft and
  * no real sockets: two {@link ModSyncCoordinator}s (one {@code host()}, one {@code joiner()})
  * are cross-wired so each one's {@link ModSyncCoordinator.Sender} hands the datagram to the
- * other's {@link ModSyncCoordinator#onPacket}, marshalled through a single-thread executor that
- * stands in for the UDP link. This is the "verify mod sync works without a runtime" path — it
+ * other's {@link ModSyncCoordinator#onPacket}, marshalled through separate host and joiner
+ * executors that stand in for their UDP receive threads. This is the "verify mod sync works
+ * without a runtime" path — it
  * exercises the real {@code T_HELLO}/{@code T_MANIFEST}/{@code T_FILE_*} state machine,
  * chunking, selective-ACK repair and SHA-512 verification the Forge 1.7.10 / 1.12.2 backports
  * reuse verbatim from {@code src/modsync-java8}.
@@ -41,6 +46,51 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ModSyncLoopbackIntegrationTest {
 
     private static final long AWAIT_SECONDS = 20;
+
+    @Test
+    @Timeout(30)
+    void transfersRealAppleSkinJarWhenAvailable(@TempDir Path dir) throws Exception {
+        String fixture = System.getenv("PEERCRAFT_TEST_APPLESKIN_JAR");
+        Assumptions.assumeTrue(fixture != null && Files.isRegularFile(Paths.get(fixture)),
+                "set PEERCRAFT_TEST_APPLESKIN_JAR to test a local AppleSkin jar");
+        Path jarPath = Paths.get(fixture);
+        ModJarScanner.ScannedJar scanned = ModJarScanner.scan(jarPath.getParent()).stream()
+                .filter(s -> s.jarPath().equals(jarPath)).findFirst()
+                .orElseThrow(() -> new AssertionError("AppleSkin jar was not scanned"));
+        assertEquals("appleskin", scanned.id());
+        byte[] jar = Files.readAllBytes(jarPath);
+        ModEntry appleSkin = entry(scanned.id(), scanned.version(), jar);
+        Harness h = start(dir, new FakeHostProvider(Collections.singletonList(appleSkin),
+                Collections.singletonMap("appleskin", jar), dir.resolve("host-serve")),
+                Collections.emptyList(), 0.0);
+        try {
+            ModEntry missing = h.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS).get(0);
+            assertEquals("appleskin", missing.id());
+            CompletableFuture<Path> done = h.handler.completed.computeIfAbsent(
+                    "appleskin", k -> new CompletableFuture<>());
+            h.joiner.requestFile(missing);
+            assertArrayEquals(jar, Files.readAllBytes(done.get(AWAIT_SECONDS, TimeUnit.SECONDS)));
+        } finally {
+            h.close();
+        }
+    }
+
+    @Test
+    @Timeout(25)
+    void slowHostPreparingManifestDoesNotLookAbsent(@TempDir Path dir) throws Exception {
+        byte[] appleSkin = randomBytes(80_690, 26);
+        ModEntry entry = entry("appleskin", "3.0.10", appleSkin);
+        FakeHostProvider provider = new FakeHostProvider(Collections.singletonList(entry),
+                Collections.singletonMap("appleskin", appleSkin), dir.resolve("host-serve"), 9_500);
+        Harness h = start(dir, provider, Collections.emptyList(), 0.0);
+        try {
+            List<ModEntry> missing = h.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS);
+            assertEquals("appleskin", missing.get(0).id());
+            assertFalse(h.handler.aborted.isDone(), "a responsive host must not time out while hashing mods");
+        } finally {
+            h.close();
+        }
+    }
 
     @Test
     @Timeout(40)
@@ -144,8 +194,13 @@ class ModSyncLoopbackIntegrationTest {
         Files.createDirectories(joinerTmp);
         Files.createDirectories(provider.tmp);
 
-        ExecutorService net = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "modsync-loopback-net");
+        ExecutorService hostNet = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "modsync-loopback-host-net");
+            t.setDaemon(true);
+            return t;
+        });
+        ExecutorService joinerNet = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "modsync-loopback-joiner-net");
             t.setDaemon(true);
             return t;
         });
@@ -158,7 +213,7 @@ class ModSyncLoopbackIntegrationTest {
                 return;
             }
             byte[] copy = data.clone();
-            net.execute(() -> {
+            hostNet.execute(() -> {
                 ModSyncCoordinator c = hostRef[0];
                 if (c != null) {
                     c.onPacket(copy, copy.length, lo, 55001);
@@ -170,7 +225,7 @@ class ModSyncLoopbackIntegrationTest {
                 return;
             }
             byte[] copy = data.clone();
-            net.execute(() -> {
+            joinerNet.execute(() -> {
                 ModSyncCoordinator c = joinRef[0];
                 if (c != null) {
                     c.onPacket(copy, copy.length, lo, 55002);
@@ -187,26 +242,30 @@ class ModSyncLoopbackIntegrationTest {
         joinRef[0] = joiner;
         joiner.startJoiner();
 
-        return new Harness(host, joiner, handler, net);
+        return new Harness(host, joiner, handler, hostNet, joinerNet);
     }
 
     private static final class Harness {
         final ModSyncCoordinator host;
         final ModSyncCoordinator joiner;
         final TestJoinerHandler handler;
-        final ExecutorService net;
+        final ExecutorService hostNet;
+        final ExecutorService joinerNet;
 
-        Harness(ModSyncCoordinator host, ModSyncCoordinator joiner, TestJoinerHandler handler, ExecutorService net) {
+        Harness(ModSyncCoordinator host, ModSyncCoordinator joiner, TestJoinerHandler handler,
+                ExecutorService hostNet, ExecutorService joinerNet) {
             this.host = host;
             this.joiner = joiner;
             this.handler = handler;
-            this.net = net;
+            this.hostNet = hostNet;
+            this.joinerNet = joinerNet;
         }
 
         void close() {
             joiner.cancel();
             host.cancel();
-            net.shutdownNow();
+            hostNet.shutdownNow();
+            joinerNet.shutdownNow();
         }
     }
 
@@ -226,11 +285,17 @@ class ModSyncLoopbackIntegrationTest {
         private final List<ModEntry> mods;
         private final Map<String, byte[]> jars;
         final Path tmp;
+        private final long manifestDelayMillis;
 
         FakeHostProvider(List<ModEntry> mods, Map<String, byte[]> jars, Path tmp) {
+            this(mods, jars, tmp, 0);
+        }
+
+        FakeHostProvider(List<ModEntry> mods, Map<String, byte[]> jars, Path tmp, long manifestDelayMillis) {
             this.mods = mods;
             this.jars = jars;
             this.tmp = tmp;
+            this.manifestDelayMillis = manifestDelayMillis;
         }
 
         @Override
@@ -240,6 +305,13 @@ class ModSyncLoopbackIntegrationTest {
 
         @Override
         public List<ModEntry> hostMods() {
+            if (manifestDelayMillis > 0) {
+                try {
+                    Thread.sleep(manifestDelayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             return new ArrayList<>(mods);
         }
 

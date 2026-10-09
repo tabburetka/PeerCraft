@@ -14,13 +14,20 @@ public record ModSyncPlan(List<PlannedMod> mods, long totalBytes) {
 
     public enum Source { HTTP, P2P }
 
-    public record PlannedMod(ModEntry entry, Source source, String httpUrl) {
+    /** A catalog lookup is evidence of publication, never a malware scan. */
+    public enum CatalogStatus { PUBLISHED, NOT_FOUND, UNAVAILABLE }
+
+    public record PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus) {
         public static PlannedMod http(ModEntry e, String url) {
-            return new PlannedMod(e, Source.HTTP, url);
+            return new PlannedMod(e, Source.HTTP, url, CatalogStatus.UNAVAILABLE);
         }
 
         public static PlannedMod p2p(ModEntry e) {
-            return new PlannedMod(e, Source.P2P, null);
+            return new PlannedMod(e, Source.P2P, null, CatalogStatus.UNAVAILABLE);
+        }
+
+        public PlannedMod withCatalogStatus(CatalogStatus status) {
+            return new PlannedMod(entry, source, httpUrl, status);
         }
     }
 

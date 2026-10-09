@@ -18,15 +18,23 @@ public final class ModSyncPlan {
 
     public enum Source { HTTP, P2P }
 
+    public enum CatalogStatus { PUBLISHED, NOT_FOUND, UNAVAILABLE }
+
     public static final class PlannedMod {
         private final ModEntry entry;
         private final Source source;
         private final String httpUrl;
+        private final CatalogStatus catalogStatus;
 
         public PlannedMod(ModEntry entry, Source source, String httpUrl) {
+            this(entry, source, httpUrl, CatalogStatus.UNAVAILABLE);
+        }
+
+        public PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus) {
             this.entry = entry;
             this.source = source;
             this.httpUrl = httpUrl;
+            this.catalogStatus = catalogStatus;
         }
 
         public ModEntry entry() {
@@ -39,6 +47,14 @@ public final class ModSyncPlan {
 
         public String httpUrl() {
             return httpUrl;
+        }
+
+        public CatalogStatus catalogStatus() {
+            return catalogStatus;
+        }
+
+        public PlannedMod withCatalogStatus(CatalogStatus status) {
+            return new PlannedMod(entry, source, httpUrl, status);
         }
 
         public static PlannedMod http(ModEntry e, String url) {

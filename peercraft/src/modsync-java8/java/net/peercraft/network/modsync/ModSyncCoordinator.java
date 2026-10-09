@@ -39,6 +39,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
 
     private static final long HELLO_RETRY_MILLIS = 600;
     private static final long HANDSHAKE_TIMEOUT_MILLIS = 8_000;
+    /** A host may still be hashing jars or checking sides; its PINGs keep the handshake alive. */
+    private static final long MAX_HOST_PREPARATION_MILLIS = 75_000;
     private static final long ACK_INTERVAL_MILLIS = 400;
     private static final long TRANSFER_TIMEOUT_MILLIS = 30 * 60_000;
     /** How often to send T_PING so the punched NAT mapping doesn't age out during a quiet stretch. */
@@ -103,6 +105,7 @@ public final class ModSyncCoordinator implements RawPacketListener {
     private final JoinerHandler handler;
     private volatile Thread helloThread;
     private final AtomicBoolean manifestSettled = new AtomicBoolean(false);
+    private volatile long lastHostPingMillis;
     private final Map<String, byte[]> expectedSha = new ConcurrentHashMap<String, byte[]>();
     private final Map<String, InboundTransfer> inbound = new ConcurrentHashMap<String, InboundTransfer>();
     private final Map<String, Thread> pendingRequests = new ConcurrentHashMap<String, Thread>();
@@ -306,8 +309,15 @@ public final class ModSyncCoordinator implements RawPacketListener {
 
     private void runHelloLoop() {
         byte[] hello = ModSyncProtocol.encodeHello(joinerLoader, joinerMods);
-        long deadline = System.currentTimeMillis() + HANDSHAKE_TIMEOUT_MILLIS;
-        while (!cancelled.get() && !manifestSettled.get() && System.currentTimeMillis() < deadline) {
+        long started = System.currentTimeMillis();
+        long deadline = started + HANDSHAKE_TIMEOUT_MILLIS;
+        long hardDeadline = started + MAX_HOST_PREPARATION_MILLIS;
+        while (!cancelled.get() && !manifestSettled.get()) {
+            long ping = lastHostPingMillis;
+            if (ping >= started) {
+                deadline = Math.min(hardDeadline, Math.max(deadline, ping + HANDSHAKE_TIMEOUT_MILLIS));
+            }
+            if (System.currentTimeMillis() >= deadline) break;
             sender.send(hello);
             try {
                 Thread.sleep(HELLO_RETRY_MILLIS);
@@ -317,7 +327,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
             }
         }
         if (!cancelled.get() && manifestSettled.compareAndSet(false, true)) {
-            LOGGER.info("[ModSync] Хост не ответил за {} мс — считаем, что mod-sync у него нет.", HANDSHAKE_TIMEOUT_MILLIS);
+            LOGGER.info("[ModSync] Манифест хоста не получен за {} мс (пакеты ожидания: {}) — продолжаем без mod-sync.",
+                    System.currentTimeMillis() - started, lastHostPingMillis >= started);
             handler.onHandshakeTimeout();
         }
     }
@@ -331,6 +342,9 @@ public final class ModSyncCoordinator implements RawPacketListener {
                 if (manifestSettled.compareAndSet(false, true)) {
                     handler.onNothingMissing();
                 }
+                break;
+            case ModSyncProtocol.T_PING:
+                lastHostPingMillis = System.currentTimeMillis();
                 break;
             case ModSyncProtocol.T_ABORT: {
                 // Ignore a reasonless abort — it's a mangled keepalive, not the host bailing out.

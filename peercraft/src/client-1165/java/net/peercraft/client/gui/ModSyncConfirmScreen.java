@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * out; mods needed to join the host's world (client+server and server-only) have no checkbox.
  * A filter button cycles all / client-only / required. What the player unchecks is remembered
  * (see {@code ModSyncDeclinedStore}) so this screen doesn't reappear on every re-join.
- * Skipped entirely when {@code peercraft.modSync.autoAccept} is set.
+ * Auto-accept skips this screen only when every selected jar has a public catalog match.
  */
 public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
@@ -218,6 +218,32 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
                 : "peercraft.modsync.confirm.source_p2p").getString();
     }
 
+    private String catalogLabel(ModSyncPlan.PlannedMod m) {
+        String key;
+        switch (m.catalogStatus()) {
+            case PUBLISHED: key = "peercraft.modsync.catalog.published"; break;
+            case NOT_FOUND: key = "peercraft.modsync.catalog.not_found"; break;
+            default: key = "peercraft.modsync.catalog.unavailable"; break;
+        }
+        return new TranslatableComponent(key).getString();
+    }
+
+    private int catalogColor(ModSyncPlan.PlannedMod m) {
+        switch (m.catalogStatus()) {
+            case PUBLISHED: return PeerCraftUi.TEXT_SUCCESS;
+            case NOT_FOUND: return PeerCraftUi.TEXT_ACCENT;
+            default: return PeerCraftUi.TEXT_MUTED;
+        }
+    }
+
+    private int unconfirmedCount() {
+        int count = 0;
+        for (ModSyncPlan.PlannedMod mod : allMods) {
+            if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
+        }
+        return count;
+    }
+
     private static String rowName(ModEntry e) {
         return e.version().trim().isEmpty() ? e.id() : e.id() + "  " + e.version();
     }
@@ -225,7 +251,12 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         renderBackground(poseStack);
-        GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size()), width / 2, dialog.contentTop(), PeerCraftUi.TEXT_MUTED);
+        int unconfirmed = unconfirmedCount();
+        Component intro = unconfirmed == 0
+                ? new TranslatableComponent("peercraft.modsync.confirm.intro2", allMods.size())
+                : new TranslatableComponent("peercraft.modsync.confirm.catalog_summary", unconfirmed, allMods.size());
+        GuiComponent.drawCenteredString(poseStack, font, font.plainSubstrByWidth(intro.getString(), dialog.contentWidth()),
+                width / 2, dialog.contentTop(), unconfirmed == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
         for (int i = 0; i < reminderLines.size(); i++) GuiComponent.drawCenteredString(poseStack, font, reminderLines.get(i), width / 2,
                 dialog.contentTop() + 14 + i * font.lineHeight, PeerCraftUi.TEXT_ERROR);
         List<ModSyncPlan.PlannedMod> mods = visibleMods();
@@ -235,12 +266,12 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             ModEntry entry = mod.entry();
             int y = listTop + i * ROW_HEIGHT;
             String name = rowName(entry);
-            String detail = new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
+            String detail = catalogLabel(mod) + " · " + new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
                     + " · " + humanSize(entry.sizeBytes()) + " · " + sourceLabel(mod);
             if (!isClient(mod)) GuiComponent.drawString(poseStack, font, "—", dialog.contentX() + 4, y + 6, PeerCraftUi.TEXT_MUTED);
             GuiComponent.drawString(poseStack, font, font.plainSubstrByWidth(name, dialog.contentWidth() - 26), dialog.contentX() + 22, y + 1, PeerCraftUi.TEXT_TITLE);
             GuiComponent.drawString(poseStack, font, font.plainSubstrByWidth(detail, dialog.contentWidth() - 26), dialog.contentX() + 22, y + 12,
-                    isClient(mod) ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
+                    catalogColor(mod));
         }
         drawScrollbar(poseStack, width / 2, mods.size());
         ModSyncPlan selected = plan.excluding(deselected);
@@ -251,7 +282,8 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         super.render(poseStack, mouseX, mouseY, partialTick);
         if (mouseX >= dialog.contentX() && mouseX < dialog.contentX() + dialog.contentWidth() && mouseY >= listTop && mouseY < listTop + rows * ROW_HEIGHT) {
             ModSyncPlan.PlannedMod mod = mods.get(scroll + (mouseY - listTop) / ROW_HEIGHT);
-            renderTooltip(poseStack, new TextComponent(rowName(mod.entry()) + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod)), mouseX, mouseY);
+            renderTooltip(poseStack, new TextComponent(rowName(mod.entry()) + " · " + catalogLabel(mod)
+                    + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod)), mouseX, mouseY);
         }
     }
 
