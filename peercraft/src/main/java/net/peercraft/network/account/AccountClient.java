@@ -15,7 +15,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Talks to the rendezvous server's account/friends/presence endpoints — deliberately its own
@@ -25,10 +25,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * active at all.
  *
  * Every request/reply exchange here follows the same shape: send, retry on a timer until a
- * matching reply arrives or a timeout expires. Only one exchange is tracked at a time (see
- * {@link #pending}) — concurrent calls from the GUI aren't expected (each screen only has one
- * "in flight" action at a time), and a stray late timeout callback from an abandoned attempt
- * is a harmless no-op once a newer attempt has taken the pending slot.
+ * matching reply arrives or a timeout expires. Concurrent GUI calls are queued: the wire
+ * protocol has no request IDs for list replies or friend acknowledgements, so only the head
+ * request is sent. Its timeout starts when it is sent, not while it waits in the queue.
  */
 public final class AccountClient {
 
@@ -114,7 +113,7 @@ public final class AccountClient {
     private volatile int rendezvousPort;
     private volatile AccountSession currentSession;
     private volatile Thread heartbeatThread;
-    private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
+    private final ConcurrentLinkedQueue<PendingRequest> pending = new ConcurrentLinkedQueue<>();
 
     /** Public (not a hard singleton) so tests can create isolated instances — see {@link #INSTANCE} for production use. */
     public AccountClient() {
@@ -249,7 +248,7 @@ public final class AccountClient {
             return;
         }
         int type = RendezvousProtocol.messageType(data, length);
-        PendingRequest current = pending.get();
+        PendingRequest current = pending.peek();
         if (current != null) {
             current.tryHandle(type, data, length);
         }
@@ -675,8 +674,23 @@ public final class AccountClient {
         void onTimeout();
     }
 
-    private void sendRequest(byte[] payload, ReplyHandler handler) {
-        new PendingRequest(payload, handler).start();
+    private synchronized void sendRequest(byte[] payload, ReplyHandler handler) {
+        PendingRequest request = new PendingRequest(payload, handler);
+        pending.add(request);
+        if (pending.peek() == request) {
+            request.start();
+        }
+    }
+
+    private synchronized void finishRequest(PendingRequest request) {
+        if (pending.peek() != request) {
+            return;
+        }
+        pending.remove();
+        PendingRequest next = pending.peek();
+        if (next != null) {
+            next.start();
+        }
     }
 
     private final class PendingRequest {
@@ -690,13 +704,12 @@ public final class AccountClient {
         }
 
         void start() {
-            pending.set(this);
             Thread retryThread = new Thread(this::retryLoop, "PeerCraft-AccountClient-Retry");
             retryThread.setDaemon(true);
             retryThread.start();
         }
 
-        void tryHandle(int type, byte[] data, int length) {
+        synchronized void tryHandle(int type, byte[] data, int length) {
             if (done.get()) {
                 return;
             }
@@ -725,15 +738,22 @@ public final class AccountClient {
                     return;
                 }
             }
+            timeout();
+        }
+
+        private synchronized void timeout() {
             if (done.compareAndSet(false, true)) {
-                pending.compareAndSet(this, null);
-                handler.onTimeout();
+                try {
+                    handler.onTimeout();
+                } finally {
+                    finishRequest(this);
+                }
             }
         }
 
         private void finish() {
             if (done.compareAndSet(false, true)) {
-                pending.compareAndSet(this, null);
+                finishRequest(this);
             }
         }
     }
