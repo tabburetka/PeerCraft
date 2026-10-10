@@ -828,9 +828,19 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         String friendRoomCode = friend.roomCode();
         P2PBridge.INSTANCE.startClientViaRendezvous(friendRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    private P2PBridge.ClientJoinAttempt attempt;
+                    @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
+                        attempt = started;
+                        TransportNoticeController.trackJoin(started, PeerCraftMultiplayerScreen.this, lastScreen);
+                    }
+                    private void dispatch(Runnable action) {
+                        runOnClientThread(() -> {
+                            if (attempt == null || attempt.isCurrent()) action.run();
+                        });
+                    }
                     @Override
                     public void onStatus(String message) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 friendsStatusMessage = Component.translatable(message);
                                 friendsStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -840,10 +850,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
                     @Override
                     public void onConnected() {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (!stillOnThisScreen()) {
                                 return;
                             }
+                            TransportNoticeController.connecting();
                             int port = P2PBridge.INSTANCE.getProxyPort();
                             ServerAddress address = new ServerAddress("127.0.0.1", port);
                             ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, ServerData.Type.OTHER);
@@ -853,7 +864,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
                     @Override
                     public void onFailed(String reason) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 friendsStatusMessage = Component.translatable(reason);
                                 friendsStatusColor = PeerCraftUi.TEXT_ERROR;
@@ -1148,9 +1159,19 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         String gameRoomCode = game.code();
         P2PBridge.INSTANCE.startClientViaRendezvous(gameRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    private P2PBridge.ClientJoinAttempt attempt;
+                    @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
+                        attempt = started;
+                        TransportNoticeController.trackJoin(started, PeerCraftMultiplayerScreen.this, lastScreen);
+                    }
+                    private void dispatch(Runnable action) {
+                        runOnClientThread(() -> {
+                            if (attempt == null || attempt.isCurrent()) action.run();
+                        });
+                    }
                     @Override
                     public void onStatus(String message) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 gamesStatusMessage = Component.translatable(message);
                                 gamesStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -1160,10 +1181,11 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
                     @Override
                     public void onConnected() {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (!stillOnThisScreen()) {
                                 return;
                             }
+                            TransportNoticeController.connecting();
                             int port = P2PBridge.INSTANCE.getProxyPort();
                             ServerAddress address = new ServerAddress("127.0.0.1", port);
                             ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, ServerData.Type.OTHER);
@@ -1173,7 +1195,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
 
                     @Override
                     public void onFailed(String reason) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 gamesStatusMessage = Component.translatable(reason);
                                 gamesStatusColor = PeerCraftUi.TEXT_ERROR;

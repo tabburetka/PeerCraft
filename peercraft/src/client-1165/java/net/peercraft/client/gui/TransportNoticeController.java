@@ -12,7 +12,44 @@ import net.peercraft.network.p2p.P2PBridge;
 public final class TransportNoticeController {
     private static volatile String pendingMode, pendingFailure;
     private static volatile long modeExpires, failureExpires;
+    private static P2PBridge.ClientJoinAttempt joinAttempt;
+    private static Screen joinScreen, returnScreen;
+    private static boolean vanillaConnecting;
     private TransportNoticeController() {}
+
+    public static void trackJoin(P2PBridge.ClientJoinAttempt attempt, Screen owner, Screen back) {
+        joinAttempt = attempt;
+        joinScreen = owner;
+        returnScreen = back;
+        vanillaConnecting = false;
+    }
+
+    public static void connecting() { vanillaConnecting = true; }
+
+    private static void tickJoin(Screen current, boolean inWorld) {
+        P2PBridge.ClientJoinAttempt attempt = joinAttempt;
+        if (attempt == null) return;
+        if (!attempt.isBusy()) {
+            allowRetry(!attempt.isCurrent());
+            joinAttempt = null; joinScreen = null; returnScreen = null; return;
+        }
+        if (inWorld) { joinAttempt = null; joinScreen = null; returnScreen = null; return; }
+        if (vanillaConnecting && current != joinScreen && current != returnScreen
+                && !(current instanceof DisconnectedScreen)) return;
+        if (!vanillaConnecting && (current == joinScreen
+                || current instanceof ModSyncPreparingScreen || current instanceof ModSyncConfirmScreen
+                || current instanceof ModSyncProgressScreen || current instanceof ModSyncSecurityNoticeScreen)) return;
+        attempt.cancel();
+        allowRetry(true);
+        joinAttempt = null;
+        joinScreen = null; returnScreen = null;
+    }
+    private static void allowRetry(boolean cancelled) {
+        if (joinScreen instanceof PeerCraftJoinScreen) {
+            ((PeerCraftJoinScreen) joinScreen).allowRetry(cancelled);
+        }
+    }
+
     public static void register() {
         P2PBridge.INSTANCE.setOnTransportSelected(key -> {
             if (key != null) pendingFailure = null;
@@ -33,6 +70,7 @@ public final class TransportNoticeController {
             mc.player.displayClientMessage(message, false);
         }
         Screen current = mc.screen;
+        tickJoin(current, mc.player != null);
         if (pendingFailure != null && mc.player == null && current instanceof DisconnectedScreen) {
             String reason = pendingFailure; pendingFailure = null;
             Screen games = new PeerCraftMultiplayerScreen(new TitleScreen());

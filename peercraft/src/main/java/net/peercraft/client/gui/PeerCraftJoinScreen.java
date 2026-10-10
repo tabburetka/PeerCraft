@@ -37,22 +37,34 @@ public class PeerCraftJoinScreen extends Screen {
     private int dividerY;
     //?}
 
-    private final P2PBridge.ConnectListener listener = new P2PBridge.ConnectListener() {
-        @Override
-        public void onStatus(String message) {
-            runOnClientThread(() -> updateStatus(message));
-        }
+    private P2PBridge.ConnectListener newListener() {
+        return new P2PBridge.ConnectListener() {
+            private P2PBridge.ClientJoinAttempt attempt;
+            @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
+                attempt = started;
+                TransportNoticeController.trackJoin(started, PeerCraftJoinScreen.this, lastScreen);
+            }
+            private void dispatch(Runnable action) {
+                runOnClientThread(() -> {
+                    if (attempt == null || attempt.isCurrent()) action.run();
+                });
+            }
+            @Override
+            public void onStatus(String message) {
+                dispatch(() -> updateStatus(message));
+            }
 
-        @Override
-        public void onConnected() {
-            runOnClientThread(PeerCraftJoinScreen.this::handleConnected);
-        }
+            @Override
+            public void onConnected() {
+                dispatch(PeerCraftJoinScreen.this::handleConnected);
+            }
 
-        @Override
-        public void onFailed(String reason) {
-            runOnClientThread(() -> handleFailed(reason));
-        }
-    };
+            @Override
+            public void onFailed(String reason) {
+                dispatch(() -> handleFailed(reason));
+            }
+        };
+    }
 
     public PeerCraftJoinScreen(Screen lastScreen) {
         super(Component.translatable("peercraft.gui.join.title"));
@@ -119,7 +131,7 @@ public class PeerCraftJoinScreen extends Screen {
 
         this.connectButton.active = false;
         this.statusMessage = Component.translatable("peercraft.gui.join.connecting");
-        P2PBridge.INSTANCE.startClientViaRendezvous(code, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(), this.listener,
+        P2PBridge.INSTANCE.startClientViaRendezvous(code, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(), newListener(),
                 new ClientModSyncAgent(this, code));
     }
 
@@ -142,6 +154,11 @@ public class PeerCraftJoinScreen extends Screen {
         this.statusMessage = Component.translatable(message);
     }
 
+    void allowRetry(boolean cancelled) {
+        if (this.connectButton != null) this.connectButton.active = true;
+        if (cancelled) this.statusMessage = Component.empty();
+    }
+
     private void handleFailed(String reason) {
         if (!stillOnThisScreen()) {
             return;
@@ -154,6 +171,7 @@ public class PeerCraftJoinScreen extends Screen {
         if (!stillOnThisScreen()) {
             return;
         }
+        TransportNoticeController.connecting();
         int port = P2PBridge.INSTANCE.getProxyPort();
         ServerAddress address = new ServerAddress("127.0.0.1", port);
         ServerData serverData = new ServerData("PeerCraft", "127.0.0.1:" + port, ServerData.Type.OTHER);

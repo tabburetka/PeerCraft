@@ -66,6 +66,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     private volatile ModSyncPreparingScreen preparingScreen;
     private volatile ModSyncProgressScreen progressScreen;
     private final AtomicBoolean terminated = new AtomicBoolean(false);
+    private volatile boolean cancelled;
     private volatile long currentBase;       // installed bytes before the mod currently downloading
     private volatile int currentModsDone;    // mods fully installed so far
     private final ConcurrentHashMap<String, CompletableFuture<Path>> p2pFiles = new ConcurrentHashMap<>();
@@ -83,6 +84,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     @Override
     public void run(ModSyncLink link, Outcome outcome) {
+        if (cancelled) return;
         this.link = link;
         this.outcome = outcome;
         ModSyncPreparingScreen prep = new ModSyncPreparingScreen(this::onUserCancel);
@@ -108,6 +110,16 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         if (s != null) {
             s.setStatus(new TranslatableComponent(key, args));
         }
+    }
+
+    /** Stop attempt-owned work without reopening a screen the player has left. */
+    @Override
+    public void cancel() {
+        cancelled = true;
+        terminated.set(true);
+        p2pFiles.values().forEach(f -> f.completeExceptionally(new TransferFailed("peercraft.modsync.cancelled")));
+        ModSyncCoordinator c = coordinator;
+        if (c != null) c.cancel();
     }
 
     // ================= JoinerHandler =================
@@ -458,6 +470,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     }
 
     private void setScreen(Screen screen) {
+        if (cancelled) return;
         Minecraft mc = Minecraft.getInstance();
         Screen target = screen != null ? screen : new TitleScreen();
         mc.setScreen(target);

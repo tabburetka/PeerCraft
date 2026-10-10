@@ -752,9 +752,19 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         P2PBridge.INSTANCE.startClientViaRendezvous(friend.roomCode(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    private P2PBridge.ClientJoinAttempt attempt;
+                    @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
+                        attempt = started;
+                        TransportNoticeController.trackJoin(started, PeerCraftMultiplayerScreen.this, lastScreen);
+                    }
+                    private void dispatch(Runnable action) {
+                        runOnClientThread(() -> {
+                            if (attempt == null || attempt.isCurrent()) action.run();
+                        });
+                    }
                     @Override
                     public void onStatus(String message) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 friendsStatusMessage = PeerCraftLang.tr(message);
                                 friendsStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -764,7 +774,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
 
                     @Override
                     public void onConnected() {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 startVanillaConnect();
                             }
@@ -773,7 +783,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
 
                     @Override
                     public void onFailed(String reason) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 friendsStatusMessage = PeerCraftLang.tr(reason);
                                 friendsStatusColor = PeerCraftUi.TEXT_ERROR;
@@ -784,6 +794,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
     }
 
     private void startVanillaConnect() {
+        TransportNoticeController.connecting();
         int port = P2PBridge.INSTANCE.getProxyPort();
         this.mc.displayGuiScreen(new GuiConnecting(this.lastScreen, this.mc, "127.0.0.1", port));
     }
@@ -1051,9 +1062,19 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
         P2PBridge.INSTANCE.startClientViaRendezvous(game.code(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    private P2PBridge.ClientJoinAttempt attempt;
+                    @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
+                        attempt = started;
+                        TransportNoticeController.trackJoin(started, PeerCraftMultiplayerScreen.this, lastScreen);
+                    }
+                    private void dispatch(Runnable action) {
+                        runOnClientThread(() -> {
+                            if (attempt == null || attempt.isCurrent()) action.run();
+                        });
+                    }
                     @Override
                     public void onStatus(String message) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 gamesStatusMessage = PeerCraftLang.tr(message);
                                 gamesStatusColor = PeerCraftUi.TEXT_MUTED;
@@ -1063,7 +1084,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
 
                     @Override
                     public void onConnected() {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 startVanillaConnect();
                             }
@@ -1072,7 +1093,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
 
                     @Override
                     public void onFailed(String reason) {
-                        runOnClientThread(() -> {
+                        dispatch(() -> {
                             if (stillOnThisScreen()) {
                                 gamesStatusMessage = PeerCraftLang.tr(reason);
                                 gamesStatusColor = PeerCraftUi.TEXT_ERROR;

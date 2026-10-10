@@ -17,6 +17,9 @@ public interface ModSyncAgent {
 
     void run(ModSyncLink link, Outcome outcome);
 
+    /** Silent cancellation when the owner leaves the join flow. */
+    default void cancel() {}
+
     interface Outcome {
         /** Nothing to sync (or mod-sync disabled / host doesn't participate) — continue the join normally. */
         void proceedToConnect();

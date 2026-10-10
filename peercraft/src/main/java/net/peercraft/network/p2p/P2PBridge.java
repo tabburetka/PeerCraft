@@ -337,6 +337,41 @@ public class P2PBridge {
     // handleFailed) and when the local TCP client actually disconnects from LocalProxy (see
     // endClientSession).
     private final AtomicBoolean rendezvousClientBusy = new AtomicBoolean(false);
+    private volatile ClientJoinAttempt currentJoinAttempt;
+
+    /** Ownership of one join, including mod sync and the vanilla connection screen. */
+    public final class ClientJoinAttempt {
+        private volatile boolean cancelled;
+        private final ModSyncAgent modSync;
+        private ClientJoinAttempt(ModSyncAgent modSync) { this.modSync = modSync; }
+        public boolean isCurrent() { return currentJoinAttempt == this && !cancelled; }
+        public boolean isBusy() { return isCurrent() && rendezvousClientBusy.get(); }
+        public void cancel() {
+            synchronized (P2PBridge.this) {
+                if (!isBusy() || retainingHandoffTransport()) return;
+                cancelled = true; // Invalidate queued callbacks before releasing resources.
+                if (modSync != null) modSync.cancel();
+                ClientSession session = currentClientSession;
+                if (session != null) endClientSession(session.sessionId);
+                if (proxy != null) proxy.disconnectClient();
+                releaseClientJoin();
+            }
+        }
+    }
+
+    private void releaseClientJoin() {
+        closeClientRoute();
+        clearRendezvousListener();
+        modSyncActive.set(false);
+        clientTargetPeer = null;
+        rendezvousClientBusy.set(false);
+    }
+
+    private void forClientAttempt(ConnectListener listener, Runnable action) {
+        synchronized (this) {
+            if (listener.isCurrentAttempt()) action.run();
+        }
+    }
 
     // JOINER: true while a mod-sync handshake/transfer is running in the rendezvousListener slot
     // (between a successful punch and onConnected/abort). The busy-watchdog must not touch the
@@ -528,6 +563,8 @@ public class P2PBridge {
     // thread (the retry thread in RendezvousClient/PunchCoordinator), so the caller is
     // responsible for marshaling to the right thread if needed.
     public interface ConnectListener {
+        default void onStarted(ClientJoinAttempt attempt) {}
+        default boolean isCurrentAttempt() { return true; }
         void onStatus(String message);
         void onConnected();
         void onFailed(String reason);
@@ -569,7 +606,7 @@ public class P2PBridge {
      * mod-sync handshake with the host over the punched link. A {@code null} agent (or
      * {@code peercraft.modSync=false}) skips it and connects immediately, exactly as before.
      */
-    public void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, ModSyncAgent modSync) {
+    public synchronized void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, ModSyncAgent modSync) {
         //? if >=1.17
         if (code == null || code.isBlank()) {
         //? if <1.17
@@ -586,40 +623,32 @@ public class P2PBridge {
             listener.onFailed("peercraft.p2p.fail.already_connecting");
             return;
         }
-        // Safety net: rendezvousClientBusy is normally cleared on failure, on a clean
-        // LocalProxy disconnect (endClientSession), or by abortModSyncClient(). If none of
-        // those fire (e.g. the join screen navigated away before onConnected could start
-        // ConnectScreen, or ConnectScreen bounced straight back), the flag would stick true
-        // and every later "Connect" would say "already connecting". Force-clear it after a
-        // grace period if no local MC session ever opened.
-        armBusyWatchdog();
+        final ClientJoinAttempt attempt = new ClientJoinAttempt(modSync);
+        currentJoinAttempt = attempt;
+        listener.onStarted(attempt);
+        armBusyWatchdog(attempt);
         ConnectListener guardedListener = new ConnectListener() {
-            @Override
-            public void onStatus(String message) {
-                listener.onStatus(message);
+            @Override public boolean isCurrentAttempt() { return attempt.isBusy(); }
+            @Override public void onStatus(String message) {
+                forClientAttempt(this, () -> listener.onStatus(message));
             }
-
-            @Override
-            public void onConnected() {
-                // Single chokepoint for a successful join-via-rendezvous — let the client
-                // layer install its per-session hooks (e.g. the handoff listener) before the
-                // vanilla client is handed the proxy address.
-                Runnable hook = onClientConnected;
-                if (hook != null) {
-                    try {
-                        hook.run();
-                    } catch (RuntimeException e) {
-                        LOGGER.warn("[P2PBridge] onClientConnected hook threw: {}", e.toString());
+            @Override public void onConnected() {
+                forClientAttempt(this, () -> {
+                    Runnable hook = onClientConnected;
+                    if (hook != null) {
+                        try { hook.run(); }
+                        catch (RuntimeException e) {
+                            LOGGER.warn("[P2PBridge] onClientConnected hook threw: {}", e.toString());
+                        }
                     }
-                }
-                listener.onConnected();
+                    listener.onConnected();
+                });
             }
-
-            @Override
-            public void onFailed(String reason) {
-                closeClientRoute();
-                rendezvousClientBusy.set(false);
-                listener.onFailed(reason);
+            @Override public void onFailed(String reason) {
+                forClientAttempt(this, () -> {
+                    releaseClientJoin();
+                    listener.onFailed(reason);
+                });
             }
         };
 
@@ -662,12 +691,12 @@ public class P2PBridge {
         RendezvousClient.MatchCallback matchCallback = new RendezvousClient.MatchCallback() {
             @Override
             public void onMatched(RendezvousProtocol.Address peer, long token) {
-                beginClientPunch(peer, token, guardedListener, modSync);
+                forClientAttempt(guardedListener, () -> beginClientPunch(peer, token, guardedListener, modSync));
             }
             @Override public void onMatchedDetailed(RendezvousProtocol.PeerFound info) {
                 if (!info.networkOffer().isPresent()) { onMatched(info.peer(), info.token()); return; }
-                beginNegotiatedConnection(info, false, code, rendezvousAddress, rendezvousPort,
-                        joinerSession != null ? joinerSession.sessionToken() : null, guardedListener, modSync);
+                forClientAttempt(guardedListener, () -> beginNegotiatedConnection(info, false, code, rendezvousAddress, rendezvousPort,
+                        joinerSession != null ? joinerSession.sessionToken() : null, guardedListener, modSync));
             }
 
             @Override
@@ -686,9 +715,11 @@ public class P2PBridge {
     // the proxy (session closed cleanly or dropped) — the only way rendezvousClientBusy can
     // honestly reset after a SUCCESSFUL join, without permanently blocking a repeat Join
     // after leaving the world.
-    public void endClientSession(long sessionId) {
+    public synchronized void endClientSession(long sessionId) {
         ClientSession session = this.currentClientSession;
         if (session == null || session.sessionId != sessionId) return;
+        ClientJoinAttempt attempt = currentJoinAttempt;
+        if (attempt != null) attempt.cancelled = true;
         if (session != null && session.sessionId == sessionId) {
             // Tell the host we're gone *now* with a best-effort FIN, so it drops its TCP
             // connection to the integrated server and that server runs its normal
@@ -788,17 +819,19 @@ public class P2PBridge {
         DirectConnectivityCoordinator checks = new DirectConnectivityCoordinator(sender, peer, attempt.offer, hostRole,
                 new DirectConnectivityCoordinator.Callback() {
                     @Override public void onSuccess(String ip, int port) {
-                        try {
-                            DirectPeerTransport route = new DirectPeerTransport(sender,
-                                    new InetSocketAddress(InetAddress.getByName(ip), port), attempt.offer.attemptId(),
-                                    attempt.offer.challengeKey(), hostRole);
-                            if (selectRoute(attempt, route)) {
-                                directBindings.put(attempt.offer.attemptId(), new DirectBinding(peer, route));
-                                RelayPeerTransport pending = attempt.relay;
-                                if (pending != null) pending.close();
-                                finishConnection(attempt, route);
-                            }
-                        } catch (UnknownHostException error) { failAttempt(attempt, "peercraft.p2p.fail.hole_punching"); }
+                        synchronized (P2PBridge.this) {
+                            try {
+                                DirectPeerTransport route = new DirectPeerTransport(sender,
+                                        new InetSocketAddress(InetAddress.getByName(ip), port), attempt.offer.attemptId(),
+                                        attempt.offer.challengeKey(), hostRole);
+                                if (selectRoute(attempt, route)) {
+                                    directBindings.put(attempt.offer.attemptId(), new DirectBinding(peer, route));
+                                    RelayPeerTransport pending = attempt.relay;
+                                    if (pending != null) pending.close();
+                                    finishConnection(attempt, route);
+                                }
+                            } catch (UnknownHostException error) { failAttempt(attempt, "peercraft.p2p.fail.hole_punching"); }
+                        }
                     }
                     @Override public void onFailure(String reason) {
                         DirectConnectivityCoordinator checks = activeDirectChecks.get(attempt.peer);
@@ -855,7 +888,7 @@ public class P2PBridge {
     }
 
     private synchronized boolean selectRoute(NetworkAttempt attempt, PeerTransport route) {
-        if (attempt.cancelled || networkAttempts.get(attempt.peer) != attempt
+        if (attempt.cancelled || (!attempt.host && !attempt.listener.isCurrentAttempt()) || networkAttempts.get(attempt.peer) != attempt
                 || !attempt.selected.compareAndSet(false, true)) { route.close(); return false; }
         PeerTransport previous = peerRoutes.put(attempt.peer, route);
         if (previous != null && retainedPeerRoutes.get(attempt.peer) != previous) closeRoute(previous);
@@ -864,7 +897,8 @@ public class P2PBridge {
         if (!attempt.host) clientTargetPeer = attempt.peer;
         return true;
     }
-    private void finishConnection(NetworkAttempt attempt, PeerTransport route) {
+    private synchronized void finishConnection(NetworkAttempt attempt, PeerTransport route) {
+        if (attempt.cancelled || (!attempt.host && !attempt.listener.isCurrentAttempt())) return;
         attempt.listener.onStatus("peercraft.p2p.status." + route.mode() + "_connected");
         Consumer<String> modeHook = onTransportSelected;
         if (modeHook != null && !attempt.host) modeHook.accept("peercraft.p2p.mode." + route.mode());
@@ -873,7 +907,7 @@ public class P2PBridge {
         if (attempt.modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) attempt.listener.onConnected();
         else runModSyncHandshake(attempt.modSync, attempt.listener);
     }
-    private void failAttempt(NetworkAttempt attempt, String reason) {
+    private synchronized void failAttempt(NetworkAttempt attempt, String reason) {
         if (attempt.cancelled || attempt.selected.get() || networkAttempts.get(attempt.peer) != attempt) return;
         cancelAttempt(attempt);
         networkAttempts.remove(attempt.peer, attempt);
@@ -892,7 +926,7 @@ public class P2PBridge {
             if (binding.getValue().route == route) directBindings.remove(binding.getKey(), binding.getValue());
     }
     private synchronized void transportFailed(PeerAddress peer, PeerTransport route, String reason, boolean hostRole) {
-        if (route == null) return;
+        if (route == null || (peerRoutes.get(peer) != route && retainedPeerRoutes.get(peer) != route)) return;
         boolean retained = retainedPeerRoutes.get(peer) == route;
         peerRoutes.remove(peer, route); retainedPeerRoutes.remove(peer, route); closeRoute(route);
         WorldTransfer transfer = hostRole ? hostWorldTransfer : successorWorldTransfer;
@@ -975,21 +1009,25 @@ public class P2PBridge {
         PunchCoordinator punch = new PunchCoordinator(sender, peer, token, new PunchCoordinator.Callback() {
             @Override
             public void onSuccess(String ip, int port) {
-                clearRendezvousListener();
-                setClientTargetPeer(ip, port);
-                LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
-                if (modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) {
-                    listener.onConnected();
-                    return;
-                }
-                runModSyncHandshake(modSync, listener);
+                forClientAttempt(listener, () -> {
+                    clearRendezvousListener();
+                    setClientTargetPeer(ip, port);
+                    LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
+                    if (modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) {
+                        listener.onConnected();
+                        return;
+                    }
+                    runModSyncHandshake(modSync, listener);
+                });
             }
 
             @Override
             public void onFailure(String reason) {
-                clearRendezvousListener();
-                LOGGER.error("[P2PBridge] Hole punching не удался: {}", reason);
-                listener.onFailed("peercraft.p2p.fail.hole_punching");
+                forClientAttempt(listener, () -> {
+                    clearRendezvousListener();
+                    LOGGER.error("[P2PBridge] Hole punching не удался: {}", reason);
+                    listener.onFailed("peercraft.p2p.fail.hole_punching");
+                });
             }
         });
         setRendezvousListener(punch);
@@ -1004,38 +1042,44 @@ public class P2PBridge {
         ModSyncLink link = new ModSyncLink() {
             @Override
             public void send(byte[] data) {
-                sendEncoded(clientTargetPeer, data);
+                forClientAttempt(listener, () -> sendEncoded(clientTargetPeer, data));
             }
 
             @Override
             public void bindInbound(RawPacketListener inbound) {
-                setRendezvousListener(inbound);
+                forClientAttempt(listener, () -> setRendezvousListener(inbound));
             }
 
             @Override
             public void unbind() {
-                clearRendezvousListener();
+                forClientAttempt(listener, () -> clearRendezvousListener());
             }
         };
         modSync.run(link, new ModSyncAgent.Outcome() {
             @Override
             public void proceedToConnect() {
-                modSyncActive.set(false);
-                clearRendezvousListener();
-                listener.onConnected();
+                forClientAttempt(listener, () -> {
+                    modSyncActive.set(false);
+                    clearRendezvousListener();
+                    listener.onConnected();
+                });
             }
 
             @Override
             public void abortJoin() {
-                modSyncActive.set(false);
-                abortModSyncClient();
+                forClientAttempt(listener, () -> {
+                    modSyncActive.set(false);
+                    abortModSyncClient();
+                });
             }
 
             @Override
             public void fail(String reasonKey) {
-                modSyncActive.set(false);
-                clearRendezvousListener();
-                listener.onFailed(reasonKey);
+                forClientAttempt(listener, () -> {
+                    modSyncActive.set(false);
+                    clearRendezvousListener();
+                    listener.onFailed(reasonKey);
+                });
             }
         });
     }
@@ -1052,20 +1096,19 @@ public class P2PBridge {
         if (attempt != null) cancelAttempt(attempt);
         PeerTransport route = peerRoutes.remove(clientTargetPeer);
         if (route != null) closeRoute(route);
+        authorizedPeers.remove(clientTargetPeer);
+        securedPeers.remove(clientTargetPeer);
     }
-    public void abortModSyncClient() {
-        closeClientRoute();
-        modSyncActive.set(false);
-        clearRendezvousListener();
-        rendezvousClientBusy.set(false);
+    public synchronized void abortModSyncClient() {
+        ClientJoinAttempt attempt = currentJoinAttempt;
+        if (attempt != null) attempt.cancelled = true;
+        releaseClientJoin();
     }
 
-    // See the comment at its call site in startClientViaRendezvous. Polls rather than sleeping
-    // one fixed 45 s: mod sync legitimately holds the rendezvousListener slot (with no
-    // ClientSession) for the whole of a large P2P mod transfer, so while modSyncActive is set
-    // the watchdog waits it out instead of yanking the listener. An absolute cap still fires so
-    // a genuinely wedged attempt can't pin the busy flag forever.
-    private void armBusyWatchdog() {
+    // Last-resort timeout for callers without a UI owner. Normal screen cancellation is
+    // handled on the client tick. Each watchdog owns exactly one attempt, so an old timer
+    // cannot release a newer join. Active mod sync gets a longer bounded deadline.
+    private void armBusyWatchdog(ClientJoinAttempt attempt) {
         Thread t = new Thread(() -> {
             long start = System.currentTimeMillis();
             long idleLimitMillis = 120_000L;
@@ -1077,7 +1120,7 @@ public class P2PBridge {
                     Thread.currentThread().interrupt();
                     return;
                 }
-                if (!rendezvousClientBusy.get() || currentClientSession != null) {
+                if (!attempt.isBusy() || currentClientSession != null) {
                     return; // resolved normally (connected, failed, or cleared elsewhere)
                 }
                 long elapsed = System.currentTimeMillis() - start;
@@ -1091,10 +1134,7 @@ public class P2PBridge {
                 } else {
                     LOGGER.warn("[P2PBridge] Подключение так и не открыло локальную сессию за {} с — снимаем флаг \"идёт подключение\".", elapsed / 1000);
                 }
-                modSyncActive.set(false);
-                closeClientRoute();
-                rendezvousClientBusy.set(false);
-                clearRendezvousListener();
+                attempt.cancel();
                 return;
             }
         }, "PeerCraft-Busy-Watchdog");
@@ -1400,7 +1440,7 @@ public class P2PBridge {
     // Called by LocalProxy on every new incoming TCP connection from the client-side MC.
     // Returns the new session id, which must be passed to every subsequent
     // sendProxyDataToP2P(...) call for this TCP connection.
-    public long beginClientSession(Socket socket) {
+    public synchronized long beginClientSession(Socket socket) {
         long sessionId = ThreadLocalRandom.current().nextLong();
         this.currentClientSession = new ClientSession(sessionId);
         LOGGER.info("[P2PBridge] Новая клиентская сессия {} для {}", sessionId, socket.getRemoteSocketAddress());
@@ -1849,9 +1889,7 @@ public class P2PBridge {
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
             LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, e.getMessage());
-            if (this.currentClientSession == session) {
-                this.currentClientSession = null;
-            }
+            if (this.currentClientSession == session) endClientSession(session.sessionId);
             if (this.proxy != null) {
                 this.proxy.disconnectClient();
             }
@@ -1926,7 +1964,14 @@ public class P2PBridge {
         return receiver != null ? receiver.getBoundPort() : 0;
     }
 
-    public void stop() {
+    public synchronized void stop() {
+        ClientJoinAttempt attempt = currentJoinAttempt;
+        if (attempt != null) {
+            attempt.cancelled = true;
+            if (attempt.modSync != null) attempt.modSync.cancel();
+        }
+        rendezvousClientBusy.set(false);
+        modSyncActive.set(false);
         net.peercraft.network.handoff.HandoffAuthorityClient authority = handoffAuthority;
         handoffAuthority = null;
         if (authority != null) authority.close();
