@@ -20,6 +20,7 @@ import java.util.Locale;
 public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
 
     private final Screen lastScreen;
+    private String initialIdentifier = "";
 
     private EditBox friendCodeBox;
     private EditBox passwordBox;
@@ -30,6 +31,10 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
     public PeerCraftLoginByCodeScreen(Screen lastScreen) {
         super(new TranslatableComponent("peercraft.gui.login_code.title"), 270);
         this.lastScreen = lastScreen;
+    }
+
+    public PeerCraftLoginByCodeScreen(Screen lastScreen, String identifier) {
+        this(lastScreen); this.initialIdentifier = identifier;
     }
 
     @Override

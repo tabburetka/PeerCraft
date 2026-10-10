@@ -8,7 +8,7 @@ import java.util.*;
 /** Hashes every execution dependency; mod-sync exclusion/environment flags are deliberately irrelevant. */
 public final class HostManifestCapture {
     private static final Set<String> PLATFORM_IDS = new HashSet<>(Arrays.asList(
-            "minecraft", "java", "fabricloader", "forge", "Forge", "neoforge", "FML", "mcp"));
+            "minecraft", "java", "fabricloader", "forge", "neoforge", "fml", "mcp"));
     private HostManifestCapture() { }
     public static HostExecutionManifest capture(String minecraft, String loader, String loaderVersion,
             Collection<PlatformMod> installed, Path configRoot, Collection<String> externalConfigPaths) throws IOException {
@@ -31,7 +31,7 @@ public final class HostManifestCapture {
             while (true) {
                 // Loader-owned nested modules (for example Fabric Loader's mixinextras) are
                 // covered by the loader version, not by a user-installed mod JAR.
-                if (PLATFORM_IDS.contains(parent.id()) || clientOnlyRoots.contains(parent.id())) { platformModule = true; break; }
+                if (PLATFORM_IDS.contains(parent.id().toLowerCase(Locale.ROOT)) || clientOnlyRoots.contains(parent.id())) { platformModule = true; break; }
                 if (parent.parentId() == null || parent.parentId().isEmpty()) break;
                 if (!seen.add(parent.id())) throw new IOException("Cyclic nested dependency: " + mod.id());
                 parent = mods.get(parent.parentId());

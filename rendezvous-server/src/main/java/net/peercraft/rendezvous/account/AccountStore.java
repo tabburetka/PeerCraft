@@ -57,6 +57,18 @@ final class AccountStore {
         markDirty();
     }
 
+    /** Never acknowledge a new UUID before the account can survive process loss. */
+    synchronized void addDurably(Account account) throws IOException {
+        if (byId.containsKey(account.accountId) || idByFriendCode.containsKey(account.friendCode))
+            throw new IOException("Account identity collision");
+        add(account);
+        try { saveNow(); }
+        catch (IOException | RuntimeException failure) {
+            byId.remove(account.accountId); idByFriendCode.remove(account.friendCode);
+            throw new IOException("Cannot persist new account", failure);
+        }
+    }
+
     Optional<Account> byId(UUID accountId) {
         return Optional.ofNullable(byId.get(accountId));
     }
@@ -93,17 +105,7 @@ final class AccountStore {
 
     private synchronized void save() {
         try {
-            Path parent = dataFile.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            // Write to a temp file then atomically move — a crash mid-write must never leave
-            // a half-written accounts.json that corrupts every account on next boot.
-            Path tmp = Files.createTempFile(dataFile.toAbsolutePath().getParent(), "accounts", ".json.tmp");
-            try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
-                gson.toJson(new ArrayList<>(byId.values()), writer);
-            }
-            Files.move(tmp, dataFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            saveNow();
         } catch (IOException | RuntimeException e) {
             // RuntimeException (not just IOException) matters here: this runs on a
             // ScheduledExecutorService tick, which silently stops rescheduling forever if a
@@ -111,6 +113,24 @@ final class AccountStore {
             // permanently kill all future persistence for the rest of the server's uptime.
             System.err.println("[AccountStore] Failed to save accounts to " + dataFile + ": " + e);
             dirty.set(true); // retry on the next scheduled tick rather than silently losing the change
+        }
+    }
+
+    /** Security-sensitive changes must reach disk before recovery reports success. */
+    synchronized void saveNow() throws IOException {
+        Path parent = dataFile.toAbsolutePath().getParent();
+        Files.createDirectories(parent);
+        Path tmp = Files.createTempFile(parent, "accounts", ".json.tmp");
+        try {
+            try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
+                gson.toJson(new ArrayList<>(byId.values()), writer);
+            }
+            try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(tmp, StandardOpenOption.WRITE)) {
+                channel.force(true);
+            }
+            Files.move(tmp, dataFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(tmp);
         }
     }
 
@@ -122,18 +142,29 @@ final class AccountStore {
             Type listType = new TypeToken<List<Account>>() {
             }.getType();
             List<Account> loaded = gson.fromJson(reader, listType);
+            if (loaded == null) throw new IOException("Empty account database");
+            java.util.Set<String> emails = new java.util.HashSet<>();
             if (loaded != null) {
                 for (Account account : loaded) {
+                    if (account == null || account.accountId == null || account.friendCode == null
+                            || account.displayName == null || byId.containsKey(account.accountId)
+                            || idByFriendCode.containsKey(account.friendCode))
+                        throw new IOException("Invalid or duplicate account record");
+                    if (account.verifiedEmail != null) {
+                        account.verifiedEmail = EmailRecoveryService.normalize(account.verifiedEmail);
+                        if (account.licensed || !emails.add(account.verifiedEmail))
+                            throw new IOException("Invalid recovery email ownership");
+                    }
                     account.normalizeCollectionsAfterDeserialization();
                     byId.put(account.accountId, account);
                     idByFriendCode.put(account.friendCode, account.accountId);
                 }
             }
             System.out.println("[AccountStore] Loaded " + byId.size() + " account(s) from " + dataFile);
-        } catch (IOException e) {
-            // Tolerant like PeerCraftConfig on the client — a missing/corrupt file must never
-            // crash the server; worst case is starting with an empty account store.
-            System.err.println("[AccountStore] Failed to load accounts from " + dataFile + " — starting with an empty account store: " + e);
+        } catch (IOException | RuntimeException e) {
+            // Starting empty would let later registrations replace the only account database.
+            // Refuse startup and preserve the file for explicit restoration instead.
+            throw new IllegalStateException("Cannot load account database; existing file was preserved");
         }
     }
 

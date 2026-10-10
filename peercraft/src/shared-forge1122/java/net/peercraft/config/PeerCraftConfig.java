@@ -16,6 +16,7 @@ import java.util.Properties;
 public final class PeerCraftConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    public static final String DEFAULT_RENDEZVOUS_HOST = "connection.peercraft.ru";
     public static final String MODE_AUTO = "auto";
     public static final String MODE_CLIENT = "client";
     public static final String MODE_HOST = "host";
@@ -100,11 +101,18 @@ public final class PeerCraftConfig {
     }
 
     public static String rendezvousHost() {
-        return stringValue("rendezvousHost", "91.146.31.165");
+        return stringValue("rendezvousHost", DEFAULT_RENDEZVOUS_HOST);
     }
 
     /** Client consent; the broker itself stays disabled until deployment is configured. */
-    public static boolean relayEnabled() { return boolValue("relay.enabled", true); }
+    // Relay rollout postponed: ignore saved settings until explicitly restored.
+    public static boolean relayEnabled() {
+        // return boolValue("relay.enabled", true);
+        return false;
+    }
+    /** Explicit HTTPS endpoint of the same account service; no implicit external provider. */
+    public static String emailServiceUrl() { return stringValue("email.serviceUrl", ""); }
+
     /** Trusted HTTPS endpoint. Never accept account-token destinations supplied only by UDP. */
     public static String relayBrokerUrl() { return stringValue("relay.brokerUrl", ""); }
 

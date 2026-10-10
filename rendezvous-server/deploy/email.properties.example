@@ -1,0 +1,13 @@
+# Copy to data/email.properties. Existing accounts are preserved when disabled.
+enabled=false
+https.bind=127.0.0.1
+https.port=51082
+# Enable only with an HTTPS reverse proxy that overwrites X-PeerCraft-Client-IP.
+https.tlsReverseProxy=true
+# Alternative: PKCS12 relative to data/, password in PEERCRAFT_EMAIL_KEYSTORE_PASSWORD.
+# https.keyStore=email.p12
+smtp.host=smtp.example.org
+smtp.port=587
+smtp.implicitTls=false
+smtp.from=accounts@example.org
+# Credentials: PEERCRAFT_SMTP_USER and PEERCRAFT_SMTP_PASSWORD environment variables.

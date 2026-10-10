@@ -41,10 +41,18 @@ public class PeerCraftAccountScreen extends Screen {
     private int footerDividerY;
     //?}
 
+    private final boolean welcome;
+
     public PeerCraftAccountScreen(Screen lastScreen) {
-        super(Component.translatable("peercraft.gui.account.title"));
-        this.lastScreen = lastScreen;
-        this.statusMessage = Component.empty();
+        this(lastScreen, false);
+    }
+
+    public PeerCraftAccountScreen(Screen lastScreen, boolean welcome) {
+        super(Component.translatable(welcome ? "peercraft.gui.welcome.title" : "peercraft.gui.account.title"));
+        this.welcome = welcome;
+        this.lastScreen = lastScreen instanceof PeerCraftAccountScreen
+                ? ((PeerCraftAccountScreen) lastScreen).lastScreen : lastScreen;
+        this.statusMessage = welcome ? Component.translatable("peercraft.gui.welcome.message") : Component.empty();
     }
 
     @Override
@@ -54,6 +62,12 @@ public class PeerCraftAccountScreen extends Screen {
         int centerX = this.width / 2;
 
         AccountClient.AccountSession session = AccountSessionHolder.current();
+        // Registration/login may return to this original first-run screen instance.
+        // Once authenticated, replace it with the ordinary account hub and its real parent.
+        if (this.welcome && session != null) {
+            PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen));
+            return;
+        }
         if (session != null) {
             // Position must match the "Friend code: ..." line drawn in render() — kept in sync
             // by using the same titleY/codeY formula there.
@@ -78,30 +92,36 @@ public class PeerCraftAccountScreen extends Screen {
             this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.register"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftRegisterScreen(this)))
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
-            this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.login_by_code"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftLoginByCodeScreen(this)))
+            this.addRenderableWidget(Button.builder(Component.translatable(welcome ? "peercraft.gui.welcome.existing" : "peercraft.gui.account.login_by_code"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftLoginByCodeScreen(this)))
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
+            if (!welcome) {
+                this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.email.reset_title"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftEmailScreen(this, false)))
+                        .bounds(centerX - 100, y, 200, 20).build());
+                y += 26;
+            }
         } else {
             if (!session.licensed()) {
                 this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.copy_recovery_id"),
                         b -> onCopyAccountId(session)).bounds(centerX - 100, y, 200, 20).build());
-                y += 26;
-                this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.progress_notice.open"),
-                        b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftProgressNoticeScreen(this)))
-                        .bounds(centerX - 100, y, 200, 20).build());
                 y += 26;
 
                 this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.change_nickname"), b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftRenameScreen(this)))
                         .bounds(centerX - 100, y, 200, 20).build());
                 y += 26;
             }
+                this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.transfer.tools"),
+                        b -> PeerCraftUi.setScreen(this.minecraft, new PeerCraftProgressToolsScreen(this)))
+                        .bounds(centerX - 100, y, 200, 20).build());
+                y += 26;
+
             this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.account.logout"), b -> confirmLogout())
                     .bounds(centerX - 100, y, 200, 20).build());
             y += 26;
         }
 
         y += 4;
-        this.addRenderableWidget(Button.builder(Component.translatable("peercraft.gui.common.back"), b -> returnToLastScreen())
+        this.addRenderableWidget(Button.builder(Component.translatable(welcome ? "peercraft.gui.welcome.later" : "peercraft.gui.common.back"), b -> returnToLastScreen())
                 .bounds(centerX - 100, y, 200, 20).build());
         //? if >=1.21.1
         layoutThemedAccount(session);
@@ -234,7 +254,7 @@ public class PeerCraftAccountScreen extends Screen {
         int desiredHeight = header + this.identityHeight + 6 + actions.size() * pitch
                 + (compact ? 6 : 8) + statusHeight + (compact ? 8 : 10);
         this.dialog = new SteampunkDialog(this.width, this.height, desiredHeight,
-                Component.translatable("peercraft.gui.account.subtitle"));
+                Component.translatable(welcome ? "peercraft.gui.welcome.title" : "peercraft.gui.account.subtitle"));
         this.identityY = this.dialog.contentTop();
         int y = this.identityY + (session == null ? 0 : this.identityHeight + 6);
         for (int i = 0; i < actions.size(); i++) {

@@ -52,6 +52,36 @@ class PeerCraftSettingsStoreTest {
     }
 
     @Test
+    void legacyPublicIpFollowsTheNewDefaultWithoutLosingOtherSettings(@TempDir Path dir) {
+        Path file = dir.resolve("settings.json");
+        PeerCraftSettings s = new PeerCraftSettings();
+        s.rendezvousHost = " 91.146.31.165 ";
+        s.rendezvousPort = "51000";
+        s.modSyncHost = "required";
+        s.showDeveloperSection = true;
+        PeerCraftSettingsStore.save(file, s);
+
+        PeerCraftSettings loaded = PeerCraftSettingsStore.load(file);
+        assertNull(loaded.rendezvousHost);
+        assertFalse(loaded.toOverrideMap().containsKey("rendezvousHost"));
+        assertEquals("51000", loaded.rendezvousPort);
+        assertEquals("required", loaded.modSyncHost);
+        assertTrue(loaded.showDeveloperSection);
+    }
+
+    @Test
+    void customRendezvousAddressIsPreserved(@TempDir Path dir) {
+        Path file = dir.resolve("settings.json");
+        PeerCraftSettings s = new PeerCraftSettings();
+        s.rendezvousHost = "127.0.0.1";
+        PeerCraftSettingsStore.save(file, s);
+
+        PeerCraftSettings loaded = PeerCraftSettingsStore.load(file);
+        assertEquals("127.0.0.1", loaded.rendezvousHost);
+        assertEquals("127.0.0.1", loaded.toOverrideMap().get("rendezvousHost"));
+    }
+
+    @Test
     void corruptFileLoadsDefaults(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("settings.json");
         Files.writeString(file, "not json {{");

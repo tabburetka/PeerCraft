@@ -17,6 +17,7 @@ import java.util.Locale;
 public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
 
     private final GuiScreen lastScreen;
+    private String initialIdentifier = "";
 
     private GuiTextField friendCodeBox;
     private PasswordField passwordBox;
@@ -29,9 +30,13 @@ public class PeerCraftLoginByCodeScreen extends PeerCraftDialogScreen {
         this.lastScreen = lastScreen;
     }
 
+    public PeerCraftLoginByCodeScreen(GuiScreen lastScreen, String identifier) {
+        this(lastScreen); this.initialIdentifier = identifier;
+    }
+
     @Override
     public void initGui() {
-        String previous = this.friendCodeBox == null ? null : this.friendCodeBox.getText();
+        String previous = this.friendCodeBox == null ? initialIdentifier : this.friendCodeBox.getText();
         boolean enabled = this.loginButton == null || this.loginButton.enabled;
         String previousPassword = this.passwordBox == null ? "" : this.passwordBox.getPassword();
         super.initGui();

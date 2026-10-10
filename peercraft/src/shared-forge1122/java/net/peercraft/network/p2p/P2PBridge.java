@@ -607,6 +607,13 @@ public class P2PBridge {
      * {@code peercraft.modSync=false}) skips it and connects immediately, exactly as before.
      */
     public synchronized void startClientViaRendezvous(String code, String rendezvousHost, int rendezvousPort, ConnectListener listener, ModSyncAgent modSync) {
+        final net.peercraft.network.account.AccountClient.AccountSession authenticatedJoiner =
+                net.peercraft.network.account.AccountClient.INSTANCE.getCurrentSession();
+        if (authenticatedJoiner == null) {
+            listener.onFailed("peercraft.p2p.fail.account_required");
+            return;
+        }
+
         if (code == null || code.trim().isEmpty()) {
             listener.onFailed("peercraft.p2p.fail.no_code");
             return;
@@ -681,10 +688,8 @@ public class P2PBridge {
                 PeerCraftConfig.relayEnabled(), PeerCraftConfig.relayEnabled(), DirectCandidates.gather(receiver.getBoundPort())));
         setRendezvousListener(client);
 
-        // Attaching our account (if logged in) lets the host identify us for save-data
-        // isolation (Phase 5) — anonymous joining (no account) is unchanged.
-        net.peercraft.network.account.AccountClient.AccountSession joinerSession =
-                net.peercraft.network.account.AccountClient.INSTANCE.getCurrentSession();
+        // Capture one authenticated identity for the whole connection attempt.
+        net.peercraft.network.account.AccountClient.AccountSession joinerSession = authenticatedJoiner;
         RendezvousClient.MatchCallback matchCallback = new RendezvousClient.MatchCallback() {
             @Override
             public void onMatched(RendezvousProtocol.Address peer, long token) {
@@ -834,7 +839,9 @@ public class P2PBridge {
                         DirectConnectivityCoordinator checks = activeDirectChecks.get(attempt.peer);
                         LOGGER.info("[P2PBridge] {}: {}; candidates={}", attempt.offer.attemptId(), reason,
                                 checks == null ? java.util.Collections.emptyMap() : checks.diagnostics());
-                        beginRelay(attempt, info.token(), room, sessionToken);
+                        // Relay rollout postponed; retain implementation for a future release.
+                        // beginRelay(attempt, info.token(), room, sessionToken);
+                        failAttempt(attempt, "peercraft.p2p.fail.hole_punching");
                     }
                 });
         DirectConnectivityCoordinator previous = activeDirectChecks.put(peer, checks);
@@ -1801,6 +1808,8 @@ public class P2PBridge {
         if (handoffAdmissionClosed) return null;
         try {
             LOGGER.info("[P2PBridge] Подключаемся к локальному MC серверу 127.0.0.1:{} (сессия {}, пир {}:{})...", localMinecraftPort, sessionId, peerAddress.ip(), peerAddress.port());
+            java.util.UUID authenticatedAccount = joinerAccountIdByAddress.get(peerAddress);
+            if (authenticatedAccount != null) LocalPlayerIdentity.bindAuthenticatedGuest(authenticatedAccount);
             Socket mcSocket = new Socket("127.0.0.1", localMinecraftPort);
             HostConnection conn = new HostConnection(sessionId, peerAddress, mcSocket);
             hostConnectionsBySessionId.put(sessionId, conn);

@@ -28,6 +28,7 @@ public class PeerCraftLoginByCodeScreen extends Screen {
     private Button loginButton;
     private Component statusMessage = Component.empty();
     private int statusColor = PeerCraftUi.TEXT_MUTED;
+    private String initialIdentifier = "";
     //? if >=1.21.1 {
     private final long animationStart = System.nanoTime();
     //?}
@@ -37,9 +38,13 @@ public class PeerCraftLoginByCodeScreen extends Screen {
         this.lastScreen = lastScreen;
     }
 
+    public PeerCraftLoginByCodeScreen(Screen lastScreen, String identifier) {
+        this(lastScreen); this.initialIdentifier = identifier;
+    }
+
     @Override
     protected void init() {
-        String firstValue = friendCodeBox == null ? "" : friendCodeBox.getValue();
+        String firstValue = friendCodeBox == null ? initialIdentifier : friendCodeBox.getValue();
         String secondValue = passwordBox == null ? "" : passwordBox.getValue();
         Component subtitle = Component.literal(title.getString().replace("PeerCraft — ", ""));
         dialog = new SteampunkDialog(width, height, 220, subtitle);

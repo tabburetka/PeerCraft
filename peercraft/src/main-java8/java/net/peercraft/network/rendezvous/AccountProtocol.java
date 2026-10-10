@@ -78,6 +78,7 @@ public final class AccountProtocol {
     public static final byte REASON_ALREADY_FRIENDS = 10;
     public static final byte REASON_INVALID_TARGET = 11;
     public static final byte REASON_REQUEST_NOT_FOUND = 12;
+    public static final byte REASON_STORAGE_UNAVAILABLE = 13;
 
     public static final int TOKEN_LENGTH = 16;
     public static final int FRIEND_CODE_LENGTH = 6;

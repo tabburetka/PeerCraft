@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.multiplayer.GuiConnecting;
 import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.p2p.P2PBridge;
@@ -15,8 +14,8 @@ import java.util.Locale;
 /**
  * Forge 1.7.10 backport of {@code src/main/.../PeerCraftJoinScreen.java} (twin of the
  * {@code src/client-1122} backport). {@code ConnectScreen.startConnecting} →
- * {@code new GuiConnecting(parent, mc, host, port)} — the same 4-arg constructor exists on
- * 1.7.10 and parses {@code host:port} itself, so no {@code ServerData} is needed.
+ * Uses the FML connection entry point through {@code PeerCraftUi.connectLocal},
+ * which initializes the modded handshake state before connecting.
  */
 public class PeerCraftJoinScreen extends GuiScreen {
 
@@ -171,8 +170,8 @@ public class PeerCraftJoinScreen extends GuiScreen {
         }
         TransportNoticeController.connecting();
         int port = P2PBridge.INSTANCE.getProxyPort();
-        // GuiConnecting parses host:port itself; ServerData is only for the display name / history.
-        this.mc.displayGuiScreen(new GuiConnecting(this.lastScreen, this.mc, "127.0.0.1", port));
+        // Use the FML entry point so modded client handshake state is initialized.
+        PeerCraftUi.connectLocal(this.lastScreen, port);
     }
 
     @Override

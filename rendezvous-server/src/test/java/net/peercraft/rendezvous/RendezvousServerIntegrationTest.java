@@ -41,6 +41,14 @@ class RendezvousServerIntegrationTest {
         serverThread.interrupt();
     }
 
+    private byte[] authenticatedJoin(String code) throws Exception {
+        try (DatagramSocket accountSocket = new DatagramSocket()) {
+            accountSocket.setSoTimeout(2000);
+            var account = TestAccounts.register(accountSocket, InetAddress.getLoopbackAddress(), server.getBoundPort());
+            return RendezvousProtocol.encodeJoinWithAccount(code, account.sessionToken());
+        }
+    }
+
     @Test
     void registerThenJoinMatchesBothPeers() throws Exception {
         int port = server.getBoundPort();
@@ -60,7 +68,7 @@ class RendezvousServerIntegrationTest {
             assertEquals(6, roomCreated.code().length());
             assertEquals(hostSocket.getLocalPort(), roomCreated.hostAddress().port());
 
-            byte[] joinMsg = RendezvousProtocol.encodeJoin(roomCreated.code());
+            byte[] joinMsg = authenticatedJoin(roomCreated.code());
             joinerSocket.send(new DatagramPacket(joinMsg, joinMsg.length, loopback, port));
 
             byte[] hostPeerFoundBuf = new byte[64];
@@ -98,7 +106,7 @@ class RendezvousServerIntegrationTest {
             hostSocket.receive(roomCreatedPkt);
             RendezvousProtocol.RoomCreated roomCreated = RendezvousProtocol.decodeRoomCreated(roomCreatedBuf, roomCreatedPkt.getLength());
 
-            byte[] joinA = RendezvousProtocol.encodeJoin(roomCreated.code());
+            byte[] joinA = authenticatedJoin(roomCreated.code());
             joinerASocket.send(new DatagramPacket(joinA, joinA.length, loopback, port));
             byte[] hostPeerFoundA = new byte[64];
             DatagramPacket hostPeerFoundAPkt = new DatagramPacket(hostPeerFoundA, hostPeerFoundA.length);
@@ -106,7 +114,7 @@ class RendezvousServerIntegrationTest {
             RendezvousProtocol.PeerFound hostSideA = RendezvousProtocol.decodePeerFound(hostPeerFoundA, hostPeerFoundAPkt.getLength());
             assertEquals(joinerASocket.getLocalPort(), hostSideA.peer().port());
 
-            byte[] joinB = RendezvousProtocol.encodeJoin(roomCreated.code());
+            byte[] joinB = authenticatedJoin(roomCreated.code());
             joinerBSocket.send(new DatagramPacket(joinB, joinB.length, loopback, port));
             byte[] hostPeerFoundB = new byte[64];
             DatagramPacket hostPeerFoundBPkt = new DatagramPacket(hostPeerFoundB, hostPeerFoundB.length);
@@ -139,7 +147,7 @@ class RendezvousServerIntegrationTest {
             hostSocket.receive(roomCreatedPkt);
             RendezvousProtocol.RoomCreated roomCreated = RendezvousProtocol.decodeRoomCreated(roomCreatedBuf, roomCreatedPkt.getLength());
 
-            byte[] joinA = RendezvousProtocol.encodeJoin(roomCreated.code());
+            byte[] joinA = authenticatedJoin(roomCreated.code());
             joinerASocket.send(new DatagramPacket(joinA, joinA.length, loopback, port));
             byte[] hostPeerFoundA = new byte[64];
             DatagramPacket hostPeerFoundAPkt = new DatagramPacket(hostPeerFoundA, hostPeerFoundA.length);
@@ -155,7 +163,7 @@ class RendezvousServerIntegrationTest {
             DatagramPacket roomCreatedAgainPkt = new DatagramPacket(roomCreatedAgainBuf, roomCreatedAgainBuf.length);
             hostSocket.receive(roomCreatedAgainPkt);
 
-            byte[] joinB = RendezvousProtocol.encodeJoin(roomCreated.code());
+            byte[] joinB = authenticatedJoin(roomCreated.code());
             joinerBSocket.send(new DatagramPacket(joinB, joinB.length, loopback, port));
             byte[] replyBuf = new byte[64];
             DatagramPacket replyPkt = new DatagramPacket(replyBuf, replyBuf.length);
@@ -174,7 +182,7 @@ class RendezvousServerIntegrationTest {
         try (DatagramSocket joinerSocket = new DatagramSocket()) {
             joinerSocket.setSoTimeout(2000);
 
-            byte[] joinMsg = RendezvousProtocol.encodeJoin("NOPE12");
+            byte[] joinMsg = authenticatedJoin("NOPE12");
             joinerSocket.send(new DatagramPacket(joinMsg, joinMsg.length, loopback, port));
 
             byte[] replyBuf = new byte[64];

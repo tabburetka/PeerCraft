@@ -44,7 +44,7 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
         dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.picker.title"), 400);
         this.buttonList.clear();
         if (terminalKey == null) return;
-        if (success) dialogAction(PeerCraftLang.tr("menu.returnToMenu"), this::toTitle, true, 0, 1);
+        if (success) dialogAction(net.minecraft.client.resources.I18n.format("menu.returnToMenu"), this::toTitle, true, 0, 1);
         else dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::backToScreen, false, 0, 1);
     }
 

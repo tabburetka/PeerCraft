@@ -91,8 +91,15 @@ public class PeerCraftLanScreen extends GuiShareToLan {
             String label=b.displayString;
             if(b instanceof ToggleButton)label=(((ToggleButton)b).isChecked()?"✓ ":"□ ")+label;
             String shown=this.fontRendererObj.trimStringToWidth(label,Math.max(1,b.width-12));
-            this.drawCenteredString(this.fontRendererObj,shown,b.xPosition+b.width/2,b.yPosition+(b.height-8)/2,
-                    !b.enabled?SteampunkPalette.MUTED:primary?SteampunkPalette.CONTROL:SteampunkPalette.TEXT);
+            if (primary && b.enabled) {
+                this.fontRendererObj.drawString(shown,
+                        b.xPosition + (b.width - this.fontRendererObj.getStringWidth(shown)) / 2,
+                        b.yPosition + (b.height - 8) / 2, SteampunkPalette.CONTROL);
+            } else {
+                this.drawCenteredString(this.fontRendererObj, shown, b.xPosition + b.width / 2,
+                        b.yPosition + (b.height - 8) / 2,
+                        b.enabled ? SteampunkPalette.TEXT : SteampunkPalette.MUTED);
+            }
             if(over && !shown.equals(label))hovered=label;
         }
         if(worldName.getVisible()) {

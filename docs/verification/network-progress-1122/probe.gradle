@@ -1,0 +1,31 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != 'peercraft-forge-1122') return
+        minecraft.username.set(System.getProperty('peercraft.probe.role') == 'host' ? 'Developer' : 'GuestDeveloper')
+        def fixture = sourceSets.create('networkProbe')
+        fixture.java.srcDir(project.file('../docs/verification/network-progress-1122/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        tasks.named('compileNetworkProbeJava').configure { dependsOn tasks.named('classes') }
+        tasks.named('runClient').configure {
+            dependsOn tasks.named('networkProbeClasses')
+            classpath += fixture.output
+            workingDir = file('/tmp/peercraft-network-probe/game-' + UUID.randomUUID().toString())
+            workingDir.mkdirs()
+            new File(workingDir, 'options.txt').text = 'renderDistance:4\npauseOnLostFocus:false\n'
+            doFirst { println("NETWORK_PROBE_DIRECTORY " + workingDir) }
+            extraArgs.addAll(['--width','640','--height','480'])
+            ['role','coordination','accountPort'].each { key ->
+                if (!System.getProperty('peercraft.probe.'+key)) throw new GradleException('Missing probe '+key)
+                extraJvmArgs.add('-Dpeercraft.probe.'+key+'='+System.getProperty('peercraft.probe.'+key))
+            }
+            extraJvmArgs.addAll(['-Dpeercraft.mode=disabled','-Dpeercraft.rendezvousHost=127.0.0.1',
+                '-Dpeercraft.rendezvousPort='+System.getProperty('peercraft.probe.accountPort'),
+                '-Dpeercraft.hostUdpPort=0','-Dpeercraft.clientUdpPort=0','-Dpeercraft.modSync=false'])
+            // Test clients must not size their heaps from the machine's total RAM.
+            maxHeapSize = '768m'
+            minHeapSize = '128m'
+            extraJvmArgs.addAll(['-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2'])
+        }
+    }
+}

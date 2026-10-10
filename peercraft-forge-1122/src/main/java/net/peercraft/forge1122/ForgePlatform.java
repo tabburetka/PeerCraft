@@ -38,6 +38,22 @@ public final class ForgePlatform implements PeercraftPlatform {
             for (ModContainer mc : Loader.instance().getActiveModList()) {
                 File src = mc.getSource();
                 Path jar = src != null ? src.toPath() : null;
+                // MixinBooter's synthetic FML container inherits the dummy minecraft.jar
+                // source. Hash its actual container implementation JAR for handoff checks.
+                if ("mixinbooter".equalsIgnoreCase(mc.getModId())
+                        && (jar == null || !java.nio.file.Files.isRegularFile(jar))) {
+                    try {
+                        java.net.URL resource = mc.getClass().getResource("/zone/rong/mixinbooter/MixinBooterPlugin.class");
+                        java.net.URL location = resource != null && "jar".equals(resource.getProtocol())
+                                ? ((java.net.JarURLConnection) resource.openConnection()).getJarFileURL() : null;
+                        if (location != null && "file".equals(location.getProtocol())) {
+                            Path actual = java.nio.file.Paths.get(location.toURI());
+                            if (java.nio.file.Files.isRegularFile(actual)) jar = actual;
+                        }
+                    } catch (java.io.IOException | java.net.URISyntaxException | SecurityException invalidSource) {
+                        // Keep the unresolved source: manifest capture must fail closed.
+                    }
+                }
                 out.add(new PlatformMod(mc.getModId(), mc.getVersion(), jar, "both", "", "", false));
             }
         } catch (RuntimeException ignored) {

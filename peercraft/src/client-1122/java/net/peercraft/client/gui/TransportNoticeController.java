@@ -67,6 +67,13 @@ public final class TransportNoticeController {
             mc.player.sendMessage(new net.minecraft.util.text.TextComponentString(PeerCraftLang.tr(pendingMode))); pendingMode = null;
         }
         GuiScreen current = mc.currentScreen;
+        if (current instanceof GuiMainMenu
+                && !net.peercraft.config.PeerCraftConfig.MODE_DISABLED.equals(net.peercraft.config.PeerCraftConfig.mode())
+                && net.peercraft.client.account.AccountWelcome.claim(
+                        net.peercraft.client.account.AccountSessionHolder.current() != null)) {
+            PeerCraftUi.setScreen(mc, new PeerCraftAccountScreen(current, true));
+            return;
+        }
         tickJoin(current, mc.player != null);
         if (pendingFailure != null && mc.player == null && current instanceof GuiDisconnected) {
             String reason = pendingFailure; pendingFailure = null;

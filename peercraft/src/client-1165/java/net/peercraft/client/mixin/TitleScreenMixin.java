@@ -50,14 +50,16 @@ public abstract class TitleScreenMixin extends Screen {
                 int y2 = button.y;
                 int w = button.getWidth();
                 int h = button.getHeight();
-                boolean active = button.active;
 
                 this.buttons.remove(button);
                 this.children.remove(button);
 
                 Button replacement = new Button(x, y2, w, h, multiplayerLabel,
                         b -> this.minecraft.setScreen(new PeerCraftMultiplayerScreen(this)));
-                replacement.active = active;
+                // This entry opens PeerCraft's LAN/offline-capable screen. In 1.16.5
+                // vanilla's account permissions can disable it for offline sessions.
+                // Keep server authentication and the separate Realms button unchanged.
+                replacement.active = true;
                 this.addButton(replacement);
                 return;
             }

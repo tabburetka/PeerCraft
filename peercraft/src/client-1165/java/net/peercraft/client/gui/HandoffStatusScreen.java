@@ -96,8 +96,11 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
     }
 
     private void toTitle() {
-        this.minecraft.level.disconnect();
-        this.minecraft.clearLevel(new GenericDirtMessageScreen(new TranslatableComponent("menu.savingLevel")));
+        // Handoff saves and stops the source world before this button becomes available.
+        if (this.minecraft.level != null) {
+            this.minecraft.level.disconnect();
+            this.minecraft.clearLevel(new GenericDirtMessageScreen(new TranslatableComponent("menu.savingLevel")));
+        }
         PeerCraftUi.setScreen(this.minecraft, new TitleScreen());
     }
 

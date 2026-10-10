@@ -399,6 +399,7 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_EXPIRED -> "peercraft.p2p.join_fail.expired";
             case RendezvousProtocol.REASON_SERVER_BUSY -> "peercraft.p2p.join_fail.server_busy";
             case RendezvousProtocol.REASON_NOT_FRIEND -> "peercraft.p2p.join_fail.not_friend";
+            case RendezvousProtocol.REASON_ACCOUNT_REQUIRED -> "peercraft.p2p.fail.account_required";
             default -> "peercraft.p2p.join_fail.unknown";
         };
         //?} else {
@@ -408,6 +409,7 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_EXPIRED: return "peercraft.p2p.join_fail.expired";
             case RendezvousProtocol.REASON_SERVER_BUSY: return "peercraft.p2p.join_fail.server_busy";
             case RendezvousProtocol.REASON_NOT_FRIEND: return "peercraft.p2p.join_fail.not_friend";
+            case RendezvousProtocol.REASON_ACCOUNT_REQUIRED: return "peercraft.p2p.fail.account_required";
             default: return "peercraft.p2p.join_fail.unknown";
         }*/
         //?}

@@ -1,0 +1,26 @@
+{
+  "client": {
+    "tests": 359,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 8,
+    "failing_suites": [
+      "net.peercraft.network.p2p.PeerRouteIntegrationTest"
+    ]
+  },
+  "server": {
+    "tests": 254,
+    "failures": 2,
+    "errors": 0,
+    "skipped": 1,
+    "failing_suites": [
+      "net.peercraft.rendezvous.RelayServerIntegrationTest"
+    ]
+  },
+  "forge1710_modsync": {
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  }
+}

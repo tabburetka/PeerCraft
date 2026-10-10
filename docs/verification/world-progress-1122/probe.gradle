@@ -1,0 +1,20 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != 'peercraft-forge-1122') return
+        def fixture = sourceSets.create('worldProbe')
+        fixture.java.srcDir(project.file('../docs/verification/world-progress-1122/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        tasks.named('compileWorldProbeJava').configure { dependsOn tasks.named('classes') }
+        tasks.named('runClient').configure {
+            dependsOn tasks.named('worldProbeClasses')
+            classpath += fixture.output
+            workingDir = file('/tmp/peercraft-world-probe/world-' + UUID.randomUUID().toString())
+            workingDir.mkdirs()
+            doFirst { println("WORLD_PROBE_DIRECTORY " + workingDir) }
+            if (System.getProperty('peercraft.probe.accountPort')) extraJvmArgs.add('-Dpeercraft.probe.accountPort=' + System.getProperty('peercraft.probe.accountPort'))
+            extraArgs.addAll(['--width', '640', '--height', '480'])
+            extraJvmArgs.addAll(['-Dpeercraft.mode=disabled', '-Dpeercraft.rendezvousHost=127.0.0.1', '-Dpeercraft.rendezvousPort=1'])
+        }
+    }
+}

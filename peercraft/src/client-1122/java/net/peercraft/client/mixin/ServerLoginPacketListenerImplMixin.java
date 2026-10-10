@@ -55,6 +55,23 @@ public abstract class ServerLoginPacketListenerImplMixin {
         return PlayerIdentityRegistry.INSTANCE.get(this.networkManager.getRemoteAddress());
     }
 
+    /** Forge changes the encoder protocol synchronously, while vanilla queues LoginSuccess.
+     * Keep the handshake behind that queued write on the same channel event loop. */
+    @org.spongepowered.asm.mixin.injection.Redirect(method = {"tryAcceptPlayer", "update"},
+            at = @At(value = "INVOKE", remap = false,
+                    target = "Lnet/minecraftforge/fml/common/network/internal/FMLNetworkHandler;fmlServerHandshake(Lnet/minecraft/server/management/PlayerList;Lnet/minecraft/network/NetworkManager;Lnet/minecraft/entity/player/EntityPlayerMP;)V"))
+    private void peercraft$orderedForgeHandshake(net.minecraft.server.management.PlayerList players,
+            NetworkManager manager, net.minecraft.entity.player.EntityPlayerMP player) {
+        if (!manager.isLocalChannel() && resolveAccountIdForThisConnection() != null) {
+            manager.channel().eventLoop().execute(() -> {
+                if (manager.isChannelOpen())
+                    net.minecraftforge.fml.common.network.internal.FMLNetworkHandler.fmlServerHandshake(players, manager, player);
+            });
+        } else {
+            net.minecraftforge.fml.common.network.internal.FMLNetworkHandler.fmlServerHandshake(players, manager, player);
+        }
+    }
+
     @org.spongepowered.asm.mixin.injection.Inject(method = "processLoginStart", at = @At("HEAD"), cancellable = true)
     private void peercraft$handoffAdmission(net.minecraft.network.login.client.CPacketLoginStart packet,
             org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {

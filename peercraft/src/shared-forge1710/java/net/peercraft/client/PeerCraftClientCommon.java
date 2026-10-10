@@ -70,6 +70,7 @@ public final class PeerCraftClientCommon {
 
     private static void attemptSilentRelogin() {
         Optional<AccountState> saved = AccountStorage.load();
+        net.peercraft.client.account.AccountWelcome.begin(saved.isPresent());
         // First launch and licensed accounts authenticate the current Minecraft identity.
         // Preserve remembered login for unlicensed accounts.
         if (!saved.isPresent() || saved.get().licensed()) {
@@ -85,10 +86,12 @@ public final class PeerCraftClientCommon {
             public void onSuccess(AccountClient.AccountSession session) {
                 LOGGER.info("[PeerCraft] Тихий вход выполнен: {}", session.displayName());
                 AccountSessionHolder.persist(session);
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
             }
 
             @Override
             public void onFailed(String reason) {
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 LOGGER.warn("[PeerCraft] Тихий вход не удался ({}) — потребуется войти вручную", reason);
                 AccountStorage.clear();
             }
@@ -100,10 +103,16 @@ public final class PeerCraftClientCommon {
         mc.func_152344_a(() -> {
             String token = mc.getSession().getToken();
             if (token == null || token.trim().isEmpty() || "0".equals(token) || "null".equalsIgnoreCase(token)) {
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 return;
             }
-            AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e(), token,
-                    mc.func_152347_ac(), licensedLoginCallback());
+            try {
+                AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e(), token,
+                        mc.func_152347_ac(), licensedLoginCallback());
+            } catch (RuntimeException failure) {
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
+                LOGGER.warn("[PeerCraft] Licensed auto-login failed: {}", failure.getClass().getSimpleName());
+            }
         });
     }
 
@@ -112,11 +121,13 @@ public final class PeerCraftClientCommon {
             @Override
             public void onSuccess(AccountClient.AccountSession session) {
                 AccountSessionHolder.persist(session);
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 LOGGER.info("[PeerCraft] Автоматический вход с лицензией выполнен: {}", session.displayName());
             }
 
             @Override
             public void onFailed(String reason) {
+                net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 LOGGER.warn("[PeerCraft] Автоматический вход с лицензией не удался: {}", reason);
             }
         };

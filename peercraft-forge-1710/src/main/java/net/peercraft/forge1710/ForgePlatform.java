@@ -38,6 +38,14 @@ public final class ForgePlatform implements PeercraftPlatform {
             for (ModContainer mc : Loader.instance().getActiveModList()) {
                 File src = mc.getSource();
                 Path jar = src != null ? src.toPath() : null;
+                // Injected coremod containers (CodeChickenCore, for example) report
+                // FML's dummy minecraft.jar. Resolve the container's own class resource
+                // so the actual coremod bytes remain mandatory in handoff preflight.
+                if ((jar == null || !java.nio.file.Files.isRegularFile(jar))
+                        && mc instanceof cpw.mods.fml.common.InjectedModContainer) {
+                    ModContainer implementation = ((cpw.mods.fml.common.InjectedModContainer) mc).wrappedContainer;
+                    jar = net.peercraft.network.handoff.LegacyModSource.resolve(jar, implementation.getClass());
+                }
                 out.add(new PlatformMod(mc.getModId(), mc.getVersion(), jar, "both", "", "", false));
             }
         } catch (RuntimeException ignored) {

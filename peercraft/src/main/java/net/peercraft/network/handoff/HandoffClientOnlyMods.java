@@ -81,7 +81,9 @@ public final class HandoffClientOnlyMods {
         String side = string(get(api + "project/" + project), "server_side");
         if (!"required".equalsIgnoreCase(side) && !"optional".equalsIgnoreCase(side)
                 && !"unsupported".equalsIgnoreCase(side)) return false;
-        boolean optional = !"required".equalsIgnoreCase(side);
+        // Optional server installation still permits server behavior and dependencies.
+        // Only an explicit unsupported verdict proves that this JAR is client-only.
+        boolean optional = "unsupported".equalsIgnoreCase(side);
         SIDES.putIfAbsent(key, optional);
         return optional;
     }

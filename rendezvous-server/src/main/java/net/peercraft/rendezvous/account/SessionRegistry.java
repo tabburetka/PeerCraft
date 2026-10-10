@@ -71,6 +71,10 @@ final class SessionRegistry {
         byToken.remove(key(token));
     }
 
+    void invalidateAccount(UUID accountId) {
+        byToken.values().removeIf(entry -> entry.accountId.equals(accountId));
+    }
+
     /** Called periodically to bound memory — not on the request path. */
     void sweepExpired() {
         long now = clock.getAsLong();

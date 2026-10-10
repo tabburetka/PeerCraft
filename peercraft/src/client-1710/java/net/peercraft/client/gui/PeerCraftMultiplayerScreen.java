@@ -6,7 +6,6 @@ import net.minecraft.client.gui.GuiMultiplayer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiSlot;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.multiplayer.GuiConnecting;
 import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.client.theme.SteampunkPalette;
@@ -796,7 +795,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
     private void startVanillaConnect() {
         TransportNoticeController.connecting();
         int port = P2PBridge.INSTANCE.getProxyPort();
-        this.mc.displayGuiScreen(new GuiConnecting(this.lastScreen, this.mc, "127.0.0.1", port));
+        PeerCraftUi.connectLocal(this.lastScreen, port);
     }
 
     // ==================== DISCOVER TAB ====================

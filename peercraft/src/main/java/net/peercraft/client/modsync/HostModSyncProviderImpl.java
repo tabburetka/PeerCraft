@@ -114,7 +114,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 return pm.version();
             }
         }
-        return "2.1.0";
+        return "3.4.2";
     }
 
     @Override

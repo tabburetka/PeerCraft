@@ -600,7 +600,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return pm.version();
             }
         }
-        return "2.0.0";
+        return "3.4.2";
     }
 
     private record ModrinthDownloadDeps(ModDownloader downloader) {

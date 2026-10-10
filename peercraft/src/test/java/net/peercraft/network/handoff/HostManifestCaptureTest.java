@@ -13,6 +13,20 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 class HostManifestCaptureTest {
     @TempDir Path dir;
+    @Test void forgeBuiltinIdsUseCaseInsensitivePlatformClassification() throws Exception {
+        Path jar = Files.write(dir.resolve("user.jar"), new byte[]{9});
+        List<PlatformMod> mods = Arrays.asList(
+                new PlatformMod("Minecraft", "1.12.2", dir.resolve("missing-minecraft.jar"), "both", "", "", false),
+                new PlatformMod("Forge", "14", null, "both", "", "", false),
+                new PlatformMod("FML", "8", null, "both", "", "", false),
+                new PlatformMod("user-mod", "1", jar, "both", "", "", false));
+        HostExecutionManifest actual = HostManifestCapture.capture("1.12.2", "forge", "14", mods, dir, Collections.emptySet());
+        HostExecutionManifest expected = HostManifestCapture.capture("1.12.2", "forge", "14",
+                Collections.singletonList(mods.get(3)), dir, Collections.emptySet());
+        assertTrue(actual.differences(expected, HostExecutionManifest.Profile.strict()).isEmpty());
+        Files.delete(jar);
+        assertThrows(IOException.class, () -> HostManifestCapture.capture("1.12.2", "forge", "14", mods, dir, Collections.emptySet()));
+    }
     @Test void nestedModsUseTheirParentJarAndClientModsRemainMandatory() throws Exception {
         Path jar = Files.write(dir.resolve("parent.jar"), new byte[]{1, 2, 3});
         List<PlatformMod> mods = Arrays.asList(
@@ -74,7 +88,7 @@ class HostManifestCaptureTest {
         assertFalse(unavailable.contains("server-required"));
         assertTrue(unavailable.contains("appleskin"));
     }
-    @Test void modrinthHashLookupClassifiesOptionalServerSide() throws Exception {
+    @Test void modrinthHashLookupOnlyExcludesUnsupportedServerSide() throws Exception {
         HttpServer api = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicReference<String> side = new AtomicReference<>("optional");
         api.createContext("/v2/version_file", request -> {
@@ -90,7 +104,22 @@ class HostManifestCaptureTest {
         api.start();
         try {
             String base = "http://127.0.0.1:" + api.getAddress().getPort() + "/v2/";
-            assertTrue(HandoffClientOnlyMods.modrinthOptionalForServer(Files.write(dir.resolve("optional.jar"), new byte[]{6}), base));
+            assertFalse(HandoffClientOnlyMods.modrinthOptionalForServer(Files.write(dir.resolve("optional.jar"), new byte[]{6}), base));
+            Path apiJar = dir.resolve("optional.jar");
+            List<PlatformMod> apiMods = Arrays.asList(
+                    new PlatformMod("fabric-api", "0.141.6", apiJar, "both", "", "", false),
+                    new PlatformMod("fabric-api-base", "1", null, "both", "", "", true, "fabric-api"));
+            HostExecutionManifest online = HostManifestCapture.capture("1.21.11", "fabricloader", "0.19.3",
+                    apiMods, dir, Collections.emptySet(),
+                    HandoffClientOnlyMods.classify(apiMods, path -> HandoffClientOnlyMods.modrinthOptionalForServer(path, base)));
+            HostExecutionManifest offline = HostManifestCapture.capture("1.21.11", "fabricloader", "0.19.3",
+                    apiMods, dir, Collections.emptySet(), HandoffClientOnlyMods.classify(apiMods, path -> false));
+            assertTrue(online.differences(offline, HostExecutionManifest.Profile.strict()).isEmpty());
+            HostExecutionManifest missing = HostManifestCapture.capture("1.21.11", "fabricloader", "0.19.3",
+                    Collections.emptyList(), dir, Collections.emptySet());
+            assertEquals(2, online.differences(missing, HostExecutionManifest.Profile.strict()).size());
+            side.set("unsupported");
+            assertTrue(HandoffClientOnlyMods.modrinthOptionalForServer(Files.write(dir.resolve("unsupported.jar"), new byte[]{8}), base));
             side.set("required");
             assertFalse(HandoffClientOnlyMods.modrinthOptionalForServer(Files.write(dir.resolve("required.jar"), new byte[]{7}), base));
         } finally { api.stop(0); }

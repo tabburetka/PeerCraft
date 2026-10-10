@@ -650,6 +650,7 @@ public final class AccountClient {
             case AccountProtocol.REASON_UNKNOWN_ACCOUNT -> "аккаунт не найден";
             case AccountProtocol.REASON_RATE_LIMITED -> "слишком много попыток, попробуйте позже";
             case AccountProtocol.REASON_UNKNOWN_REQUEST_ID -> "попытка входа устарела, начните заново";
+            case AccountProtocol.REASON_STORAGE_UNAVAILABLE -> "сервер не смог сохранить аккаунт, попробуйте позже";
             case AccountProtocol.REASON_MOJANG_UNAVAILABLE -> "сервис Mojang недоступен, попробуйте позже";
             default -> "неизвестная ошибка сервера аккаунтов (" + reason + ")";
         };

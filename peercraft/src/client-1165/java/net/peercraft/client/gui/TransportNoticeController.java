@@ -70,6 +70,13 @@ public final class TransportNoticeController {
             mc.player.displayClientMessage(message, false);
         }
         Screen current = mc.screen;
+        if (current instanceof TitleScreen
+                && !net.peercraft.config.PeerCraftConfig.MODE_DISABLED.equals(net.peercraft.config.PeerCraftConfig.mode())
+                && net.peercraft.client.account.AccountWelcome.claim(
+                        net.peercraft.client.account.AccountSessionHolder.current() != null)) {
+            PeerCraftUi.setScreen(mc, new PeerCraftAccountScreen(current, true));
+            return;
+        }
         tickJoin(current, mc.player != null);
         if (pendingFailure != null && mc.player == null && current instanceof DisconnectedScreen) {
             String reason = pendingFailure; pendingFailure = null;

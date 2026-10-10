@@ -31,10 +31,17 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
     private int identityHeight;
     private int statusY;
 
+    private final boolean welcome;
+
     public PeerCraftAccountScreen(Screen lastScreen) {
-        super(new TranslatableComponent("peercraft.gui.account.title"), 340);
+        this(lastScreen, false);
+    }
+
+    public PeerCraftAccountScreen(Screen lastScreen, boolean welcome) {
+        super(new TranslatableComponent(welcome ? "peercraft.gui.welcome.title" : "peercraft.gui.account.title"), 340);
+        this.welcome = welcome;
         this.lastScreen = lastScreen instanceof PeerCraftAccountScreen ? ((PeerCraftAccountScreen) lastScreen).lastScreen : lastScreen;
-        this.statusMessage = TextComponent.EMPTY;
+        this.statusMessage = welcome ? new TranslatableComponent("peercraft.gui.welcome.message") : TextComponent.EMPTY;
     }
 
     @Override
@@ -42,13 +49,19 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
         super.init();
         boolean loggingIn = loginLicensedButton != null && !loginLicensedButton.active;
         AccountClient.AccountSession session = AccountSessionHolder.current();
+        // Registration/login may return to this original first-run screen instance.
+        // Once authenticated, replace it with the ordinary account hub and its real parent.
+        if (this.welcome && session != null) {
+            PeerCraftUi.setScreen(this.minecraft, new PeerCraftAccountScreen(this.lastScreen));
+            return;
+        }
         boolean compact = height < 300;
         int header = (compact ? 36 : 46) + 6;
-        int buttons = session == null ? 3 : session.licensed() ? 1 : 4;
+        int buttons = session == null ? (welcome ? 3 : 4) : session.licensed() ? 2 : 4;
         int identity = session == null ? 0 : (compact ? 36 : 56) + 6;
         int desiredHeight = header + identity + buttons * accountButtonPitch() + 3
                 + accountButtonHeight() + 6 + 24 + 12;
-        dialog = new SteampunkDialog(width, height, desiredHeight, new TranslatableComponent("peercraft.gui.account.title"));
+        dialog = new SteampunkDialog(width, height, desiredHeight, new TranslatableComponent(welcome ? "peercraft.gui.welcome.title" : "peercraft.gui.account.title"));
         int y = dialog.contentTop();
         if (session == null) {
             loginLicensedButton = addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.login_licensed"), b -> onLoginLicensed())
@@ -58,9 +71,14 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
             addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.register"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftRegisterScreen(this)))
                     .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
             y += accountButtonPitch();
-            addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.login_by_code"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftLoginByCodeScreen(this)))
+            addButton(Btn.builder(new TranslatableComponent(welcome ? "peercraft.gui.welcome.existing" : "peercraft.gui.account.login_by_code"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftLoginByCodeScreen(this)))
                     .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
             y += accountButtonPitch();
+            if (!welcome) {
+                addButton(Btn.builder(new TranslatableComponent("peercraft.gui.email.reset_title"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftEmailScreen(this, false)))
+                        .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
+                y += accountButtonPitch();
+            }
         } else {
             identityY = y;
             identityHeight = dialog.compact ? 36 : 56;
@@ -72,13 +90,14 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
                 addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.copy_recovery_id"), b -> onCopyAccountId(session))
                         .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
                 y += accountButtonPitch();
-                addButton(Btn.builder(new TranslatableComponent("peercraft.gui.progress_notice.open"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftProgressNoticeScreen(this)))
-                        .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
-                y += accountButtonPitch();
                 addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.change_nickname"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftRenameScreen(this)))
                         .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
                 y += accountButtonPitch();
             }
+                addButton(Btn.builder(new TranslatableComponent("peercraft.gui.transfer.tools"), b -> PeerCraftUi.setScreen(minecraft, new PeerCraftProgressToolsScreen(this)))
+                        .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
+                y += accountButtonPitch();
+
             addButton(Btn.builder(new TranslatableComponent("peercraft.gui.account.logout"), b -> confirmLogout())
                     .bounds(dialog.contentX(), y, dialog.contentWidth(), accountButtonHeight()).build());
             y += accountButtonPitch();
@@ -89,7 +108,7 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
                 }, false);
             }
         }
-        addButton(Btn.builder(new TranslatableComponent("peercraft.gui.common.back"), b -> onClose())
+        addButton(Btn.builder(new TranslatableComponent(welcome ? "peercraft.gui.welcome.later" : "peercraft.gui.common.back"), b -> onClose())
                 .bounds(dialog.contentX(), y + 3, dialog.contentWidth(), accountButtonHeight()).build());
         statusY = y + 3 + accountButtonHeight() + 6;
         if (session != null && !session.licensed() && AccountProgressNotice.firstDisplay(session.accountId())) {

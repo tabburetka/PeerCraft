@@ -23,6 +23,9 @@ final class Account {
     // sniffed remember-token to "first user of it wins", not indefinite reuse.
     byte[] rememberToken;
 
+    // Optional recovery address. Only a successful mailbox challenge may populate it.
+    String verifiedEmail;
+
     // Mutual once accepted — a friendship always appears in BOTH accounts' `friends` sets,
     // maintained by AccountService.respondToRequest/removeFriend. outgoing/incoming are the
     // pending-request halves, cleared on accept/decline. NOT final: Gson deserializes via

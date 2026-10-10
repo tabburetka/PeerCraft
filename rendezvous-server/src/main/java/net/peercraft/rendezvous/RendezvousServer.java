@@ -1,6 +1,9 @@
 package net.peercraft.rendezvous;
 
 import net.peercraft.rendezvous.account.AccountService;
+import net.peercraft.rendezvous.account.EmailConfig;
+import net.peercraft.rendezvous.account.EmailHttpServer;
+import net.peercraft.rendezvous.account.SmtpMailSender;
 import net.peercraft.rendezvous.relay.*;
 
 import java.io.IOException;
@@ -54,6 +57,8 @@ public final class RendezvousServer implements AutoCloseable {
     private final LongSupplier clock;
     private volatile RelayBroker relayBroker;
     private volatile RelayHttpServer relayHttp;
+    private volatile EmailHttpServer emailHttp;
+    private volatile SmtpMailSender emailSender;
     private RelayConfig injectedRelayConfig;
     private TurnProvider injectedTurnProvider;
     private volatile DatagramSocket socket;
@@ -119,6 +124,8 @@ public final class RendezvousServer implements AutoCloseable {
     @Override public void close() {
         DatagramSocket udp = socket; if (udp != null) udp.close();
         RelayHttpServer http = relayHttp; if (http != null) http.close();
+        EmailHttpServer email = emailHttp; if (email != null) email.close();
+        SmtpMailSender sender = emailSender; if (sender != null) sender.close();
         if (analytics != null) analytics.flush();
     }
 
@@ -140,8 +147,10 @@ public final class RendezvousServer implements AutoCloseable {
         try (DatagramSocket socket = new DatagramSocket(port)) {
             this.socket = socket;
             log("Listening on UDP port " + socket.getLocalPort());
-            startRelay();
+            // Relay rollout postponed: do not start broker even with saved enabled=true.
+            // startRelay();
             AnalyticsDashboard dashboard = null;
+            startEmail();
             if (port != 0 && analytics != null) {
                 try {
                     Properties config = new Properties();
@@ -209,6 +218,25 @@ public final class RendezvousServer implements AutoCloseable {
         } catch (IOException | RuntimeException unavailable) {
             // Do not expose provider response bodies, credentials or environment secrets.
             logErr("Relay remains disabled: configuration or provider initialization failed");
+        }
+    }
+
+    private void startEmail() {
+        SmtpMailSender sender = null;
+        try {
+            EmailConfig config = EmailConfig.load(dataDir);
+            if (!config.enabled()) return;
+            sender = new SmtpMailSender(config);
+            SmtpMailSender activeSender = sender;
+            EmailHttpServer http = new EmailHttpServer(config, accountService.emailRecovery(sender, clock));
+            emailSender = sender; emailHttp = http; http.start();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                http.close(); activeSender.close();
+            }, "peercraft-email-shutdown"));
+            log("Email recovery service configured on TCP port " + http.port());
+        } catch (IOException | RuntimeException unavailable) {
+            if (sender != null) sender.close();
+            logErr("Email recovery disabled: check HTTPS and SMTP configuration");
         }
     }
 
@@ -356,6 +384,11 @@ public final class RendezvousServer implements AutoCloseable {
         // that token. Reused both for the friends-only gate below and for PEER_FOUND's account
         // trailer to the host.
         java.util.Optional<java.util.UUID> joinerAccountId = join.sessionToken().flatMap(accountService::resolveSession);
+        if (joinerAccountId.isEmpty()) {
+            send(socket, RendezvousProtocol.encodeJoinFail(RendezvousProtocol.REASON_ACCOUNT_REQUIRED), from);
+            if (analytics != null) analytics.event("join.account_required");
+            return;
+        }
         RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend,
                 join.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));
         if (result instanceof RoomRegistry.Matched matched) {

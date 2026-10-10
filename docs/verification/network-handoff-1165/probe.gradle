@@ -1,0 +1,60 @@
+allprojects { project ->
+    afterEvaluate {
+        if(project.name != '1.16.5-fabric') return
+        def fixture=sourceSets.create('handoffProbe')
+        fixture.java.srcDir(rootProject.file('../docs/verification/network-handoff-1165/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        tasks.named('compileHandoffProbeJava').configure { dependsOn tasks.named('classes'); options.release.set(8) }
+        def probeResources=layout.buildDirectory.dir('handoff-probe-resources')
+        def metadata=tasks.register('handoffProbeMetadata') {
+            dependsOn tasks.named('processResources')
+            outputs.dir(probeResources)
+            doLast {
+                def source=new File(sourceSets.main.output.resourcesDir,'fabric.mod.json')
+                def json=new groovy.json.JsonSlurper().parse(source)
+                json.entrypoints.client.add('net.peercraft.uitest.NetworkHandoffProbe')
+                def dest=new File(probeResources.get().asFile,'fabric.mod.json');dest.parentFile.mkdirs()
+                dest.text=groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+            }
+        }
+        def bundle=tasks.register('handoffProbeBundle',Jar) {
+            dependsOn tasks.named('handoffProbeClasses'),metadata
+            archiveFileName='peercraft-handoff-probe-dev.jar'
+            destinationDirectory=layout.buildDirectory.dir('handoff-probe')
+            from(sourceSets.main.output) { exclude 'fabric.mod.json' }
+            from fixture.output
+            from probeResources
+            duplicatesStrategy=DuplicatesStrategy.EXCLUDE
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def loose=sourceSets.main.output.files as Set
+            classpath=classpath.filter { !loose.contains(it) }+files(bundle.flatMap { it.archiveFile })
+            doFirst {
+                systemProperty('fabric.classPathGroups',bundle.get().archiveFile.get().asFile.absolutePath)
+                def launchArgs=new ArrayList(getArgs())
+                int gameDirIndex=launchArgs.indexOf('--gameDir')
+                if(gameDirIndex>=0) { launchArgs.remove(gameDirIndex); launchArgs.remove(gameDirIndex) }
+                launchArgs.addAll(['--gameDir',workingDir.absolutePath])
+                setArgs(launchArgs)
+                systemProperty('peercraft.probe.gameDir',workingDir.absolutePath)
+                println('NETWORK_PROBE_DIRECTORY '+workingDir)
+            }
+            workingDir=rootProject.file('../build/handoff-runs-1165/game-'+UUID.randomUUID())
+            workingDir.mkdirs()
+            new File(workingDir,'options.txt').text='renderDistance:4\npauseOnLostFocus:false\n'
+            args '--username',System.getProperty('peercraft.probe.role')=='host'?'Developer':'GuestDeveloper','--width','640','--height','480'
+            ['role','coordination','accountPort'].each { key ->
+                systemProperty('peercraft.probe.'+key,System.getProperty('peercraft.probe.'+key,'unset'))
+            }
+            systemProperty('peercraft.probe.scenario',System.getProperty('peercraft.probe.scenario','cycle'))
+            systemProperty('peercraft.mode','host')
+            systemProperty('peercraft.rendezvousHost','127.0.0.1')
+            systemProperty('peercraft.rendezvousPort',System.getProperty('peercraft.probe.accountPort','39868'))
+            systemProperty('peercraft.hostUdpPort','0');systemProperty('peercraft.clientUdpPort','0')
+            systemProperty('peercraft.modSync','false')
+            minHeapSize='128m';maxHeapSize='768m'
+            jvmArgs '-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2','-Dsun.net.client.defaultConnectTimeout=10000','-Dsun.net.client.defaultReadTimeout=10000'
+        }
+    }
+}

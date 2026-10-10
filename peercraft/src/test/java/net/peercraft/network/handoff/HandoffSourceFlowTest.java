@@ -65,6 +65,23 @@ class HandoffSourceFlowTest {
         assertEquals(HandoffSourceFlow.Outcome.DECLINED, flow(steps, false).start().get(3, TimeUnit.SECONDS));
         assertFalse(events.contains("prepare")); assertFalse(events.contains("save/stop")); assertTrue(sourceRunning);
     }
+    @Test void failedSuccessorPreflightAfterConsentLeavesSourceRunning() throws Exception {
+        CompletableFuture<Void> preflight = new CompletableFuture<>();
+        CountDownLatch started = new CountDownLatch(1);
+        Steps steps = new Steps() {
+            public CompletableFuture<Void> preflight() { started.countDown(); return preflight; }
+        };
+        CompletableFuture<HandoffSourceFlow.Outcome> outcome = flow(steps, false).start();
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+        preflight.completeExceptionally(new IOException("Participant failed preflight"));
+        assertEquals(HandoffSourceFlow.Outcome.ABORTED, outcome.get(1, TimeUnit.SECONDS));
+        assertTrue(sourceRunning);
+        assertFalse(events.contains("prepare"));
+        assertFalse(events.contains("save/stop"));
+        assertFalse(events.contains("archive"));
+        assertFalse(events.contains("restore"));
+        assertEquals(ABORTED, authorityState);
+    }
     @Test void saveErrorNeverArchivesOrCommitsAndOnlyCleansAfterWorkersClose() throws Exception {
         Steps steps = new Steps(); steps.failSave = true;
         assertEquals(HandoffSourceFlow.Outcome.ABORTED, flow(steps, false).start().get(3, TimeUnit.SECONDS));

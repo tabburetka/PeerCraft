@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.multiplayer.GuiConnecting;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.peercraft.client.modsync.ClientModSyncAgent;
 import net.peercraft.config.PeerCraftConfig;
@@ -162,7 +161,7 @@ public class HostMigrationScreen extends PeerCraftDialogScreen {
     private void enterWorld() {
         if (failed || exited) return;
         int port = P2PBridge.INSTANCE.getProxyPort();
-        this.mc.displayGuiScreen(new GuiConnecting(new GuiMainMenu(), this.mc, "127.0.0.1", port));
+        PeerCraftUi.connectLocal(new GuiMainMenu(), port);
     }
 
     private void leaveAttemptWorld() {

@@ -14,9 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * End-to-end test of the Phase 7 public game browser against a real running server over raw
  * UDP — same convention as RendezvousServerIntegrationTest/FriendServerIntegrationTest. The
- * whole point of this feature is that NEITHER side needs an account: the host publishes a
- * public room anonymously, a completely unrelated anonymous client discovers it via
- * TYPE_ROOM_LIST and joins by the code it got from that listing (never typed in by hand).
+ * Browsing is anonymous; joining requires an account to preserve the player's save UUID.
  */
 class PublicGameBrowserIntegrationTest {
 
@@ -60,7 +58,7 @@ class PublicGameBrowserIntegrationTest {
 
     @Test
     @Timeout(15)
-    void anonymousHostIsDiscoverableAndJoinableThroughTheBrowserWithNoAccountOnEitherSide() throws Exception {
+    void anonymousBrowsingWorksButJoiningRequiresAStableAccountIdentity() throws Exception {
         int port = server.getBoundPort();
         InetAddress loopback = InetAddress.getByName("127.0.0.1");
 
@@ -88,6 +86,10 @@ class PublicGameBrowserIntegrationTest {
 
             byte[] joinReq = RendezvousProtocol.encodeJoin(listed.code());
             byte[] joinReply = sendAndReceive(browserSocket, loopback, port, joinReq);
+            assertEquals(RendezvousProtocol.TYPE_JOIN_FAIL, RendezvousProtocol.messageType(joinReply, joinReply.length));
+            assertEquals(RendezvousProtocol.REASON_ACCOUNT_REQUIRED, RendezvousProtocol.decodeJoinFailReason(joinReply, joinReply.length));
+            var account = TestAccounts.register(browserSocket, loopback, port);
+            joinReply = sendAndReceive(browserSocket, loopback, port, RendezvousProtocol.encodeJoinWithAccount(listed.code(), account.sessionToken()));
             assertEquals(RendezvousProtocol.TYPE_PEER_FOUND, RendezvousProtocol.messageType(joinReply, joinReply.length));
         }
     }

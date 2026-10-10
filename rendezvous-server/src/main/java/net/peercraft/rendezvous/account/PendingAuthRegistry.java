@@ -74,6 +74,11 @@ final class PendingAuthRegistry {
         attempts.values().removeIf(attempt -> now - attempt.createdAt() > ATTEMPT_TTL_MILLIS);
     }
 
+    void invalidateAccount(UUID accountId) {
+        attempts.values().removeIf(attempt -> attempt instanceof PasswordLoginAttempt login
+                && login.accountId().equals(accountId));
+    }
+
     private boolean expired(long createdAt) {
         return clock.getAsLong() - createdAt > ATTEMPT_TTL_MILLIS;
     }

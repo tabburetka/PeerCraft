@@ -101,13 +101,16 @@ public final class SteampunkSettingsTheme {
             widget.setWidth(panelWidth - 24);
             ((net.peercraft.client.mixin.PeerCraftWidgetSizeAccessor) widget).peercraft$setHeight(controlHeight);
             if (widget instanceof EditBox field) {
-                boolean port = controls.indexOf(widget) == 2;
-                graphics.drawString(font, port ? Component.translatable("lanServer.port") :
+                // The vanilla control order changes between versions (26.2 adds a LAN toggle).
+                // Identify our world-name field by its translation key, never its row index.
+                boolean worldName = field.getMessage().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents contents
+                        && "peercraft.mixin.share_to_lan.world_name".equals(contents.getKey());
+                graphics.drawString(font, !worldName ? Component.translatable("lanServer.port") :
                         Component.translatable("peercraft.mixin.share_to_lan.world_name"), left + 12, y + Math.max(0, (controlHeight - 9) / 2), MUTED, false);
                 widget.setX(left + panelWidth / 2);
                 widget.setWidth(panelWidth / 2 - 12);
                 field.setBordered(false);
-                if (!port) field.setHint(Component.literal(fitted(font,
+                if (worldName) field.setHint(Component.literal(fitted(font,
                         Component.translatable("peercraft.mixin.share_to_lan.world_name_hint").getString(),
                         Math.max(1, widget.getWidth() - 4))));
                 frame(graphics, widget.getX() - 4, y, widget.getWidth() + 4, controlHeight, CONTROL, BORDER);
@@ -726,13 +729,16 @@ public final class SteampunkSettingsTheme {
             widget.setWidth(panelWidth - 24);
             ((net.peercraft.client.mixin.PeerCraftWidgetSizeAccessor) widget).peercraft$setHeight(controlHeight);
             if (widget instanceof EditBox field) {
-                boolean port = controls.indexOf(widget) == 2;
-                graphics.text(font, port ? Component.translatable("lanServer.port") :
+                // The vanilla control order changes between versions (26.2 adds a LAN toggle).
+                // Identify our world-name field by its translation key, never its row index.
+                boolean worldName = field.getMessage().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents contents
+                        && "peercraft.mixin.share_to_lan.world_name".equals(contents.getKey());
+                graphics.text(font, !worldName ? Component.translatable("lanServer.port") :
                         Component.translatable("peercraft.mixin.share_to_lan.world_name"), left + 12, y + Math.max(0, (controlHeight - 9) / 2), MUTED, false);
                 widget.setX(left + panelWidth / 2);
                 widget.setWidth(panelWidth / 2 - 12);
                 field.setBordered(false);
-                if (!port) field.setHint(Component.literal(fitted(font,
+                if (worldName) field.setHint(Component.literal(fitted(font,
                         Component.translatable("peercraft.mixin.share_to_lan.world_name_hint").getString(),
                         Math.max(1, widget.getWidth() - 4))));
                 frame(graphics, widget.getX() - 4, y, widget.getWidth() + 4, controlHeight, CONTROL, BORDER);

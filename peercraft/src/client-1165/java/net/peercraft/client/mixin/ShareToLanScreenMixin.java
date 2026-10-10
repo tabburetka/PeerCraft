@@ -226,8 +226,15 @@ public abstract class ShareToLanScreenMixin extends Screen {
             peercraft$frame(pose, widget.x, widget.y, actionWidth, widgetHeight,
                     i == 0 ? (hovered ? SteampunkPalette.PRIMARY_HOVER : SteampunkPalette.PRIMARY) : SteampunkPalette.CONTROL,
                     widget.isFocused() ? SteampunkPalette.ACCENT : hovered ? SteampunkPalette.BORDER_HOVER : SteampunkPalette.BORDER);
-            GuiComponent.drawCenteredString(pose, font, font.plainSubstrByWidth(widget.getMessage().getString(), actionWidth - 8),
-                    widget.x + actionWidth / 2, widget.y + (widgetHeight - 8) / 2, i == 0 ? SteampunkPalette.CONTROL : SteampunkPalette.TEXT);
+            String label = font.plainSubstrByWidth(widget.getMessage().getString(), actionWidth - 8);
+            if (i == 0) {
+                // Dark text on the primary fill needs no shadow.
+                font.draw(pose, label, widget.x + (actionWidth - font.width(label)) / 2,
+                        widget.y + (widgetHeight - 8) / 2, SteampunkPalette.CONTROL);
+            } else {
+                GuiComponent.drawCenteredString(pose, font, label,
+                        widget.x + actionWidth / 2, widget.y + (widgetHeight - 8) / 2, SteampunkPalette.TEXT);
+            }
         }
         // Original widgets still own clicks, keyboard navigation, narration and the launch callbacks.
         ci.cancel();

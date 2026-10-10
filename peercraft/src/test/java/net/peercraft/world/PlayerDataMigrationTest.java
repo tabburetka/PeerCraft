@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PlayerDataMigrationTest {
     @TempDir Path world;
+    @TempDir Path transfer;
     private final UUID vanilla = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private final UUID host = UUID.fromString("20000000-0000-0000-0000-000000000002");
     private final UUID successor = UUID.fromString("30000000-0000-0000-0000-000000000003");
@@ -203,6 +204,136 @@ class PlayerDataMigrationTest {
         assertEquals(host, PlayerDataMigration.rememberedIdentity(world, vanilla));
         PlayerDataMigration.prepare(world, vanilla, successor);
         assertFalse(Files.exists(playerPath(successor)));
+    }
+
+    @Test void explicitGuestAssignmentPreservesSourceAndCreatesCompleteVerifiedBackup() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150);
+        Files.createDirectories(world.resolve("stats"));
+        Files.writeString(world.resolve("stats/" + vanilla + ".json"), "{\"walk\":42}");
+        Files.createDirectories(world.resolve("plugins/example"));
+        Files.writeString(world.resolve("plugins/example/data.bin"), "extension-progress");
+        byte[] original = Files.readAllBytes(playerPath(vanilla));
+        Path backup = PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, successor);
+        assertEquals(150, readPlayer(successor).get("XpTotal").value);
+        assertArrayEquals(original, Files.readAllBytes(playerPath(vanilla)));
+        assertEquals(successor, PlayerDataMigration.rememberedIdentity(world, vanilla));
+        try (ZipFile zip = new ZipFile(backup.toFile())) {
+            assertNotNull(zip.getEntry("plugins/example/data.bin"));
+            assertNotNull(zip.getEntry("level.dat"));
+            assertNotNull(zip.getEntry("playerdata/" + vanilla + ".dat"));
+            assertNull(zip.getEntry("playerdata/" + successor + ".dat"));
+        }
+        try (java.util.stream.Stream<Path> entries = Files.list(world.resolve(".peercraft-backup"))) {
+            assertEquals(1, entries.count(), "One full backup per explicit assignment");
+        }
+        assertThrows(IOException.class, () -> PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, host));
+    }
+
+    @Test void explicitGuestConflictChangesNeitherPlayerNorIdentity() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150); savePlayer(successor, 900);
+        byte[] source = Files.readAllBytes(playerPath(vanilla)), destination = Files.readAllBytes(playerPath(successor));
+        assertThrows(IOException.class, () -> PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, successor));
+        assertArrayEquals(source, Files.readAllBytes(playerPath(vanilla)));
+        assertArrayEquals(destination, Files.readAllBytes(playerPath(successor)));
+        assertFalse(Files.exists(world.resolve(PlayerDataMigration.IDENTITIES_FILE)));
+    }
+
+    @Test void explicitGuestAssignmentRefusesWorldWithNativeSessionLock() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150);
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(world.resolve("session.lock"),
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             java.nio.channels.FileLock lock = channel.lock()) {
+            assertThrows(IOException.class, () -> PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, successor));
+        }
+        assertFalse(Files.exists(playerPath(successor)));
+    }
+
+    @Test void verifiedGuestIsBoundWithoutChangingLiveProgressAndIsNotOfferedForAssignment() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150); savePlayer(successor, 900);
+        byte[] before = Files.readAllBytes(playerPath(vanilla));
+        assertEquals(2, PlayerProgressCatalog.unassignedPlayers(world).size());
+        PlayerDataMigration.markAuthenticatedGuest(world, vanilla);
+        PlayerDataMigration.markAuthenticatedGuest(world, vanilla);
+        assertArrayEquals(before, Files.readAllBytes(playerPath(vanilla)));
+        assertTrue(PlayerDataMigration.isBound(world, vanilla));
+        var choices = PlayerProgressCatalog.unassignedPlayers(world);
+        assertEquals(1, choices.size()); assertEquals(successor, choices.get(0).id);
+        assertEquals(900, choices.get(0).experience); assertEquals("minecraft:diamond", choices.get(0).inventory);
+        assertThrows(IOException.class, () -> PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, host));
+    }
+
+    @Test void guestAssignmentRejectsSymlinkedSessionLock() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150);
+        Path target = world.resolve("unrelated-lock"); Files.writeString(target, "preserve");
+        Files.createSymbolicLink(world.resolve("session.lock"), target);
+        assertThrows(IOException.class, () -> PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, successor));
+        assertEquals("preserve", Files.readString(target)); assertFalse(Files.exists(playerPath(successor)));
+    }
+
+    @Test void migratedGuestAndDistinctOwnerSurviveProductionArchiveInstallAndReturn() throws Exception {
+        level(player(host, 700)); savePlayer(vanilla, 150);
+        MigrationNbt guest = readPlayer(vanilla);
+        guest.compound().put("EnderItems", new MigrationNbt(9, Arrays.asList(new MigrationNbt(10, null),
+                compound("id", new MigrationNbt(8, "minecraft:emerald"), "Count", new MigrationNbt(1, (byte) 13)))));
+        Files.write(playerPath(vanilla), guest.compressed());
+        for (String folder : new String[]{"stats", "advancements"}) {
+            Files.createDirectories(world.resolve(folder));
+            Files.writeString(world.resolve(folder).resolve(vanilla + ".json"), "{\"progress\":150}");
+            Files.writeString(world.resolve(folder).resolve(host + ".json"), "{\"progress\":700}");
+        }
+        Files.createDirectories(world.resolve("plugins/example"));
+        Files.writeString(world.resolve("plugins/example/data"), "world-extension");
+        Path petRegion = world.resolve("entities/r.0.0.mca"); writeRegion(petRegion, petChunk(), 2, false);
+        PlayerDataMigration.prepare(world, host, host, true);
+        net.peercraft.client.handoff.HandoffOwnerPolicy.write(world, host);
+        PlayerDataMigration.assignGuestInStoppedWorld(world, vanilla, successor);
+        byte[] owner = Files.readAllBytes(playerPath(host));
+        byte[] assigned = Files.readAllBytes(playerPath(successor));
+        byte[] metadata = Files.readAllBytes(world.resolve(PlayerDataMigration.IDENTITIES_FILE));
+        byte[] originalLevel = Files.readAllBytes(world.resolve("level.dat"));
+        Path newHost = transfer.resolve("new-host");
+        installSnapshot(world, newHost, "outbound");
+        PlayerDataMigration.prepare(newHost, vanilla, successor, true);
+        Path returned = transfer.resolve("returned");
+        installSnapshot(newHost, returned, "return");
+        PlayerDataMigration.prepare(returned, host, host, true);
+        for (Path installed : Arrays.asList(newHost, returned)) {
+            assertArrayEquals(owner, Files.readAllBytes(installed.resolve("playerdata/" + host + ".dat")));
+            assertArrayEquals(assigned, Files.readAllBytes(installed.resolve("playerdata/" + successor + ".dat")));
+            assertArrayEquals(metadata, Files.readAllBytes(installed.resolve(PlayerDataMigration.IDENTITIES_FILE)));
+            assertArrayEquals(originalLevel, Files.readAllBytes(installed.resolve("level.dat")));
+            for (String folder : new String[]{"stats", "advancements"}) {
+                assertEquals("{\"progress\":150}", Files.readString(installed.resolve(folder).resolve(successor + ".json")));
+                assertEquals("{\"progress\":700}", Files.readString(installed.resolve(folder).resolve(host + ".json")));
+            }
+            assertEquals(successor, MigrationNbt.uuid(readRegion(installed.resolve("entities/r.0.0.mca"), false).get("Pet").get("Owner")));
+            assertEquals("world-extension", Files.readString(installed.resolve("plugins/example/data")));
+            assertEquals(host, net.peercraft.client.handoff.HandoffOwnerPolicy.read(installed));
+            assertFalse(Files.exists(installed.resolve(".peercraft-backup")));
+        }
+    }
+
+    private void installSnapshot(Path source, Path target, String phase) throws Exception {
+        Path archive = transfer.resolve(phase + ".zip"), staging = transfer.resolve(phase + "-staging");
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            net.peercraft.client.handoff.WorldArchiveFiles.write(source, zip);
+        }
+        net.peercraft.network.handoff.WorldInstall.unpack(archive, staging, 64 * 1024 * 1024L);
+        net.peercraft.network.handoff.WorldInstall.replace(staging, target, transfer.resolve(phase + "-backup"),
+                transfer.resolve(phase + "-journal"), true, true, () -> { });
+    }
+
+    @Test void successorAccountIsBoundEvenWhenLauncherIdentityBelongsToFormerHost() throws Exception {
+        level(player(vanilla, 150));
+        PlayerDataMigration.prepare(world, vanilla, host, true);
+        byte[] formerHost = Files.readAllBytes(playerPath(host));
+        PlayerDataMigration.prepare(world, vanilla, successor, true);
+        assertTrue(PlayerDataMigration.isBound(world, successor));
+        assertEquals(host, PlayerDataMigration.rememberedIdentity(world, vanilla));
+        assertArrayEquals(formerHost, Files.readAllBytes(playerPath(host)));
+        assertFalse(Files.exists(playerPath(successor)), "A new host never inherits former host inventory");
+        savePlayer(successor, 900);
+        assertTrue(PlayerProgressCatalog.unassignedPlayers(world).isEmpty(), "Verified successor is not an anonymous save");
     }
 
     @Test void legacyUuidMostLeastSurviveMigration() throws Exception {

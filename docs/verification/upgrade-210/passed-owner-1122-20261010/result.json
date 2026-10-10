@@ -1,0 +1,11 @@
+{
+  "old_run": "build/upgrade-210/run-20261010-101600",
+  "new_run": "build/upgrade-210/run-20261010-101849",
+  "old_uuid": "31c4910d-9b69-4725-8969-9ed53ac8a7dc",
+  "new_uuid": "53be8187-fbe4-44a1-973c-013253294811",
+  "old_playerdata_retained_byte_identical": true,
+  "minimum_available_mib": {
+    "old-memory.csv": 6624,
+    "new-memory.csv": 6368
+  }
+}

@@ -55,6 +55,13 @@ public final class PeerCraftSettingsStore {
         }
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             PeerCraftSettings parsed = GSON.fromJson(reader, PeerCraftSettings.class);
+            // Older settings screens saved the public IP even when the player kept the
+            // default. Drop only that legacy value so it follows the domain (or DEVELOP
+            // defaults); preserve custom servers and explicit launch flags.
+            if (parsed != null && parsed.rendezvousHost != null
+                    && "91.146.31.165".equals(parsed.rendezvousHost.trim())) {
+                parsed.rendezvousHost = null;
+            }
             return parsed != null ? parsed : new PeerCraftSettings();
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("[PeerCraftSettings] Не удалось прочитать {} — использую настройки по умолчанию: {}", path, e.toString());

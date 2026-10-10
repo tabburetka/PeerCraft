@@ -1,0 +1,48 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != 'peercraft-forge-1710') return
+        minecraft.username.set(System.getProperty('peercraft.probe.role') == 'host' ? 'Developer' : 'GuestDeveloper')
+        def fixture = sourceSets.create('handoffProbe')
+        fixture.java.srcDir(project.file('../docs/verification/network-handoff-1710/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        tasks.named('compileHandoffProbeJava').configure { dependsOn tasks.named('classes') }
+        // Hosting manifests hash real JARs; development class directories are not JARs.
+        def bundle = tasks.register('handoffProbeBundle', Jar) {
+            dependsOn tasks.named('handoffProbeClasses')
+            archiveFileName = 'peercraft-handoff-probe-dev.jar'
+            destinationDirectory = layout.buildDirectory.dir('handoff-probe')
+            from sourceSets.main.output
+            from fixture.output
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            manifest.attributes('MixinConfigs': 'peercraft.forge1710.mixins.json',
+                    'FMLCorePlugin': 'net.peercraft.forge1710.PeerCraftCoreMod',
+                    'FMLCorePluginContainsFMLMod': 'true', 'ForceLoadAsMod': 'true')
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def looseOutputs = (sourceSets.main.output.files + fixture.output.files) as Set
+            def originalJar = tasks.named('jar').get().archiveFile.get().asFile
+            classpath = classpath.filter { !looseOutputs.contains(it) && it != originalJar } + files(bundle.flatMap { it.archiveFile })
+            workingDir = file('/tmp/peercraft-network-handoff-probe-1710/game-' + UUID.randomUUID().toString())
+            workingDir.mkdirs()
+            new File(workingDir, 'options.txt').text = 'renderDistance:4\npauseOnLostFocus:false\n'
+            doFirst { println("NETWORK_PROBE_DIRECTORY " + workingDir) }
+            extraArgs.addAll(['--width','640','--height','480'])
+            ['role','coordination','accountPort'].each { key ->
+                if (!System.getProperty('peercraft.probe.'+key)) throw new GradleException('Missing probe '+key)
+                extraJvmArgs.add('-Dpeercraft.probe.'+key+'='+System.getProperty('peercraft.probe.'+key))
+            }
+            extraJvmArgs.add('-Dpeercraft.probe.scenario='+System.getProperty('peercraft.probe.scenario','cycle'))
+            extraJvmArgs.add('-Dpeercraft.probe.manifestOnly='+System.getProperty('peercraft.probe.manifestOnly','false'))
+            extraJvmArgs.addAll(['-Dpeercraft.mode=host','-Dpeercraft.rendezvousHost=127.0.0.1',
+                '-Dpeercraft.rendezvousPort='+System.getProperty('peercraft.probe.accountPort'),
+                '-Dpeercraft.hostUdpPort=0','-Dpeercraft.clientUdpPort=0','-Dpeercraft.modSync=false'])
+            // Test clients must not size their heaps from the machine's total RAM.
+            maxHeapSize = '768m'
+            minHeapSize = '128m'
+            extraJvmArgs.addAll(['-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2'])
+            extraJvmArgs.addAll(['-Dsun.net.client.defaultConnectTimeout=10000','-Dsun.net.client.defaultReadTimeout=10000'])
+        }
+    }
+}

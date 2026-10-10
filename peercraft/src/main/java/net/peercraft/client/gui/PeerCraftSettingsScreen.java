@@ -127,7 +127,7 @@ public class PeerCraftSettingsScreen extends Screen {
             case "peerHost": return "127.0.0.1";
             case "peerPort": return "";
             case "internetPlay": return "false";
-            case "rendezvousHost": return "91.146.31.165";
+            case "rendezvousHost": return PeerCraftConfig.DEFAULT_RENDEZVOUS_HOST;
             case "rendezvousPort": return "51000";
             case "maxPlayers": return "4";
             case "modSync.host": return "all";

@@ -30,6 +30,13 @@ public final class PeerCraftUi {
     private PeerCraftUi() {
     }
 
+    /** FML's connection entry point initializes its play-client handshake latch. */
+    public static void connectLocal(GuiScreen parent, int port) {
+        cpw.mods.fml.client.FMLClientHandler fml = cpw.mods.fml.client.FMLClientHandler.instance();
+        fml.setupServerList();
+        fml.connectToServer(parent, new net.minecraft.client.multiplayer.ServerData("PeerCraft", "127.0.0.1:" + port));
+    }
+
     /** Greedy word-wrap of {@code text} to lines no wider than {@code maxWidth} px. Matches src/main's {@code PeerCraftUi.wrap}. */
     public static java.util.List<String> wrap(FontRenderer font, String text, int maxWidth) {
         java.util.List<String> lines = new java.util.ArrayList<>();

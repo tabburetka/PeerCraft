@@ -15,7 +15,13 @@ public class PeerCraftProgressNoticeScreen extends PeerCraftDialogScreen {
     }
     public static boolean beforeConnecting(GuiScreen parent, Runnable continuation) {
         net.peercraft.network.account.AccountClient.AccountSession session = net.peercraft.client.account.AccountSessionHolder.current();
-        if (session == null || session.licensed()
+        if (session == null) {
+            PeerCraftUi.setScreen(net.minecraft.client.Minecraft.getMinecraft(), new PeerCraftConfirmScreen(accepted -> {
+                PeerCraftUi.setScreen(net.minecraft.client.Minecraft.getMinecraft(), accepted ? new PeerCraftAccountScreen(parent) : parent);
+            }, PeerCraftLang.tr("peercraft.gui.account_required.title"), PeerCraftLang.tr("peercraft.gui.account_required.message"), PeerCraftLang.tr("peercraft.gui.account_required.open"), PeerCraftLang.tr("peercraft.gui.common.back")));
+            return true;
+        }
+        if (session.licensed()
                 || !net.peercraft.client.account.AccountProgressNotice.firstDisplay(session.accountId())) return false;
         PeerCraftUi.setScreen(net.minecraft.client.Minecraft.getMinecraft(), new PeerCraftProgressNoticeScreen(parent, continuation));
         return true;

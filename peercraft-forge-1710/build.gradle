@@ -92,7 +92,18 @@ def generateLang = tasks.register("generateLang") {
 			if (!json.exists()) return
 			def map = slurper.parse(json)
 			def sb = new StringBuilder()
-			map.each { k, v -> sb.append(k).append('=').append(String.valueOf(v)).append('\n') }
+            // PeerCraftLang reads UTF-8 java.util.Properties; escape values so a newline
+            // does not split a confirmation into unrelated keys in the legacy .lang file.
+            map.each { k, v ->
+                def escaped = String.valueOf(v).replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                sb.append(k).append('=').append(escaped).append('\n')
+            }
+            def decoded = new Properties()
+            decoded.load(new StringReader(sb.toString()))
+            map.each { k, v ->
+                if (decoded.getProperty(String.valueOf(k)) != String.valueOf(v))
+                    throw new GradleException("Legacy translation changed during serialization: ${k}")
+            }
 			new File(outDir, "${pair[1]}.lang").text = sb.toString()
 		}
 	}
@@ -211,6 +222,8 @@ def syncModsyncTest = tasks.register("syncModsyncTest", Sync) {
 	from(new File(peercraftDir, "src/test/java"))
 	into(modsyncTestSrc)
 	include "net/peercraft/network/modsync/ModSyncLoopbackIntegrationTest.java"
+	include "net/peercraft/network/handoff/LegacyModSourceTest.java"
+	include "net/peercraft/network/handoff/HostManifestCaptureTest.java"
 }
 sourceSets {
 	modsyncTest {
@@ -224,6 +237,7 @@ sourceSets {
 dependencies {
 	modsyncTestImplementation platform("org.junit:junit-bom:5.10.2")
 	modsyncTestImplementation "org.junit.jupiter:junit-jupiter"
+	modsyncTestImplementation "com.google.code.gson:gson:2.2.4"
 	// The mod-sync core logs through the in-jar org.slf4j shim -> org.apache.logging.log4j.
 	// The MC/Forge classpath (which normally provides Log4j2) isn't on this lightweight test
 	// classpath, so bring a standalone Log4j2 just for the test JVM.

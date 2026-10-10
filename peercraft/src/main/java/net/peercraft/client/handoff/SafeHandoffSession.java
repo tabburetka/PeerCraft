@@ -250,7 +250,9 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 public void terminal(HandoffSourceFlow.Outcome outcome, String room) {
                     if (outcome == HandoffSourceFlow.Outcome.READY) { c.callbacks.onSuccessorReady(); SafeHandoffPlatform.INSTANCE.sourceDone(); c.terminal("", false); bridge.cancelRendezvous(); }
                     else {
-                        c.callbacks.onAborted("peercraft.handoff.abort.transfer_failed");
+                        if (outcome == HandoffSourceFlow.Outcome.DECLINED)
+                            c.callbacks.onDeclined("peercraft.handoff.decline.declined");
+                        else c.callbacks.onAborted("peercraft.handoff.abort.transfer_failed");
                         // A restored source is live again; do not remove its registered room.
                         c.terminal(outcome == HandoffSourceFlow.Outcome.ABORTED || outcome == HandoffSourceFlow.Outcome.DECLINED ? "" : "peercraft.handoff.abort.recovery_failed", false);
                     }
@@ -327,7 +329,11 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 // START is a hint. The successor flow resolves COMMIT independently.
             } else {
                 if (m.type == ACCEPT) p.consent.complete(true);
-                else if (m.type == DECLINE) p.consent.complete(false);
+                else if (m.type == DECLINE) {
+                    p.consent.complete(false);
+                    p.preflight.completeExceptionally(new IOException("Participant declined or failed preflight"));
+                    if (p.successor && !c.frozen && c.manifest != null) c.manifest.close();
+                }
                 else if (m.type == MANIFEST_ACK && p.successor && c.manifest != null) c.manifest.receive(m.type, m.payload);
                 else if (m.type == PREFLIGHT && p.successor && p.consent.getNow(false)) p.preflight.complete(null);
                 else if (m.type == PREPARED && c.frozen) p.prepared.complete(null);
@@ -430,6 +436,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             }).whenComplete((done, preflightFailure) -> {
                 if (preflightFailure != null) new Thread(() -> {
                     org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Successor preflight failed", preflightFailure);
+                    c.send(source, DECLINE, new byte[0]);
                     try { if (c.operation.abort()) { c.stopWorkers().get(); c.cleanup().get(); } }
                     catch (Exception unknown) { /* Retain all files when ABORT is unconfirmed. */ }
                     c.stopWorkers(); c.terminal("peercraft.handoff.abort.transfer_failed", false);

@@ -26,7 +26,7 @@ public class PeerCraftForge {
 
     public static final String MOD_ID = "peercraft";
     public static final String MOD_NAME = "PeerCraft";
-    public static final String VERSION = "2.0.0";
+    public static final String VERSION = "3.4.2";
 
     @SidedProxy(
             clientSide = "net.peercraft.forge1122.ClientProxy",

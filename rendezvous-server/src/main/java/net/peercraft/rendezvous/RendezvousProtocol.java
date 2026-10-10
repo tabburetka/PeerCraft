@@ -50,6 +50,7 @@ public final class RendezvousProtocol {
     // The room is friends-only (Phase 6) and the joiner either wasn't logged in or isn't on
     // the host's friends list — see RoomRegistry.join()'s friendChecker.
     public static final byte REASON_NOT_FRIEND = 5;
+    public static final byte REASON_ACCOUNT_REQUIRED = 6;
 
     private RendezvousProtocol() {
     }

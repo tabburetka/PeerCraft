@@ -1,0 +1,22 @@
+allprojects { project -> afterEvaluate {
+ if(project.name!='peercraft-forge-1122') return
+ def fixture=sourceSets.create('upgradeProbe')
+ fixture.java.srcDir(project.file('../docs/verification/upgrade-210/probe-src'))
+ fixture.compileClasspath += sourceSets.main.output+sourceSets.main.compileClasspath
+ tasks.named('compileUpgradeProbeJava').configure { dependsOn tasks.named('classes') }
+ tasks.named('runClient').configure {
+  dependsOn tasks.named('upgradeProbeClasses')
+  boolean old=System.getProperty('peercraft.upgrade.phase')=='old'
+  if(old){
+   def loose=sourceSets.main.output.files as Set
+   def jar=tasks.named('jar').get().archiveFile.get().asFile
+   classpath=classpath.filter { !loose.contains(it)&&it!=jar }+files(project.file('../build/upgrade-210/artifacts/git-release-peercraft-forge-1.12.2-2.1.0-dev.jar'))
+  }
+  classpath+=fixture.output
+  workingDir=file(System.getProperty('peercraft.upgrade.gameDir'));workingDir.mkdirs()
+  new File(workingDir,'options.txt').text='renderDistance:4\npauseOnLostFocus:false\n'
+  maxHeapSize='768m';minHeapSize='128m'
+  extraArgs.addAll(['--width','640','--height','480'])
+  extraJvmArgs.addAll(['-Dpeercraft.upgrade.phase='+System.getProperty('peercraft.upgrade.phase'),'-Dpeercraft.mode=disabled','-Dpeercraft.rendezvousHost=127.0.0.1','-Dpeercraft.rendezvousPort=1','-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2','-Dsun.net.client.defaultConnectTimeout=10000','-Dsun.net.client.defaultReadTimeout=10000'])
+ }
+}}

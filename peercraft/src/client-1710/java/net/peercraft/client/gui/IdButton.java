@@ -34,6 +34,20 @@ class IdButton extends GuiButton {
         net.minecraft.client.gui.Gui.drawRect(this.xPosition, this.yPosition, this.xPosition + this.width, this.yPosition + this.height, border);
         net.minecraft.client.gui.Gui.drawRect(this.xPosition + 1, this.yPosition + 1, this.xPosition + this.width - 1, this.yPosition + this.height - 1,
                 !this.enabled ? net.peercraft.client.theme.SteampunkPalette.DISABLED : primary ? (hover ? net.peercraft.client.theme.SteampunkPalette.PRIMARY_HOVER : net.peercraft.client.theme.SteampunkPalette.PRIMARY) : hover ? net.peercraft.client.theme.SteampunkPalette.CONTROL_HOVER : net.peercraft.client.theme.SteampunkPalette.CONTROL);
+        // Draw the copy icon geometrically: the legacy font may omit this glyph.
+        if ("⧉".equals(this.displayString)) {
+            int color = this.enabled ? net.peercraft.client.theme.SteampunkPalette.TEXT
+                    : net.peercraft.client.theme.SteampunkPalette.MUTED;
+            int x = this.xPosition + (this.width - 10) / 2;
+            int y = this.yPosition + (this.height - 11) / 2;
+            drawSheet(x, y, color);
+            net.minecraft.client.gui.Gui.drawRect(x + 3, y + 3, x + 10, y + 11,
+                    !this.enabled ? net.peercraft.client.theme.SteampunkPalette.DISABLED
+                            : hover ? net.peercraft.client.theme.SteampunkPalette.CONTROL_HOVER
+                            : net.peercraft.client.theme.SteampunkPalette.CONTROL);
+            drawSheet(x + 3, y + 3, color);
+            return;
+        }
         String label = mc.fontRenderer.trimStringToWidth(this.displayString, Math.max(0, this.width - 12));
         if (this.enabled && primary) {
             mc.fontRenderer.drawString(label, this.xPosition + (this.width - mc.fontRenderer.getStringWidth(label)) / 2,
@@ -42,6 +56,13 @@ class IdButton extends GuiButton {
         this.drawCenteredString(mc.fontRenderer, label, this.xPosition + this.width / 2, this.yPosition + (this.height - 8) / 2,
                 this.enabled ? (primary ? net.peercraft.client.theme.SteampunkPalette.CONTROL : net.peercraft.client.theme.SteampunkPalette.TEXT) : net.peercraft.client.theme.SteampunkPalette.MUTED);
         }
+    }
+
+    private static void drawSheet(int x, int y, int color) {
+        net.minecraft.client.gui.Gui.drawRect(x, y, x + 7, y + 1, color);
+        net.minecraft.client.gui.Gui.drawRect(x, y + 7, x + 7, y + 8, color);
+        net.minecraft.client.gui.Gui.drawRect(x, y, x + 1, y + 8, color);
+        net.minecraft.client.gui.Gui.drawRect(x + 6, y, x + 7, y + 8, color);
     }
 
     static Builder builder(String text, Runnable onPress) {

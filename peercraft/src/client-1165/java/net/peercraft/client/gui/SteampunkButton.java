@@ -19,6 +19,18 @@ class SteampunkButton extends Button {
         GuiComponent.fill(pose, this.x, this.y, this.x + this.width, this.y + this.height, edge);
         GuiComponent.fill(pose, this.x + 1, this.y + 1, this.x + this.width - 1, this.y + this.height - 1,
                 !this.active ? SteampunkPalette.DISABLED : primary ? (this.isHovered() ? SteampunkPalette.PRIMARY_HOVER : SteampunkPalette.PRIMARY) : this.isHovered() ? SteampunkPalette.CONTROL_HOVER : SteampunkPalette.CONTROL);
+        // Render the copy icon independently of font glyph availability and label trimming.
+        if ("⧉".equals(this.getMessage().getString())) {
+            int color = this.active ? SteampunkPalette.TEXT : SteampunkPalette.MUTED;
+            int iconX = this.x + (this.width - 10) / 2;
+            int iconY = this.y + (this.height - 11) / 2;
+            drawSheet(pose, iconX, iconY, color);
+            GuiComponent.fill(pose, iconX + 3, iconY + 3, iconX + 10, iconY + 11,
+                    !this.active ? SteampunkPalette.DISABLED
+                            : this.isHovered() ? SteampunkPalette.CONTROL_HOVER : SteampunkPalette.CONTROL);
+            drawSheet(pose, iconX + 3, iconY + 3, color);
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         String label = mc.font.plainSubstrByWidth(this.getMessage().getString(), Math.max(0, this.width - 12));
         if (this.active && primary) {
@@ -29,4 +41,11 @@ class SteampunkButton extends Button {
                 this.y + (this.height - mc.font.lineHeight) / 2, this.active ? (primary ? SteampunkPalette.CONTROL : SteampunkPalette.TEXT) : SteampunkPalette.MUTED);
         }
     }
+    private static void drawSheet(PoseStack pose, int x, int y, int color) {
+        GuiComponent.fill(pose, x, y, x + 7, y + 1, color);
+        GuiComponent.fill(pose, x, y + 7, x + 7, y + 8, color);
+        GuiComponent.fill(pose, x, y, x + 1, y + 8, color);
+        GuiComponent.fill(pose, x + 6, y, x + 7, y + 8, color);
+    }
+
 }

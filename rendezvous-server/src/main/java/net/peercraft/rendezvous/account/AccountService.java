@@ -83,6 +83,7 @@ public final class AccountService {
     private final RateLimiter<UUID> renameRateLimiter;
     private final RateLimiter<UUID> searchRateLimiter;
     private final RateLimiter<UUID> friendRequestRateLimiter;
+    private EmailRecoveryService emailRecovery;
 
     /** Production entry point — RendezvousServer wires this up directly from its main(). */
     public AccountService(Path dataFile, boolean fakeMojang, LongSupplier clock) {
@@ -144,7 +145,8 @@ public final class AccountService {
         Account account = store.byId(accountId).orElse(null);
         if (account == null) {
             account = new Account(accountId, canonicalName, true, generateFriendCode());
-            store.add(account);
+            try { store.addDurably(account); }
+            catch (java.io.IOException unavailable) { return new Result.Fail<>(AccountProtocol.REASON_STORAGE_UNAVAILABLE); }
         } else if (!canonicalName.equals(account.displayName)) {
             // Mojang usernames can change — resync on every login rather than making the
             // player manually update it (they can't rename a licensed account manually anyway).
@@ -156,7 +158,7 @@ public final class AccountService {
 
     // ---- Unlicensed registration ----
 
-    public Result<AuthOkInfo> register(String username, byte[] salt, byte[] passwordHash, InetAddress fromIp) {
+    public synchronized Result<AuthOkInfo> register(String username, byte[] salt, byte[] passwordHash, InetAddress fromIp) {
         if (!isValidUsername(username)) {
             return new Result.Fail<>(AccountProtocol.REASON_USERNAME_INVALID);
         }
@@ -166,13 +168,14 @@ public final class AccountService {
         Account account = new Account(UUID.randomUUID(), username, false, generateFriendCode());
         account.passwordSalt = salt;
         account.passwordHash = passwordHash;
-        store.add(account);
+        try { store.addDurably(account); }
+        catch (java.io.IOException unavailable) { return new Result.Fail<>(AccountProtocol.REASON_STORAGE_UNAVAILABLE); }
         return new Result.Ok<>(issueAuthOk(account));
     }
 
     // ---- Unlicensed password login (friend code or cached accountId) ----
 
-    public Result<LoginChallengeInfo> beginPasswordLogin(boolean byFriendCode, UUID accountId, String friendCode, InetAddress fromIp) {
+    public synchronized Result<LoginChallengeInfo> beginPasswordLogin(boolean byFriendCode, UUID accountId, String friendCode, InetAddress fromIp) {
         if (!loginRateLimiter.allow(fromIp)) {
             return new Result.Fail<>(AccountProtocol.REASON_RATE_LIMITED);
         }
@@ -187,7 +190,7 @@ public final class AccountService {
         return new Result.Ok<>(new LoginChallengeInfo(requestId, account.get().passwordSalt, challenge));
     }
 
-    public Result<AuthOkInfo> completePasswordLogin(long requestId, byte[] hmac) {
+    public synchronized Result<AuthOkInfo> completePasswordLogin(long requestId, byte[] hmac) {
         Optional<PendingAuthRegistry.PasswordLoginAttempt> attempt = pendingAuth.takePasswordLogin(requestId);
         if (attempt.isEmpty()) {
             return new Result.Fail<>(AccountProtocol.REASON_UNKNOWN_REQUEST_ID);
@@ -206,7 +209,7 @@ public final class AccountService {
 
     // ---- Silent relogin on the same device ----
 
-    public Result<AuthOkInfo> loginRemembered(UUID accountId, byte[] rememberToken) {
+    public synchronized Result<AuthOkInfo> loginRemembered(UUID accountId, byte[] rememberToken) {
         Optional<Account> account = store.byId(accountId);
         if (account.isEmpty() || account.get().rememberToken == null
                 || !PasswordHasher.constantTimeEquals(account.get().rememberToken, rememberToken)) {
@@ -364,6 +367,12 @@ public final class AccountService {
      */
     public Optional<UUID> resolveSession(byte[] sessionToken) {
         return sessions.validate(sessionToken);
+    }
+
+    public synchronized EmailRecoveryService emailRecovery(EmailRecoveryService.MailSender sender, LongSupplier clock) {
+        if (emailRecovery == null)
+            emailRecovery = new EmailRecoveryService(this, store, sessions, pendingAuth, sender, clock);
+        return emailRecovery;
     }
 
     /** Called by RendezvousServer.handleRegister once a REGISTER's account has been verified via resolveSession. */

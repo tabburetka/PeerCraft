@@ -61,4 +61,9 @@ public final class LocalPlayerIdentity {
     public static void prepareForArchive(Path world) throws IOException { captureForArchive(world).prepare(world); }
 
     public static UUID current() { return playingId; }
+
+    public static void bindAuthenticatedGuest(UUID account) throws IOException {
+        if (playingId == null || preparedWorld == null) throw new IOException("Host world identity unavailable");
+        PlayerDataMigration.markAuthenticatedGuest(preparedWorld, account);
+    }
 }
