@@ -8,47 +8,56 @@ On top of that, PeerCraft has its own lightweight account and friends system, so
 
 > ⚠️ **Early-stage hobby project.** It works and is actively used, but it's built and maintained by one person in their spare time. Expect occasional rough edges, and please report anything broken — see [Feedback & support](#feedback--support) below.
 
+## 3.4.2 Beta
+
+See the [changes since 2.1.0](docs/releases/3.4.2-beta.md) and [release JARs, checksums and validation](releases/3.4.2-beta/README.md). This beta adds persistent in-game settings, a redesigned interface, experimental host handoff and player progress migration. Back up your world before upgrading or testing handoff. Email password recovery is not ready for general use; relay/TURN remains disabled.
+
 ## Features
 
 - **Direct P2P multiplayer over the internet** — a small rendezvous server helps you and your friend find each other, then UDP hole punching connects you directly. Only the rendezvous server needs a forwarded port; neither player does.
 - **One-click hosting** — open your world to LAN as usual, tick "play over the internet", and get a room code to share.
 - **Accounts, with or without a Mojang license** — log in with your real Mojang account, or register a free nickname + password account if you don't own a copy of Minecraft (a "pirate" account). Both can play in the same world together.
 - **Friends list with live presence** — see which friends are online or currently hosting a game, and connect to a hosting friend with a single click, no code required.
-- **Public game browser** — tick "Open to Everyone" instead of (or besides sharing) a code, and your world shows up in the **Games** tab for any player with the mod, no account or friendship required, like a lobby browser. Each listing shows the host's Minecraft version (vanilla only lets same-version clients connect), and the tab has a search box (world name) and a version filter.
+- **Public game browser** — tick "Open to Everyone" instead of (or besides sharing) a code, and your world shows up in the **Games** tab for any player with the mod, no friendship required (account login is required), like a lobby browser. Each listing shows the host's Minecraft version (vanilla only lets same-version clients connect), and the tab has a search box (world name) and a version filter.
 - **Friend codes** — a short 6-character code is your permanent identifier for adding friends and logging in from a new device, independent of your (non-unique) nickname.
 - **Mixed licensed/unlicensed hosting** — a host can choose whether to allow unlicensed ("pirate") players into their world, and can cap the number of concurrent joiners.
+- **In-game settings** — open Multiplayer → ⚙ to configure hosting, joining, player limits and independent mod synchronization modes.
+- **Experimental host handoff** — offer another player the world and hosting role, with archive verification and recovery tracking.
+- **Player progress migration** — preserve account-based player data, with explicit host-approved migration of old guest saves and backups.
+- **Account recovery cards** — sign in with your full account UUID and existing password if you lose your friend code.
 - **Localized UI** — English and Russian out of the box.
 
 ## How it works
 
 1. **Host**: load or create a singleplayer world, open the pause menu, click **Open to LAN**, tick **PeerCraft: play over the internet**, then **Start LAN World**. You'll get a short room code.
 2. **Share the code** with your friend however you like (chat, Discord, voice call) — or skip this step entirely once you're friends in-game, see below.
-3. **Joiner**: from the title screen, open **Multiplayer**, and either paste the room code under the join-by-code button, or open the **Friends** tab and click **Connect** next to a friend who's currently hosting.
+3. **Joiner**: sign into your PeerCraft account, then from the title screen, open **Multiplayer**, and either paste the room code under the join-by-code button, or open the **Friends** tab and click **Connect** next to a friend who's currently hosting.
 4. PeerCraft negotiates the connection in the background and drops you straight into your friend's world.
 
 No dedicated server, no always-on hosting machine, no router configuration on either player's end.
 
 ## Requirements
 
-PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-2.1.0.jar` or `peercraft-forge-1.12.2-2.1.0.jar`.
+PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-3.4.2.jar` or `peercraft-forge-1.12.2-3.4.2.jar`.
 
 - **Minecraft** — the main builds target **1.21.1 – 1.21.11** and **26.1 – 26.2**. Older versions (**1.12.2**, **1.7.10**) are covered by separate experimental backports; see the table below.
 - **Loader**
   - **Fabric** — [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, plus [Fabric API](https://modrinth.com/mod/fabric-api).
   - **NeoForge** — [NeoForge](https://neoforged.net/). No extra API mod.
   - **Forge** (1.12.2 / 1.7.10 backports only) — plus a Mixin loader: [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) on 1.12.2, [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) on 1.7.10.
-- **Java** — 21 for the 1.21.x builds, 25 for the 26.x builds, 8 for the 1.12.2 / 1.7.10 backports (the same Java those game versions already need).
+- **Java** — 21 for the 1.21.x builds, 25 for the 26.x builds, 8 for the 1.16.5 / 1.12.2 / 1.7.10 backports (the same Java those game versions already need).
 - **Both players run the same Minecraft version.** Minecraft's own protocol only connects same-version clients, so you and your friend must be on the same MC version. The loader may differ — a Fabric host and a NeoForge joiner on the same version is fine.
 
 ### Version & loader support
 
 | Minecraft | Fabric | NeoForge | Forge |
 |---|---|---|---|
-| 1.21.1 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ | — |
+| 1.21.1, 1.21.3 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ | — |
 | 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (`-beta`-tagged build only — still a real, working release, just never marked stable) | — |
 | 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version — it moved straight to 1.21.3, out the next day) | — |
 | 26.1.2, 26.2 | ✅ | ✅ | — |
 | 26.1, 26.1.1 | ✅ | ✅ (`-beta`-tagged build only — same as 1.21.6/1.21.7/1.21.9) | — |
+| 1.16.5 | 🧪 | — | — |
 | 1.12.2 | — | — | 🧪 (needs MixinBooter) |
 | 1.7.10 | — | — | 🧪 (needs UniMixins) |
 
@@ -57,7 +66,7 @@ PeerCraft ships **one jar per Minecraft version per loader**. Download the file 
 > **"There's a 1.7.10 (or 1.12.2) file, but the page also says 1.21 — which is it?"**
 > Both. The main builds are for modern Minecraft (1.21.x / 26.x on Fabric and NeoForge); the 1.7.10 and 1.12.2 files are experimental Forge backports for players still on those versions. Download whichever matches your game — PeerCraft does **not** run on every version in between, only the ones in the table above.
 
-A Fabric-only **1.16.5** backport is in progress but not yet released.
+A Fabric-only **1.16.5** experimental backport is included in the 3.4.2 beta.
 
 Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jars are built without mappings against Minecraft as shipped.
 
@@ -74,7 +83,7 @@ Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jar
 ## FAQ
 
 **Which Minecraft versions does it actually work on? I saw a 1.7.10 file but the page mentions 1.21.**
-Both, plus more. The main builds are for Minecraft 1.21.x and 26.x (Fabric and NeoForge). Separately, there are experimental Forge backports for 1.12.2 and 1.7.10, and a 1.16.5 Fabric backport in progress. Download the file whose name matches the version you play — it does **not** run on every version in between. See the [support table](#version--loader-support) for the exact list.
+Both, plus more. The main builds are for Minecraft 1.21.x and 26.x (Fabric and NeoForge). Separately, there are experimental Forge backports for 1.12.2 and 1.7.10, and an experimental 1.16.5 Fabric backport. Download the file whose name matches the version you play — it does **not** run on every version in between. See the [support table](#version--loader-support) for the exact list.
 
 **Can my friend and I be on different Minecraft versions / different loaders?**
 Different versions, no — Minecraft's networking only connects same-version clients, so you must both be on the same Minecraft version. Different loaders, yes — a Fabric host and a NeoForge joiner on the same Minecraft version works fine.
@@ -96,7 +105,7 @@ PeerCraft never asks for or stores your Mojang password — licensed login uses 
 - TURN fallback requires server configuration and closed validation before public enablement. Complete UDP blocking is outside the first release; the rendezvous control channel still uses UDP.
 - Only one host per session (a star topology, not a full mesh) — everyone connects through the host.
 - No moderation or ban system yet.
-- No account recovery if you lose your friend code.
+- Email password recovery is not ready for general use. If only your friend code is lost, use your recovery account ID and existing password.
 
 ## Feedback & support
 
@@ -120,7 +129,7 @@ Player identity, one-time save migration and vanilla compatibility during host h
 
 Several independent Gradle projects in one repo:
 
-- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build), plus an in-progress Fabric-only **1.16.5** backport target (Java 8, its own `build.fabric-1165.gradle.kts`). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
+- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build), plus an experimental Fabric-only **1.16.5** backport target (Java 8, its own `build.fabric-1165.gradle.kts`). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
 - `rendezvous-server/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd rendezvous-server && ./gradlew jar`.
 - `peercraft-forge-1122/` — a Minecraft **1.12.2 Forge** backport, built on RetroFuturaGradle (Gradle 8.8, Java 8) instead of Stonecutter/Loom. It reuses the shared networking/account code straight from `peercraft/src/` via `srcDir` (with hand-resolved Java-8 / 1.12.2-API twins under `peercraft/src/shared-forge1122/` and `peercraft/src/client-1122/`). Build with `cd peercraft-forge-1122 && ./gradlew build` (first run is slow — it decompiles Minecraft) → `build/libs/peercraft-forge-1.12.2-<version>.jar`; try it with `./gradlew runClient`. Requires [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The mod ships a coremod (`PeerCraftCoreMod`) that registers its mixin config, so it does **not** need to be extracted. This backport builds and loads; it's not yet as thoroughly runtime-tested as the 1.21.x / 26.x targets.
 - `peercraft-forge-1710/` — a Minecraft **1.7.10 Forge** backport, same toolchain as the 1.12.2 one (RetroFuturaGradle, Gradle 8.8, Java 8) and ported almost file-for-file from it — 1.7.10 and 1.12.2 share the pre-1.13 immediate-mode GUI (`GuiScreen` + `buttonList`), so most of the work was mechanical API renames (`fontRendererObj`, the `cpw.mods.fml.*` package, MCP `stable_12` names). It reuses the shared code from `peercraft/src/` via `srcDir` with twins under `peercraft/src/shared-forge1710/` and `peercraft/src/client-1710/`, and the loader-agnostic mod-sync core from `peercraft/src/modsync-java8/` (shared with the 1.12.2 backport). Build with `cd peercraft-forge-1710 && ./gradlew build` → `build/libs/peercraft-forge-1.7.10-<version>.jar`; try it with `./gradlew runClient`. Requires [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). Mod sync is backported here too — P2P-only for jar transfer (no Modrinth CDN fast path), reading `mcmod.info` for the jar list; `./gradlew :peercraft-forge-1710:modsyncTest` runs a Minecraft-free loopback check of the handshake + transfer. The `build` (including the mixin refmap) is green; runtime application of the mixins is not yet verified.
@@ -170,7 +179,7 @@ What you untick is remembered in `config/peercraft/modsync-declined.json`, so th
 
 Minecraft can't load newly installed mods without a relaunch, so after a download PeerCraft does **not** continue the join — it shows a "restart required" screen. Quit, relaunch, and reconnect; this time the mods are present and the join goes straight through. If you untick everything and nothing is required, PeerCraft connects right away with no restart. `peercraft.modSync.autoAccept=true` skips confirmation only when every selected jar has a public Modrinth listing; missing listings and lookup failures still need a click.
 
-Mod sync is split into a **host** side and a **client** side, each set independently in the Settings screen (or via `peercraft.modSync.host` / `peercraft.modSync.client`) to **Отключён / Только обязательные моды / Все моды**. This lets one player download mods when joining a friend's world while, as a host, either turning mod sync off for incoming players or sharing only the mods actually required to enter the world. "Required" means a mod whose server side is genuinely needed to join; purely client-side mods (AppleSkin and the like) are the optional part. Both the host's "Только обязательные" filter (what it shares) and the joiner's (what it downloads) start from each jar's `fabric.mod.json` `environment` / `mods.toml` `side` and then refine it against Modrinth's curated `client_side` / `server_side` — the same source the confirm screen uses — so a client-only mod that merely declares `"*"` is still withheld / skipped. Java 8 backports query Modrinth for the catalog label, but still transfer jars over P2P and use jar metadata for side classification.
+Mod sync is split into a **host** side and a **client** side, each set independently in the Settings screen (or via `peercraft.modSync.host` / `peercraft.modSync.client`) to **Off / Required mods only / All mods**. This lets one player download mods when joining a friend's world while, as a host, either turning mod sync off for incoming players or sharing only the mods actually required to enter the world. "Required" means a mod whose server side is genuinely needed to join; purely client-side mods (AppleSkin and the like) are the optional part. Both the host's "Required mods only" filter (what it shares) and the joiner's (what it downloads) start from each jar's `fabric.mod.json` `environment` / `mods.toml` `side` and then refine it against Modrinth's curated `client_side` / `server_side` — the same source the confirm screen uses — so a client-only mod that merely declares `"*"` is still withheld / skipped. Java 8 backports query Modrinth for the catalog label, but still transfer jars over P2P and use jar metadata for side classification.
 
 The P2P transfer tolerates ordinary packet loss (a mangled or dropped chunk is silently re-requested, and a transfer that fails outright can simply be retried by reconnecting — the host re-serves from a fresh session). On a badly congested or DPI-mangled uplink where a large jar keeps stalling near the end, set `-Dpeercraft.modSync.sendPacingMillis=8` on the **host** to cap its upload rate; raise the number if it still stalls, lower it for more speed.
 

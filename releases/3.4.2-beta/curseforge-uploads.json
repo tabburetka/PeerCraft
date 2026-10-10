@@ -1,0 +1,162 @@
+[
+  {
+    "file": "peercraft-fabric-1.16.5-3.4.2.jar",
+    "sha256": "51b0b9ce211dcc7243d4e385a71737b61528755f9e83b62af197dec27f8ccfe9",
+    "id": 9121352
+  },
+  {
+    "file": "peercraft-fabric-1.21.1-3.4.2.jar",
+    "sha256": "918c0336d8601faaae9797f8eae5b868f9d032b0d6ad19ca09f89675e4f9ca43",
+    "id": 9121353
+  },
+  {
+    "file": "peercraft-neoforge-1.21.1-3.4.2.jar",
+    "sha256": "4192ecfe86dd989ed76716e41c961ffea97c5f09ef3b0f61ce162860ca666ec5",
+    "id": 9121354
+  },
+  {
+    "file": "peercraft-fabric-1.21.10-3.4.2.jar",
+    "sha256": "f53d9ba4e36b04e54e70b60c67541918f31648552827fa4452682b2842db9973",
+    "id": 9121355
+  },
+  {
+    "file": "peercraft-neoforge-1.21.10-3.4.2.jar",
+    "sha256": "99a78e69f9406f2c961f86fd995ccca24012b725852981bb153625bc3980b3b8",
+    "id": 9121356
+  },
+  {
+    "file": "peercraft-fabric-1.21.11-3.4.2.jar",
+    "sha256": "94c4caaeafbc7a1b68a4c9875cdeefeedc2f79a571d1eea5ef0febefe8169d3f",
+    "id": 9121359
+  },
+  {
+    "file": "peercraft-neoforge-1.21.11-3.4.2.jar",
+    "sha256": "8e8f9e108e6719284cd46d0e65e2f44b5ecb1939cdfc534a6c3af41298c8c192",
+    "id": 9121361
+  },
+  {
+    "file": "peercraft-fabric-1.21.2-3.4.2.jar",
+    "sha256": "052c720995600ba2c23e76a0e7304dfd5e803454bb94d5ad0ca76fd18cc57d77",
+    "id": 9121362
+  },
+  {
+    "file": "peercraft-fabric-1.21.3-3.4.2.jar",
+    "sha256": "7ea037eca291d13419f721603c615e4469cda2135a92412c6206942becd69dc5",
+    "id": 9121363
+  },
+  {
+    "file": "peercraft-neoforge-1.21.3-3.4.2.jar",
+    "sha256": "c4ca0e87ed171baa2a5cf895026a0fb04b19ecd7533fb23fe018ae89504efb52",
+    "id": 9121365
+  },
+  {
+    "file": "peercraft-fabric-1.21.4-3.4.2.jar",
+    "sha256": "440b921b6bb791c08b8c8e9901168f553a2985f228a33219d7725c0fd54afa04",
+    "id": 9121366
+  },
+  {
+    "file": "peercraft-neoforge-1.21.4-3.4.2.jar",
+    "sha256": "ed168979bb1d8c4adb4b2a9d724c6573e6f334421fa700f0694fc4984fec43fe",
+    "id": 9121367
+  },
+  {
+    "file": "peercraft-fabric-1.21.5-3.4.2.jar",
+    "sha256": "caa7f0805bc16c4cc9eff7dfe6cdd1afb41304266f2bf190c2016d25038a04aa",
+    "id": 9121369
+  },
+  {
+    "file": "peercraft-neoforge-1.21.5-3.4.2.jar",
+    "sha256": "e5eb1e90a38a03b1f5e98961cb61b32b975350bc652990d78455096dfa872259",
+    "id": 9121370
+  },
+  {
+    "file": "peercraft-fabric-1.21.6-3.4.2.jar",
+    "sha256": "90bd7bdcea0650c922958771b289bfcf300b4cf3998259c179fd6ae54a4a1c02",
+    "id": 9121372
+  },
+  {
+    "file": "peercraft-neoforge-1.21.6-3.4.2.jar",
+    "sha256": "db350097d83ad4ba7162c75dbb8cc42374ab3708e0f850661cae773872f992cf",
+    "id": 9121373
+  },
+  {
+    "file": "peercraft-fabric-1.21.7-3.4.2.jar",
+    "sha256": "3cbd243c15a6852b0970298a33b4449ad899da11d1fd0e99e0ca43adf18caa53",
+    "id": 9121375
+  },
+  {
+    "file": "peercraft-neoforge-1.21.7-3.4.2.jar",
+    "sha256": "c45886f54946ebc886fd5fef4ab710aab00f4120825f67c15a484abc5fcb2006",
+    "id": 9121376
+  },
+  {
+    "file": "peercraft-fabric-1.21.8-3.4.2.jar",
+    "sha256": "08c27d48ab0ded41546d06279fdb2a9e223cf630a84df062a91270812598e288",
+    "id": 9121377
+  },
+  {
+    "file": "peercraft-neoforge-1.21.8-3.4.2.jar",
+    "sha256": "386b5760522b49980d32cb36a778c06280db71de0b2523010855f5c768c0d1a7",
+    "id": 9121378
+  },
+  {
+    "file": "peercraft-fabric-1.21.9-3.4.2.jar",
+    "sha256": "7a6cf8a47ba02215da7a821fac7d6214a590b1687423f11898aefa39bd246004",
+    "id": 9121379
+  },
+  {
+    "file": "peercraft-neoforge-1.21.9-3.4.2.jar",
+    "sha256": "5f09458f6350e0d84f9193a2584a9afda22443fec3c3fa2013cf81994e4cf195",
+    "id": 9121381
+  },
+  {
+    "file": "peercraft-fabric-26.1-3.4.2.jar",
+    "sha256": "2e00eefce9e4fe771ec2c4fec81bf1239f2cb62d37dab7b78e398a4bbb152a41",
+    "id": 9121383
+  },
+  {
+    "file": "peercraft-neoforge-26.1-3.4.2.jar",
+    "sha256": "8f75e25b50395098c54421c21be0d16a5a7bf558d58d80cf92ca93a6e5c12393",
+    "id": 9121384
+  },
+  {
+    "file": "peercraft-fabric-26.1.1-3.4.2.jar",
+    "sha256": "491ca21093bb10c66f3b351901e0086561ee1b2fe77bcaef485952ed5aae36fc",
+    "id": 9121385
+  },
+  {
+    "file": "peercraft-neoforge-26.1.1-3.4.2.jar",
+    "sha256": "71d525534b124474e361b0e8282485420ca764186873228c6db51e32ccaabdb7",
+    "id": 9121388
+  },
+  {
+    "file": "peercraft-fabric-26.1.2-3.4.2.jar",
+    "sha256": "82ac2605e19487aab958da3d373be6432e90a907bedca3a2aa783677ae043bc7",
+    "id": 9121390
+  },
+  {
+    "file": "peercraft-neoforge-26.1.2-3.4.2.jar",
+    "sha256": "da07905d0fdf2a053088f5af347b819de938faf8d174465df2d3aa3fb2e1993d",
+    "id": 9121401
+  },
+  {
+    "file": "peercraft-fabric-26.2-3.4.2.jar",
+    "sha256": "d3c3a5caadc5ff2c0627f1fd34fe0bbd14e2d90d4b0ab946c8f84eebbb0cce2f",
+    "id": 9121403
+  },
+  {
+    "file": "peercraft-neoforge-26.2-3.4.2.jar",
+    "sha256": "03403a2a24ae3e0832f7b718ee32825531a44eb36860d6f2128ac8079605278e",
+    "id": 9121405
+  },
+  {
+    "file": "peercraft-forge-1.12.2-3.4.2.jar",
+    "sha256": "5ff0facb1d94013d360a261873082e7a524f9bf11c831b1e3f14c2c93823606f",
+    "id": 9121407
+  },
+  {
+    "file": "peercraft-forge-1.7.10-3.4.2.jar",
+    "sha256": "3cb8c04801d5adc58a05c7574562adbd36ee5e95ea63858acc4658ce154f6820",
+    "id": 9121408
+  }
+]

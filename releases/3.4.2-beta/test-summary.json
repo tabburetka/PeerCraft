@@ -1,0 +1,20 @@
+{
+  "client": {
+    "tests": 362,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8
+  },
+  "server": {
+    "tests": 254,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3
+  },
+  "forge1710": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  }
+}

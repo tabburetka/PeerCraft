@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Real UDP matching plus real loopback HTTP, with no Cloudflare/Mojang connection. */
+@Disabled("Relay rollout postponed: production server intentionally does not start the broker")
 class RelayServerIntegrationTest {
     @TempDir Path dir;
     RendezvousServer server; Thread thread; final AtomicInteger issued = new AtomicInteger(), polls = new AtomicInteger();

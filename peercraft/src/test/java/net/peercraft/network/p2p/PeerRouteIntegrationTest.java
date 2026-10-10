@@ -58,6 +58,7 @@ class PeerRouteIntegrationTest {
                     public void onComplete(java.nio.file.Path file) { fail("No verified archive exists"); }
                     public void onFailed(String reason) { assertEquals("peercraft.handoff.abort.transfer_failed", reason); failed.incrementAndGet(); }
                 });
+        Map<PeerAddress, PeerTransport> routes = field(bridge, "peerRoutes"); routes.put(PEER, route);
         set(bridge, "clientTargetPeer", PEER); bridge.setSuccessorWorldTransfer(transfer);
         java.lang.reflect.Method failure = P2PBridge.class.getDeclaredMethod("transportFailed", PeerAddress.class,
                 PeerTransport.class, String.class, boolean.class); failure.setAccessible(true);
