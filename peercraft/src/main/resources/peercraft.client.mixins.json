@@ -8,6 +8,7 @@
 		"HandoffPlayerListPermissionsMixin",
 		"HandoffServerPermissionsMixin",
 		"PauseScreenMixin",
+		"MultiplayerScreenRoutingMixin",
 		"ServerLoginPacketListenerImplMixin",
 		"PlayerDataLoadMixin",
 		"PlayerDataMigrationMixin",

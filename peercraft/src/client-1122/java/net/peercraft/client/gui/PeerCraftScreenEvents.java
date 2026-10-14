@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiIngameMenu;
 import net.minecraft.client.gui.GuiMainMenu;
+import net.minecraft.client.gui.GuiMultiplayer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiShareToLan;
 import net.minecraft.client.resources.I18n;
@@ -43,6 +44,12 @@ public class PeerCraftScreenEvents {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        // Disconnect constructs a fresh vanilla multiplayer screen instead of using the title button.
+        // Exact class matching preserves PeerCraft and other mods' multiplayer subclasses.
+        if (!PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())
+                && event.getGui() != null && event.getGui().getClass() == GuiMultiplayer.class) {
+            event.setGui(new PeerCraftMultiplayerScreen(new GuiMainMenu()));
+        }
         // Replace the native entry point; leave already themed and third-party subclasses intact.
         if (!PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())
                 && event.getGui() != null && event.getGui().getClass() == GuiShareToLan.class) {
