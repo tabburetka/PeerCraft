@@ -113,12 +113,14 @@ connections, will restart at the scheduled time. Ensure `rendezvous.service` is
 enabled so it starts again after boot. Disable the schedule with
 `sudo systemctl disable --now peercraft-daily-reboot.timer`.
 
-## Optional Cloudflare TURN fallback
+## Experimental TURN fallback (disabled in current builds)
 
-The UDP server also provides an optional HTTPS control service at `/v1/relay`.
+The retained relay implementation includes an optional HTTPS control service at `/v1/relay`.
 Game datagrams go directly through Cloudflare TURN; this server only authorizes
 matched peers, issues short credentials and exchanges relay endpoints. It is
-disabled by default and needs no Cloudflare account for normal direct P2P use.
+disabled in code: `RendezvousServer.run()` does not call `startRelay()`, and current clients also disable relay and do not attempt fallback after direct checks fail. Setting `enabled=true` or configuring a broker URL does not activate it. Reactivation requires code changes, rebuilt clients/server and closed real-network/gameplay validation. Normal direct P2P use needs no TURN provider account.
+
+The remainder of this section describes the retained implementation for future testing, not an enabled service. Both coturn and Cloudflare providers are present; see the [coturn preparation guide](deploy/coturn/README.ru.md) for the self-hosted variant.
 
 New clients advertise a stable connection attempt and their direct candidates.
 Both sides receive the same authenticated attempt proof; old clients retain the
@@ -140,7 +142,7 @@ service restarts still revoke outstanding credentials before admitting new links
 
 For a home-hosted Ubuntu Server, see the [closed-test setup guide](deploy/ubuntu/README.ru.md). Its service and proxy templates are not installed automatically; preserve the existing account data directory when adapting them.
 
-Create `data/relay.properties` only when ready to enable the service:
+For future testing after restoring the code paths, broker configuration belongs in `data/relay.properties`. Keep it disabled until validation is ready:
 
 ```properties
 enabled=false

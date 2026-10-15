@@ -14,7 +14,7 @@ See the [changes since 2.1.0](docs/releases/3.4.2-beta.md) and [release JARs, ch
 
 ## Features
 
-- **Direct P2P multiplayer over the internet** — a small rendezvous server helps you and your friend find each other, then UDP hole punching connects you directly. Only the rendezvous server needs a forwarded port; neither player does.
+- **Direct P2P multiplayer over the internet** — a small rendezvous server helps you and your friend find each other, then UDP hole punching connects you directly. Players normally need no port forwarding, provided their networks allow a working direct UDP route.
 - **One-click hosting** — open your world to LAN as usual, tick "play over the internet", and get a room code to share.
 - **Accounts, with or without a Mojang license** — log in with your real Mojang account, or register a free nickname + password account if you don't own a copy of Minecraft (a "pirate" account). Both can play in the same world together.
 - **Friends list with live presence** — see which friends are online or currently hosting a game, and connect to a hosting friend with a single click, no code required.
@@ -34,19 +34,19 @@ See the [changes since 2.1.0](docs/releases/3.4.2-beta.md) and [release JARs, ch
 3. **Joiner**: sign into your PeerCraft account, then from the title screen, open **Multiplayer**, and either paste the room code under the join-by-code button, or open the **Friends** tab and click **Connect** next to a friend who's currently hosting.
 4. PeerCraft negotiates the connection in the background and drops you straight into your friend's world.
 
-No dedicated server, no always-on hosting machine, no router configuration on either player's end.
+No dedicated Minecraft server is needed. The host must keep the world open, and both networks must allow a direct UDP connection; automatic NAT traversal cannot work through every NAT or firewall.
 
 ## Requirements
 
 PeerCraft ships **one jar per Minecraft version per loader**. Download the file that matches the Minecraft version *you* play and the loader you run — the file name spells it out, e.g. `peercraft-fabric-1.21.8-3.4.2.jar` or `peercraft-forge-1.12.2-3.4.2.jar`.
 
-- **Minecraft** — the main builds target **1.21.1 – 1.21.11** and **26.1 – 26.2**. Older versions (**1.12.2**, **1.7.10**) are covered by separate experimental backports; see the table below.
+- **Minecraft** — the main builds target **1.21.1 – 1.21.11** and **26.1 – 26.2**. Older versions (**1.16.5**, **1.12.2**, **1.7.10**) are covered by separate experimental backports; see the table below.
 - **Loader**
   - **Fabric** — [Fabric Loader](https://fabricmc.net/use/) **0.19.3** or newer, plus [Fabric API](https://modrinth.com/mod/fabric-api).
   - **NeoForge** — [NeoForge](https://neoforged.net/). No extra API mod.
   - **Forge** (1.12.2 / 1.7.10 backports only) — plus a Mixin loader: [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) on 1.12.2, [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) on 1.7.10.
 - **Java** — 21 for the 1.21.x builds, 25 for the 26.x builds, 8 for the 1.16.5 / 1.12.2 / 1.7.10 backports (the same Java those game versions already need).
-- **Both players run the same Minecraft version.** Minecraft's own protocol only connects same-version clients, so you and your friend must be on the same MC version. The loader may differ — a Fabric host and a NeoForge joiner on the same version is fine.
+- **Both players run the same Minecraft version.** Minecraft's own protocol only connects same-version clients, so you and your friend must be on the same MC version. Different loaders can work only when the world and installed mods are compatible. Mod sync cannot supply missing mods across different loaders.
 
 ### Version & loader support
 
@@ -86,23 +86,23 @@ Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jar
 Both, plus more. The main builds are for Minecraft 1.21.x and 26.x (Fabric and NeoForge). Separately, there are experimental Forge backports for 1.12.2 and 1.7.10, and an experimental 1.16.5 Fabric backport. Download the file whose name matches the version you play — it does **not** run on every version in between. See the [support table](#version--loader-support) for the exact list.
 
 **Can my friend and I be on different Minecraft versions / different loaders?**
-Different versions, no — Minecraft's networking only connects same-version clients, so you must both be on the same Minecraft version. Different loaders, yes — a Fabric host and a NeoForge joiner on the same Minecraft version works fine.
+Different versions, no — Minecraft's networking only connects same-version clients, so you must both be on the same Minecraft version. Different loaders can work when the world and installed mods are compatible, but this is not guaranteed for modded worlds. Mod sync rejects a loader mismatch when there are missing mods to transfer.
 
 **Do I need to forward any ports?**
-No — as a player (host or joiner) you never need to touch your router. Only the person running the shared rendezvous server needs a forwarded UDP port, and PeerCraft already points at a public one by default.
+Usually no: PeerCraft attempts direct UDP NAT traversal and points at a public rendezvous server by default. Some NAT and firewall configurations still block the connection. A self-hosted rendezvous server must be reachable on its UDP port; it does not forward game traffic or bypass those restrictions.
 
 **Can players without a Mojang license (non-premium) play?**
 Yes. They register a nickname + password account in-game instead of logging in with Mojang. A host can choose whether to allow this.
 
 **Why did hole punching fail / why can't we connect?**
-Some NAT and firewall configurations prevent direct peer-to-peer connectivity. Compatible clients now check their supported direct routes for 20 seconds before attempting TURN fallback. Relay requires registered PeerCraft accounts on both sides and a configured HTTPS broker. Self-hosted coturn uses a local health guard and conservative capacity limits; Cloudflare TURN uses an account-wide usage guard. Relay remains disabled on the server by default and awaits closed real-network/gameplay validation; an unconfigured server still requires a working direct route.
+Some NAT and firewall configurations prevent direct peer-to-peer connectivity. Current builds require a working direct UDP route. When both peers negotiate the newer direct-check protocol, they check supported routes for up to 20 seconds; if those checks fail, the connection attempt ends with an error. There is no automatic TURN fallback: relay is disabled in both the client and server code, including the Forge backports. Registering accounts or configuring an HTTPS broker does not enable it. Check that local firewalls allow the game's UDP traffic, or try another network. A hole-punching error alone does not identify the exact NAT or firewall responsible.
 
 **Is this safe to use with a real Mojang account?**
 PeerCraft never asks for or stores your Mojang password — licensed login uses the same session-verification method Mojang's own multiplayer uses. That said, this is a hobby project without a security audit, so avoid reusing sensitive passwords for a pirate account, and treat it as you would any small independent mod.
 
 ## Known limitations
 
-- TURN fallback requires server configuration and closed validation before public enablement. Complete UDP blocking is outside the first release; the rendezvous control channel still uses UDP.
+- Direct UDP connectivity is required. TURN fallback is disabled in the client and server code; configuration alone cannot enable it. Relay implementation remains experimental and awaits closed real-network/gameplay validation. The rendezvous control channel also uses UDP.
 - Only one host per session (a star topology, not a full mesh) — everyone connects through the host.
 - No moderation or ban system yet.
 - Email password recovery is not ready for general use. If only your friend code is lost, use your recovery account ID and existing password.
@@ -167,7 +167,7 @@ Open the settings screen from the gear icon on the PeerCraft multiplayer screen 
 
 ### Random mid-session disconnects on a lossy or DPI-mangled link
 
-The relay runs Minecraft's TCP stream over UDP with its own resend-on-loss layer. If a datagram goes missing and can't be re-fetched fast enough, that layer deliberately drops the session (you're kicked to the title screen but can reconnect straight away). Ordinary internet loss rarely trips it, but anything that reorders, duplicates or drops UDP by design — most notably **ZAPRET** and similar DPI-bypass tools — makes it far more likely the longer you play, because every burst of world data is another chance to hit the limit.
+The direct P2P bridge runs Minecraft's TCP stream over UDP with its own resend-on-loss layer. If a datagram goes missing and can't be re-fetched fast enough, that layer deliberately drops the session (you're kicked to the title screen but can reconnect straight away). Ordinary internet loss rarely trips it, but anything that reorders, duplicates or drops UDP by design — most notably **ZAPRET** and similar DPI-bypass tools — makes it far more likely the longer you play, because every burst of world data is another chance to hit the limit.
 
 First, scope the DPI-bypass tool so it does **not** touch PeerCraft's UDP ports (`50001`/`50002` by default, or whatever you set) or the peer's IP — if the disconnects stop, that was the cause. If you can't, widen the recovery window: `-Dpeercraft.reorder.gapTimeoutMillis=20000 -Dpeercraft.reorder.maxPending=16384`, and optionally add `-Dpeercraft.send.pacingMillis=1` on the **sending** side (the host, for the joiner's world-load; both sides is fine). These only need to change on the machine that's getting kicked, but matching them on both is harmless.
 
@@ -197,9 +197,11 @@ Run the two Minecraft instances from separate working directories (`peercraft/ru
 
 ### Internet play (rendezvous server + hole punching)
 
-For two players on different networks, PeerCraft uses the standalone rendezvous server (`rendezvous-server/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream is the same relay protocol validated locally above, just talking to a real remote address instead of `127.0.0.1`.
+For two players on different networks, PeerCraft uses the standalone rendezvous server (`rendezvous-server/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream uses the same P2P bridge protocol as the local test above, just talking to a real remote address instead of `127.0.0.1`.
 
-**TURN fallback (implementation awaiting closed validation):** game, mod synchronization and handoff traffic can use self-hosted coturn or Cloudflare TURN after direct checks fail. The home-hosted server issues temporary credentials through an HTTPS broker. The [coturn preparation](rendezvous-server/deploy/coturn/README.ru.md) starts with two connections and 512 KiB/s file transfers, without requiring Cloudflare payment registration. The relay is disabled by default. In Cloudflare mode, the account-wide guard closes relay sessions at 800 GB or when complete usage statistics become stale; this is a best-effort spending safeguard, not a guarantee of a zero bill. See [broker configuration](rendezvous-server/README.md). Older clients retain direct connectivity.
+**TURN fallback is disabled in current builds.** `PeerCraftConfig.relayEnabled()` returns `false`, the direct-failure path in `P2PBridge` does not call `beginRelay(...)`, and `RendezvousServer.run()` does not call `startRelay()`. This applies to the main client sources and both Forge backports. Neither saved settings, launch flags nor `enabled=true` in the broker configuration restore fallback; reactivation requires code changes, rebuilt clients/server and closed real-network/gameplay validation.
+
+The retained experimental implementation supports coturn and Cloudflare TURN, account-authenticated leases and provider health/usage guards. The [coturn preparation guide](rendezvous-server/deploy/coturn/README.ru.md) and [broker configuration](rendezvous-server/README.md) describe that implementation for future testing, not an available connection option. Normal play currently requires direct connectivity.
 
 #### Running your own rendezvous server
 
