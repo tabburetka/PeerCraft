@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-18",
+  "tests": [
+    {
+      "directory": "peercraft/versions/1.21.1-fabric/build/test-results/test",
+      "tests": 391,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 8,
+      "passed": 383
+    },
+    {
+      "directory": "peercraft-forge-1710/build/test-results/modsyncTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 16
+    }
+  ],
+  "artifacts": [
+    {
+      "jar": "peercraft/versions/1.16.5-fabric/build/libs/peercraft-fabric-1.16.5-3.4.2.jar",
+      "sha256": "15300df04ff60f6e68a87b8d4e957c4c73d8e804ac5af44276e231e4b17c66f2",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.1-fabric/build/libs/peercraft-fabric-1.21.1-3.4.2.jar",
+      "sha256": "45f71152cfd48b08989a18216be908d6eb9ea612d683cd1527f77872297017e0",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.1-neoforge/build/libs/peercraft-neoforge-1.21.1-3.4.2.jar",
+      "sha256": "93c703e3c50ca02238065d453f8fe04a2160af37cd1b0355f1f002d14ca7bd0e",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.10-fabric/build/libs/peercraft-fabric-1.21.10-3.4.2.jar",
+      "sha256": "d4cec7b2577175f8bfd41524f41a900a39a61c35112bb77f92b55f47168892b0",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.10-neoforge/build/libs/peercraft-neoforge-1.21.10-3.4.2.jar",
+      "sha256": "126b877c46ae58d1b8e8235f72b94059c439b52f4e4fd79ae063d19cd54f6ac6",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.11-fabric/build/libs/peercraft-fabric-1.21.11-3.4.2.jar",
+      "sha256": "6989b09dd629172aa14e0e4d160d8a48a9dec476eb377f83d7539b90f284501a",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.11-neoforge/build/libs/peercraft-neoforge-1.21.11-3.4.2.jar",
+      "sha256": "cd12783fa7e4bb173904d405b99f0c232c9ff5f63eebe822dc85bd8ceb1d3ec0",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.2-fabric/build/libs/peercraft-fabric-1.21.2-3.4.2.jar",
+      "sha256": "64d5e4386ffe4ff720d029f769cc681bb3e9245a3d1dc25cbf5ef366713c456f",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.3-fabric/build/libs/peercraft-fabric-1.21.3-3.4.2.jar",
+      "sha256": "bacb8516ea482ef85ff8fa4ce09879a29cd1850bdd4d8d147ea9a81d7a8f8816",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.3-neoforge/build/libs/peercraft-neoforge-1.21.3-3.4.2.jar",
+      "sha256": "5b0947a3d0f1362aea6ce62f08e33b3e183162f4deac9d8890e6cefc1193adbf",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.4-fabric/build/libs/peercraft-fabric-1.21.4-3.4.2.jar",
+      "sha256": "4f358feb5032de0597e7da5d2be6a3024d076a4e1277bf7d277cb217c6b45424",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.4-neoforge/build/libs/peercraft-neoforge-1.21.4-3.4.2.jar",
+      "sha256": "1cc446bf880585e0ac0ce0f07dfba23bab04b38fec3e6743d82c6c088ea3e289",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.5-fabric/build/libs/peercraft-fabric-1.21.5-3.4.2.jar",
+      "sha256": "92a0796efb4fcd76c6ab9ea0b2fca7e74579c2d8014cfca393f713fd763a61c6",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.5-neoforge/build/libs/peercraft-neoforge-1.21.5-3.4.2.jar",
+      "sha256": "1bfcdaae8d2b030387fa1c5524364f9f81a261510048e5453a45acd6e48f3609",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.6-fabric/build/libs/peercraft-fabric-1.21.6-3.4.2.jar",
+      "sha256": "504775e884a5096adc09b5d617d53d89c62119d33a048896daa5f3447a50eeb4",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.6-neoforge/build/libs/peercraft-neoforge-1.21.6-3.4.2.jar",
+      "sha256": "aaa2ad674f109e1914fca5aa2429e1e58fa0e9d8d315f808efe3df14fb632c0c",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.7-fabric/build/libs/peercraft-fabric-1.21.7-3.4.2.jar",
+      "sha256": "107839cf60b051898e785cdfa76504734b243499e340fbd2799d8dbafd590db3",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.7-neoforge/build/libs/peercraft-neoforge-1.21.7-3.4.2.jar",
+      "sha256": "3c38fcac13315d2321b6f2c6164faec66dd2ba265e7b3f8babafcb3b5cb9910c",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.8-fabric/build/libs/peercraft-fabric-1.21.8-3.4.2.jar",
+      "sha256": "b81a4976a2aba910575f61bdcb02f0733e1e61fa8f1ee349d25432af7da824d9",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.8-neoforge/build/libs/peercraft-neoforge-1.21.8-3.4.2.jar",
+      "sha256": "3b64099ca7b336111a47da13f77582934c1806a2b8c7ca4e319b3e683a382cec",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.9-fabric/build/libs/peercraft-fabric-1.21.9-3.4.2.jar",
+      "sha256": "04f5e4bfb2af5766152df3469fe6a0dbf3d2944fe1ac418f73b7240293289c2f",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/1.21.9-neoforge/build/libs/peercraft-neoforge-1.21.9-3.4.2.jar",
+      "sha256": "338350e9122c6c905c40eb2dbad5face06339585e5a195ce78efb9fb37e4aa5b",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1-fabric/build/libs/peercraft-fabric-26.1-3.4.2.jar",
+      "sha256": "418dad4b558d554059d432babd2cc168b4682aa58f75fbb5b1d5bbe926513b7a",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1-neoforge/build/libs/peercraft-neoforge-26.1-3.4.2.jar",
+      "sha256": "b6d59481bb206fb2a530b35431b7f90bed612acc0845750065f507b837efff6d",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1.1-fabric/build/libs/peercraft-fabric-26.1.1-3.4.2.jar",
+      "sha256": "0b318d6b649b846ddee749c7fdc3b85a1e30b08813d5333f383b9cb316bdda1e",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1.1-neoforge/build/libs/peercraft-neoforge-26.1.1-3.4.2.jar",
+      "sha256": "e7dcb900e15beff4ea51cafac2ede9849aabb25ae3c0433881591961edbfeb02",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1.2-fabric/build/libs/peercraft-fabric-26.1.2-3.4.2.jar",
+      "sha256": "0f56cd9e12d79c400ccfc092c3641d8d8a89079694db5bcd2a19a0cc15025e49",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.1.2-neoforge/build/libs/peercraft-neoforge-26.1.2-3.4.2.jar",
+      "sha256": "03e1b90861850be576842613cc2b5c043e4f1a5de8144824685ae2f07e35960d",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.2-fabric/build/libs/peercraft-fabric-26.2-3.4.2.jar",
+      "sha256": "5155ff79fda8dacc14a2327d8c73b3d9f7331c1f6cc88434c74bdd2527c47277",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft/versions/26.2-neoforge/build/libs/peercraft-neoforge-26.2-3.4.2.jar",
+      "sha256": "ecf97f9410180a6b8122f1976e184edc340add42233e5cae83bb6bd797d3e36d",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft-forge-1122/build/libs/peercraft-forge-1.12.2-3.4.2.jar",
+      "sha256": "5b0d65c07dfce1d388a856e4c8d06d4f3f450dc620b5147204f17d8d980a97f0",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    },
+    {
+      "jar": "peercraft-forge-1710/build/libs/peercraft-forge-1.7.10-3.4.2.jar",
+      "sha256": "3ebdc78a80fbf82e9cd187adcc78af81584b3f72acfce802d03fdaa5ab7c62ac",
+      "helper_bytecode_sha256": "101b1cc7ba098e3f7f63f565181529c2faf481dedb52e51fb44d796dde9dd6fd",
+      "helper_class_major": 52
+    }
+  ],
+  "java8_parent_halt_probe": "passed: helper waited for parent JVM exit, applied replacement, preserved original backup",
+  "manual_minecraft_linux": "not performed",
+  "manual_minecraft_windows": "not performed"
+}

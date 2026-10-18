@@ -14,6 +14,16 @@ public final class ModSyncManifest {
 
     public int version = 1;
     public List<Install> installs = new ArrayList<>();
+    public List<Operation> operations = new ArrayList<>();
+    public static final class Operation {
+        public String transactionId, result, backupDirectory, error;
+        public long completedAt;
+    }
+    public void recordOperation(Operation operation) {
+        if (operations == null) operations = new ArrayList<>();
+        operations.removeIf(o -> operation.transactionId.equals(o.transactionId));
+        operations.add(operation);
+    }
 
     public static final class Install {
         public String modId;
@@ -26,6 +36,9 @@ public final class ModSyncManifest {
         public long installedAt;   // epoch millis
         public String hostRoomCode;
         public String supersededPath;
+        public String transactionId;
+        public String result;
+        public String oldVersion;
     }
 
     /** Adds (or replaces, by modId) an install record. */

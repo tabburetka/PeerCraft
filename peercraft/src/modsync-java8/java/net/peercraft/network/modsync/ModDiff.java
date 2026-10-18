@@ -32,6 +32,21 @@ public final class ModDiff {
         return out;
     }
 
+    /** Candidates include unknown versions so the client can explain why a replacement was skipped. */
+    public static List<ModEntry> changes(Map<String, String> local, List<ModEntry> host, boolean replacements) {
+        if (!replacements) return missing(local, host);
+        List<ModEntry> out = new ArrayList<ModEntry>();
+        for (ModEntry e : sanitize(host)) {
+            String version = local.get(e.id());
+            if (!local.containsKey(e.id()) || !knownVersion(version) || !knownVersion(e.version()) || !version.equals(e.version())) out.add(e);
+        }
+        return out;
+    }
+
+    public static boolean knownVersion(String version) {
+        return version != null && !version.trim().isEmpty() && !version.contains("${");
+    }
+
     /**
      * Joiner-side guard: drop anything the host sent that mod-sync must never touch, and
      * anything with an unsafe file name. Never trusts the host to have filtered correctly.

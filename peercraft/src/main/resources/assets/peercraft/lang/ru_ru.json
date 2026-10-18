@@ -421,5 +421,18 @@
   "peercraft.gui.welcome.title": "Добро пожаловать в PeerCraft",
   "peercraft.gui.welcome.message": "Создайте аккаунт или войдите через Mojang, чтобы играть с друзьями.",
   "peercraft.gui.welcome.later": "Позже",
-  "peercraft.gui.welcome.existing": "Уже есть аккаунт PeerCraft"
+  "peercraft.gui.welcome.existing": "Уже есть аккаунт PeerCraft",
+  "peercraft.modsync.operation.add": "Добавление",
+  "peercraft.modsync.operation.replace": "Замена",
+  "peercraft.modsync.prepared.title": "Изменения подготовлены",
+  "peercraft.modsync.prepared.body": "Подготовлено изменений: %s. Закройте Minecraft и дождитесь завершения помощника PeerCraft. Затем запустите игру через лаунчер. Старые JAR сохранятся в config/peercraft/modsync/operations.",
+  "peercraft.modsync.review.title": "Часть модов пропущена",
+  "peercraft.modsync.review.body": "Пропущено записей: %s. Эти файлы останутся без изменений.",
+  "peercraft.modsync.review.continue": "Продолжить",
+  "peercraft.modsync.skip.unknown": "%s: не удалось определить достоверную версию с обеих сторон.",
+  "peercraft.modsync.skip.ambiguous": "%s: повторяющийся ID или несколько модов в одном JAR; автоматическая замена недоступна.",
+  "peercraft.modsync.skip.incompatible": "%s: не подтверждены поддержка замены, версия Minecraft или загрузчик.",
+  "peercraft.modsync.skip.collision": "%s: имя нового файла занято другим установленным модом.",
+  "peercraft.modsync.fail.inventory": "Не удалось проверить файлы модов или уже подготовлена другая синхронизация. Закройте Minecraft, дождитесь помощника и повторите попытку.",
+  "peercraft.modsync.progress.preparing_install": "Подготовка замены: %s"
 }

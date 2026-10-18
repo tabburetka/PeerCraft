@@ -15,6 +15,17 @@ class ModSyncPlanTest {
     }
 
     @Test
+    void autoAcceptNeverBypassesReplacementConfirmation() {
+        ModEntry entry = new ModEntry("example", "2", 10, new byte[64], "example.jar", ModEntry.Env.BOTH, "", "");
+        ModSyncPlan.PlannedMod add = ModSyncPlan.PlannedMod.p2p(entry).withCatalogStatus(ModSyncPlan.CatalogStatus.PUBLISHED);
+        assertTrue(ModSyncPlan.of(List.of(add)).canAutoAccept(true, false));
+        ModSyncPlan.PlannedMod replacement = add.withReplacement(new ModSyncPlan.Replacement("old.jar", "1", "hash"));
+        assertFalse(ModSyncPlan.of(List.of(replacement)).canAutoAccept(true, false));
+        assertEquals("1", replacement.withCatalogStatus(ModSyncPlan.CatalogStatus.PUBLISHED).replacement().version());
+        assertFalse(ModSyncPlan.of(List.of(add)).canAutoAccept(true, true));
+    }
+
+    @Test
     void excludingDropsByIdAndRecomputesTotal() {
         ModSyncPlan plan = ModSyncPlan.of(List.of(mod("a", 100), mod("b", 200), mod("c", 300)));
         assertEquals(600, plan.totalBytes());

@@ -36,6 +36,9 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
     private volatile long overallDone;
     private volatile int completed;
     private volatile String errorKey;
+    private String errorDetail = "";
+    private GuiButton cancelButton;
+    private boolean cancellationAllowed = true;
 
     public ModSyncProgressScreen(ModSyncPlan plan, Runnable onCancel) {
         super(PeerCraftLang.tr("peercraft.modsync.progress.title"), 340, 400);
@@ -50,7 +53,8 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
         dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.modsync.progress.title"), 400);
         this.buttonList.clear();
         String label = errorKey != null ? PeerCraftLang.tr("peercraft.modsync.restart.back") : PeerCraftLang.tr("peercraft.modsync.confirm.cancel");
-        dialogAction(label, errorKey != null ? this::toTitle : onCancel, false, 0, 1);
+        cancelButton = dialogAction(label, errorKey != null ? this::toTitle : onCancel, false, 0, 1);
+        cancelButton.enabled = cancellationAllowed || errorKey != null;
     }
 
     @Override
@@ -70,6 +74,12 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
             return;
         }
         super.keyTyped(typedChar, keyCode);
+    }
+
+    public void beginCommit() {
+        cancellationAllowed = false;
+        currentState = State.INSTALLING;
+        if (cancelButton != null) cancelButton.enabled = false;
     }
 
     public void setCurrentMod(String modId) {
@@ -98,6 +108,11 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
         this.completed = modsDone;
     }
 
+    public void showError(String key, String detail) {
+        errorDetail = detail == null ? "" : detail;
+        showError(key);
+    }
+
     public void showError(String key) {
         this.errorKey = key;
         this.buttonList.clear();
@@ -121,7 +136,7 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
 
     private String currentLine() {
         if (errorKey != null) {
-            return PeerCraftLang.tr(errorKey);
+            return PeerCraftLang.tr(errorKey) + (errorDetail.isEmpty() ? "" : "\n" + errorDetail);
         }
         String key;
         switch (currentState) {
@@ -129,7 +144,7 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
                 key = "peercraft.modsync.progress.verifying";
                 break;
             case INSTALLING:
-                key = "peercraft.modsync.progress.installing";
+                key = plan.hasReplacements() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
                 break;
             default:
                 key = "peercraft.modsync.progress.mod";

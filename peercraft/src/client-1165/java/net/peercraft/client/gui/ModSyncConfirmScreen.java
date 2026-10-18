@@ -244,7 +244,9 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         return count;
     }
 
-    private static String rowName(ModEntry e) {
+    private static String rowName(ModSyncPlan.PlannedMod mod) {
+        ModEntry e = mod.entry();
+        if (mod.replacement() != null) return e.id() + "  " + mod.replacement().version() + " → " + e.version();
         return e.version().trim().isEmpty() ? e.id() : e.id() + "  " + e.version();
     }
 
@@ -265,8 +267,8 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             ModSyncPlan.PlannedMod mod = mods.get(scroll + i);
             ModEntry entry = mod.entry();
             int y = listTop + i * ROW_HEIGHT;
-            String name = rowName(entry);
-            String detail = catalogLabel(mod) + " · " + new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
+            String name = rowName(mod);
+            String detail = new TranslatableComponent(mod.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace").getString() + " · " + catalogLabel(mod) + " · " + new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
                     + " · " + humanSize(entry.sizeBytes()) + " · " + sourceLabel(mod);
             if (!isClient(mod)) GuiComponent.drawString(poseStack, font, "—", dialog.contentX() + 4, y + 6, PeerCraftUi.TEXT_MUTED);
             GuiComponent.drawString(poseStack, font, font.plainSubstrByWidth(name, dialog.contentWidth() - 26), dialog.contentX() + 22, y + 1, PeerCraftUi.TEXT_TITLE);
@@ -282,7 +284,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         super.render(poseStack, mouseX, mouseY, partialTick);
         if (mouseX >= dialog.contentX() && mouseX < dialog.contentX() + dialog.contentWidth() && mouseY >= listTop && mouseY < listTop + rows * ROW_HEIGHT) {
             ModSyncPlan.PlannedMod mod = mods.get(scroll + (mouseY - listTop) / ROW_HEIGHT);
-            renderTooltip(poseStack, new TextComponent(rowName(mod.entry()) + " · " + catalogLabel(mod)
+            renderTooltip(poseStack, new TextComponent(rowName(mod) + " · " + catalogLabel(mod)
                     + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod)), mouseX, mouseY);
         }
     }

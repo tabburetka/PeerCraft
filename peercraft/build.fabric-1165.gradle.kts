@@ -198,3 +198,5 @@ publishing {
 	repositories {
 	}
 }
+
+apply(from = rootProject.file("gradle/modsync-helper.gradle"))

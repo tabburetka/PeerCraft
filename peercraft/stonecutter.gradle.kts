@@ -21,6 +21,7 @@ stonecutter parameters {
 allprojects {
     tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         // An opt-in coturn run must not reuse results from a run where it was skipped.
+        inputs.property("modSyncHelperJava", providers.environmentVariable("PEERCRAFT_TEST_HELPER_JAVA").orElse(""))
         inputs.property("coturnExecutable", providers.environmentVariable("PEERCRAFT_TEST_COTURN_BIN").orElse(""))
         inputs.property("coturnLibraries", providers.environmentVariable("LD_LIBRARY_PATH").orElse(""))
     }

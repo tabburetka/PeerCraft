@@ -241,7 +241,9 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         }
     }
 
-    private static String rowName(ModEntry e) {
+    private static String rowName(ModSyncPlan.PlannedMod mod) {
+        ModEntry e = mod.entry();
+        if (mod.replacement() != null) return e.id() + "  " + mod.replacement().version() + " → " + e.version();
         return e.version().trim().isEmpty() ? e.id() : e.id() + "  " + e.version();
     }
 
@@ -261,13 +263,13 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             int textX = dialog.contentX() + 24;
             int textWidth = Math.max(1, dialog.contentWidth() - 34);
             if (!client) this.fontRendererObj.drawStringWithShadow("—", dialog.contentX() + 3, rowY + 7, PeerCraftUi.TEXT_MUTED);
-            this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(rowName(e), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
+            this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(rowName(m), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
             String tag = PeerCraftLang.tr(client ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required");
-            String details = catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
+            String details = PeerCraftLang.tr(m.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace") + " · " + catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
             this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(details, textWidth), textX, rowY + 14,
                     catalogColor(m));
             if (mouseX >= textX && mouseX < textX + textWidth && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT) {
-                hovered = PeerCraftUi.wrap(this.fontRendererObj, rowName(e) + "\n" + details + "\n"
+                hovered = PeerCraftUi.wrap(this.fontRendererObj, rowName(m) + "\n" + details + "\n"
                         + PeerCraftLang.tr("peercraft.modsync.catalog.explanation"), dialog.contentWidth());
             }
         }

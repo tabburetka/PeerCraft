@@ -9,6 +9,7 @@ import net.peercraft.client.gui.ModSyncPreparingScreen;
 import net.peercraft.client.gui.ModSyncProgressScreen;
 import net.peercraft.client.gui.ModSyncRestartRequiredScreen;
 import net.peercraft.client.gui.ModSyncSecurityNoticeScreen;
+import net.peercraft.client.gui.ModSyncIssuesScreen;
 import net.peercraft.config.ModSyncMode;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.config.PeerCraftSettings;
@@ -61,6 +62,8 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     private static final long P2P_FILE_TIMEOUT_MILLIS = 12 * 60_000;
 
     private final Screen previousScreen;
+    private ModSyncInventory inventory;
+    private final AtomicBoolean committing = new AtomicBoolean(false);
     private final String roomCode;
 
     private volatile ModSyncLink link;
@@ -93,18 +96,30 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         ModSyncPreparingScreen prep = new ModSyncPreparingScreen(this::onUserCancel);
         this.preparingScreen = prep;
         runOnClientThread(() -> setScreen(prep));
+        Thread inspect = new Thread(() -> inspectAndStart(link), "PeerCraft-ModSync-Inventory");
+        inspect.setDaemon(true); inspect.start();
+    }
+
+    private void inspectAndStart(ModSyncLink link) {
         try {
             Path modsDir = Services.PLATFORM.getModsDir();
             Path tmpDir = ModSyncFilesystem.tempDir(modsDir);
             long maxModBytes = mib(PeerCraftConfig.modSyncMaxModMb());
+            if (ModSyncPendingInstaller.hasPending()) throw new IllegalStateException("A Mod Sync transaction is pending; close Minecraft first");
+            inventory = ModSyncInventory.capture();
+            if (terminated.get()) return;
             ModSyncCoordinator c = ModSyncCoordinator.joiner(
-                    link::send, LoaderTag.current(), InstalledModScanner.localModRefs(), tmpDir, maxModBytes, this);
+                    link::send, LoaderTag.current(), inventory.refs(), tmpDir, maxModBytes, this, InstalledModScanner.minecraftVersion());
             this.coordinator = c;
+            if (terminated.get()) { c.cancel(); return; }
             link.bindInbound(c);
             c.startJoiner();
-        } catch (RuntimeException e) {
-            LOGGER.warn("[ModSync] Не удалось запустить mod-sync — подключаемся без него: {}", e.toString());
-            finishProceed();
+        } catch (Exception e) {
+            if (terminated.get()) return;
+            LOGGER.warn("[ModSync] Не удалось проверить mod-sync: {}", e.toString());
+            ModSyncProgressScreen failure = new ModSyncProgressScreen(ModSyncPlan.of(new ArrayList<ModSyncPlan.PlannedMod>()), this::onUserCancel);
+            runOnClientThread(() -> { setScreen(failure); failure.showError("peercraft.modsync.fail.inventory", ModSyncPendingInstaller.startupIssue()); });
+            finishFail("peercraft.modsync.fail.inventory");
         }
     }
 
@@ -151,7 +166,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     public void onManifest(List<ModEntry> missing) {
         prepStatus(Component.translatable("peercraft.modsync.prepare.checking", 0, missing.size()));
         // HTTP resolution + downloads must not run on the packet thread.
-        Thread t = new Thread(() -> planAndPrompt(missing), "PeerCraft-ModSync-Plan");
+        Thread t = new Thread(() -> reviewManifest(missing), "PeerCraft-ModSync-Plan");
         t.setDaemon(true);
         t.start();
     }
@@ -185,6 +200,19 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     }
 
     // ================= planning =================
+
+    private void reviewManifest(List<ModEntry> offered) {
+        if (terminated.get()) return;
+        List<ModEntry> safe = inventory.candidates(offered, coordinator.replacementsAllowed());
+        if (inventory.issues.isEmpty()) { planAndPrompt(safe); return; }
+        List<String> warnings = new ArrayList<String>();
+        for (ModSyncInventory.Issue issue : inventory.issues) warnings.add(Component.translatable("peercraft.modsync.skip." + issue.reason, issue.id).getString());
+        runOnClientThread(() -> setScreen(new ModSyncIssuesScreen(warnings,
+                () -> {
+                    Thread t = new Thread(() -> planAndPrompt(safe), "PeerCraft-ModSync-Plan");
+                    t.setDaemon(true); t.start();
+                }, this::onUserCancel)));
+    }
 
     private void planAndPrompt(List<ModEntry> missing) {
         try {
@@ -221,7 +249,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             // visible set minus the client-side mods the player turned down on an earlier join.
             List<ModEntry> toFetch = new ArrayList<>();
             for (ModEntry e : visible) {
-                if (!declined.contains(e.id())) {
+                if (e.env() != ModEntry.Env.CLIENT || !declined.contains(e.id())) {
                     toFetch.add(e);
                 }
             }
@@ -256,11 +284,11 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             // start its checkbox unticked. Use the plan's mods — their env has been refined by
             // Modrinth, so "is this client-side" matches what the screen will show. In
             // "required only" mode `visible` is already just the join-required mods.
-            ModSyncPlan plan = ModSyncPlan.of(resolveSources(visible));
-            ModSyncPlan selected = plan.excluding(declined);
-            boolean allPublished = selected.mods().stream().allMatch(pm ->
-                    pm.catalogStatus() == ModSyncPlan.CatalogStatus.PUBLISHED);
-            if (!forceScreen && PeerCraftConfig.modSyncAutoAccept() && allPublished) {
+            ModSyncPlan plan = inventory.annotate(ModSyncPlan.of(resolveSources(visible)));
+            Set<String> optionalDeclined = new LinkedHashSet<String>();
+            for (ModSyncPlan.PlannedMod mod : plan.mods()) if (mod.entry().env() == ModEntry.Env.CLIENT && declined.contains(mod.entry().id())) optionalDeclined.add(mod.entry().id());
+            ModSyncPlan selected = plan.excluding(optionalDeclined);
+            if (selected.canAutoAccept(PeerCraftConfig.modSyncAutoAccept(), forceScreen)) {
                 runDownloads(selected);
                 return;
             }
@@ -392,6 +420,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     /** Cancel button on the progress screen: stop everything, drop partial files, back out of the join. */
     private void onDownloadCancel() {
+        if (committing.get()) return;
         terminated.set(true); // stop the download loop at its next iteration
         safeSendAbort("peercraft.modsync.cancelled");
         // Unblock a fetchP2p() that's parked on a file future.
@@ -424,61 +453,51 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         ModSyncProgressScreen screen = new ModSyncProgressScreen(plan, this::onDownloadCancel);
         this.progressScreen = screen;
         runOnClientThread(() -> setScreen(screen));
-
-        Path modsDir = Services.PLATFORM.getModsDir();
-        Path tmpDir = ModSyncFilesystem.tempDir(modsDir);
+        Path tmpDir = ModSyncFilesystem.tempDir(Services.PLATFORM.getModsDir());
         long maxModBytes = mib(PeerCraftConfig.modSyncMaxModMb());
         ModrinthDownloadDeps deps = new ModrinthDownloadDeps(new ModDownloader(selfVersion()));
-        ModSyncManifest manifest = ModSyncManifestStore.load();
-        List<String> installedNames = new ArrayList<>();
-        this.currentBase = 0;
-        this.currentModsDone = 0;
-
+        List<Path> verifiedFiles = new ArrayList<Path>();
+        List<String> names = new ArrayList<String>();
+        this.currentBase = 0; this.currentModsDone = 0;
         try {
             Files.createDirectories(tmpDir);
-        } catch (Exception ignored) {
+            for (ModSyncPlan.PlannedMod pm : plan.mods()) {
+                if (terminated.get()) return;
+                ModEntry e = pm.entry();
+                runOnClientThread(() -> { screen.setCurrentMod(e.id()); screen.setOverall(currentBase, currentModsDone); });
+                Path part = tmpDir.resolve(ModSyncCoordinator.safeName(e.id()) + ".jar.part");
+                Path verified = fetch(pm, part, maxModBytes, deps, screen);
+                if (verified != null) verifiedFiles.add(verified);
+                if (terminated.get()) return;
+                if (verified == null) { failDownload("peercraft.modsync.fail.transfer", screen); return; }
+                if (!e.sha512Hex().equals(ModSyncInventory.hex(ModSyncFilesystem.hashFile(verified))))
+                    throw new java.io.IOException("Downloaded file failed verification: " + e.id());
+                names.add(e.id() + " " + (pm.replacement() == null ? "" : pm.replacement().version() + " → ") + e.version());
+                currentBase += Math.max(0, e.sizeBytes()); currentModsDone++;
+                runOnClientThread(() -> screen.setOverall(currentBase, currentModsDone));
+            }
+            if (terminated.get()) return;
+            committing.set(true);
+            if (terminated.get()) return;
+            runOnClientThread(screen::beginCommit);
+            if (plan.hasReplacements()) {
+                ModSyncPendingInstaller.arm(plan, verifiedFiles, roomCode, inventory.fingerprints(), () -> terminated.get());
+            } else {
+                ModSyncPendingInstaller.installNow(plan, verifiedFiles, roomCode, inventory.fingerprints());
+            }
+            safeSendAbort("done");
+            runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names, plan.hasReplacements())));
+            finishAbort();
+        } catch (Exception e) {
+            LOGGER.warn("[ModSync] Install batch failed: {}", e.toString());
+            if (!terminated.get()) {
+                safeSendAbort("peercraft.modsync.fail.io");
+                runOnClientThread(() -> screen.showError("peercraft.modsync.fail.io", e.getMessage()));
+                finishFail("peercraft.modsync.fail.io");
+            }
+        } finally {
+            for (Path file : verifiedFiles) ModSyncFilesystem.deleteQuietly(file);
         }
-
-        for (ModSyncPlan.PlannedMod pm : plan.mods()) {
-            if (terminated.get()) {
-                return;
-            }
-            ModEntry e = pm.entry();
-            runOnClientThread(() -> {
-                screen.setCurrentMod(e.id());
-                screen.setOverall(currentBase, currentModsDone);
-            });
-            Path part = tmpDir.resolve(ModSyncCoordinator.safeName(e.id()) + ".jar.part");
-
-            Path verified = fetch(pm, part, maxModBytes, deps, screen);
-            if (terminated.get()) {
-                return;
-            }
-            if (verified == null) {
-                failDownload("peercraft.modsync.fail.transfer", screen);
-                return;
-            }
-
-            try {
-                runOnClientThread(() -> screen.setState(e.id(), ModSyncProgressScreen.State.INSTALLING));
-                ModSyncFilesystem.Installed done = ModSyncFilesystem.install(verified, e, modsDir);
-                recordInstall(manifest, pm, done);
-                installedNames.add(e.id() + " " + e.version());
-            } catch (Exception ex) {
-                LOGGER.warn("[ModSync] Не удалось установить {}: {}", e.id(), ex.toString());
-                failDownload("peercraft.modsync.fail.io", screen);
-                return;
-            }
-            this.currentBase += Math.max(0, e.sizeBytes());
-            this.currentModsDone++;
-            runOnClientThread(() -> screen.setOverall(currentBase, currentModsDone));
-        }
-
-        ModSyncManifestStore.save(manifest);
-        safeSendAbort("done");
-        List<String> names = List.copyOf(installedNames);
-        runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names)));
-        finishAbort();
     }
 
     /** HTTP first when planned; on any HTTP failure fall back to a peer-to-peer transfer. Returns a hash-verified part file or null. */
@@ -520,21 +539,6 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         } finally {
             p2pFiles.remove(e.id());
         }
-    }
-
-    private void recordInstall(ModSyncManifest manifest, ModSyncPlan.PlannedMod pm, ModSyncFilesystem.Installed done) {
-        ModSyncManifest.Install rec = new ModSyncManifest.Install();
-        rec.modId = pm.entry().id();
-        rec.modVersion = pm.entry().version();
-        rec.fileName = done.fileName();
-        rec.sha512 = pm.entry().sha512Hex();
-        rec.source = pm.source() == ModSyncPlan.Source.HTTP ? "http" : "p2p";
-        rec.url = pm.httpUrl() == null ? "" : pm.httpUrl();
-        rec.sizeBytes = pm.entry().sizeBytes();
-        rec.installedAt = System.currentTimeMillis();
-        rec.hostRoomCode = roomCode;
-        rec.supersededPath = "";
-        manifest.record(rec);
     }
 
     private void failDownload(String key, ModSyncProgressScreen screen) {

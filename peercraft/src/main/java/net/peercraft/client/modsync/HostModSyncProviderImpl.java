@@ -55,9 +55,15 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     }
 
     private void hashAll() {
+        try { hashInventory(); }
+        catch (RuntimeException e) { LOGGER.warn("[ModSync] Host inventory unavailable: {}", e.toString()); }
+        finally { hashed.countDown(); }
+    }
+
+    private void hashInventory() {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
-        for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir)) {
+        for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir, InstalledModScanner.allInstalled())) {
             String envStr = switch (sj.env()) {
                 case CLIENT -> "client";
                 case SERVER -> "server";
@@ -70,7 +76,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
             try {
                 byte[] sha = ModSyncFilesystem.hashFile(sj.jarPath());
                 long size = Files.size(sj.jarPath());
-                out.add(new ModEntry(sj.id(), sj.version(), size, sha, sj.fileName(), sj.env(), "", ""));
+                out.add(new ModEntry(sj.id(), sj.replaceable() ? sj.version() : "", size, sha, sj.fileName(), sj.env(), "", ""));
                 jarById.put(sj.id(), sj.jarPath());
             } catch (IOException e) {
                 LOGGER.warn("[ModSync] Не удалось захешировать {}: {}", sj.fileName(), e.toString());
@@ -116,6 +122,9 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         }
         return "3.4.2";
     }
+
+    @Override
+    public String minecraftVersion() { return InstalledModScanner.minecraftVersion(); }
 
     @Override
     public ModSyncProtocol.Loader loader() {

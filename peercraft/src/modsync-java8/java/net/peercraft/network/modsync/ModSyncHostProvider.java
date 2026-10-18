@@ -20,6 +20,8 @@ public interface ModSyncHostProvider {
 
     ModSyncProtocol.Loader loader();
 
+    default String minecraftVersion() { return ""; }
+
     /**
      * The mods this host offers, already run through {@link ModSyncFilter} and with real
      * {@code sizeBytes}/{@code sha512} filled in. May block briefly the first time if

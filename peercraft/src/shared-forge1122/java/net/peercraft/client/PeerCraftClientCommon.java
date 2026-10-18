@@ -38,6 +38,8 @@ public final class PeerCraftClientCommon {
         net.peercraft.network.handoff.WorldInstallRecovery.start(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());
 
+        net.peercraft.client.modsync.ModSyncPendingInstaller.initialize();
+
         String mode = PeerCraftConfig.mode();
 
         // Accounts/friends work independently of hosting/joining mode — a player might only

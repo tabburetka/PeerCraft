@@ -28,12 +28,17 @@ public final class InstalledModScanner {
         }
     }
 
+    public static String minecraftVersion() {
+        for (PlatformMod mod : allInstalled()) if ("minecraft".equals(mod.id())) return mod.version();
+        return "";
+    }
+
     /** {id, version} for every jar the joiner already has in mods/ — what it advertises in HELLO. */
     public static List<ModSyncProtocol.ModRef> localModRefs() {
         List<ModSyncProtocol.ModRef> out = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         try {
-            for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(Services.PLATFORM.getModsDir())) {
+            for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(Services.PLATFORM.getModsDir(), allInstalled())) {
                 if (seen.add(sj.id())) {
                     out.add(new ModSyncProtocol.ModRef(sj.id(), sj.version()));
                 }

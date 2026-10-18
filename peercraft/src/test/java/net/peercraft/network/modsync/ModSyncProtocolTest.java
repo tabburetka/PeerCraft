@@ -12,6 +12,19 @@ class ModSyncProtocolTest {
     private static final byte M = (byte) 0xE2;
 
     @Test
+    void appendOnlyReplacementExtensionsRoundTripAndLegacyOverloadsStayLegacy() {
+        byte[] hello = ModSyncProtocol.encodeHello(ModSyncProtocol.Loader.FABRIC, List.of(), "1.21.1");
+        ModSyncProtocol.Hello decoded = ModSyncProtocol.decodeHello(hello, hello.length);
+        assertTrue(decoded.replacements()); assertEquals("1.21.1", decoded.minecraftVersion());
+        byte[] legacy = ModSyncProtocol.encodeHello(ModSyncProtocol.Loader.FABRIC, List.of());
+        assertFalse(ModSyncProtocol.decodeHello(legacy, legacy.length).replacements());
+        byte[] manifest = ModSyncProtocol.encodeManifest(0, List.of(), ModSyncProtocol.Loader.FABRIC, "1.21.1");
+        ModSyncProtocol.Manifest m = ModSyncProtocol.decodeManifest(manifest, manifest.length);
+        assertEquals(ModSyncProtocol.Loader.FABRIC, m.loader()); assertEquals("1.21.1", m.minecraftVersion());
+        assertTrue((m.flags() & ModSyncProtocol.MANIFEST_FLAG_REPLACEMENTS) != 0);
+    }
+
+    @Test
     void magicAndTypeAreReadable() {
         byte[] none = ModSyncProtocol.encodeManifestNone();
         assertEquals(ModSyncProtocol.T_MANIFEST_NONE, ModSyncProtocol.messageType(none, none.length));

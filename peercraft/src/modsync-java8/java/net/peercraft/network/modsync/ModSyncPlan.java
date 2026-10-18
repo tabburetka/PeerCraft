@@ -16,6 +16,27 @@ import java.util.Set;
  */
 public final class ModSyncPlan {
 
+    public static final class Replacement {
+        private final String fileName, version, sha512;
+        public Replacement(String fileName, String version, String sha512) {
+            this.fileName = fileName; this.version = version; this.sha512 = sha512;
+        }
+        public String fileName() { return fileName; }
+        public String version() { return version; }
+        public String sha512() { return sha512; }
+    }
+
+    public boolean hasReplacements() {
+        for (PlannedMod mod : mods()) if (mod.replacement() != null) return true;
+        return false;
+    }
+
+    public boolean canAutoAccept(boolean enabled, boolean reofferDeclined) {
+        if (!enabled || reofferDeclined || hasReplacements()) return false;
+        for (PlannedMod mod : mods()) if (mod.catalogStatus() != CatalogStatus.PUBLISHED) return false;
+        return true;
+    }
+
     public enum Source { HTTP, P2P }
 
     public enum CatalogStatus { PUBLISHED, NOT_FOUND, UNAVAILABLE }
@@ -25,18 +46,23 @@ public final class ModSyncPlan {
         private final Source source;
         private final String httpUrl;
         private final CatalogStatus catalogStatus;
+        private final Replacement replacement;
 
         public PlannedMod(ModEntry entry, Source source, String httpUrl) {
             this(entry, source, httpUrl, CatalogStatus.UNAVAILABLE);
         }
 
-        public PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus) {
+        public PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus) { this(entry, source, httpUrl, catalogStatus, null); }
+        public PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus, Replacement replacement) {
+            this.replacement = replacement;
             this.entry = entry;
             this.source = source;
             this.httpUrl = httpUrl;
             this.catalogStatus = catalogStatus;
         }
 
+        public Replacement replacement() { return replacement; }
+        public PlannedMod withReplacement(Replacement replacement) { return new PlannedMod(entry, source, httpUrl, catalogStatus, replacement); }
         public ModEntry entry() {
             return entry;
         }
@@ -54,7 +80,7 @@ public final class ModSyncPlan {
         }
 
         public PlannedMod withCatalogStatus(CatalogStatus status) {
-            return new PlannedMod(entry, source, httpUrl, status);
+            return new PlannedMod(entry, source, httpUrl, status, replacement);
         }
 
         public static PlannedMod http(ModEntry e, String url) {

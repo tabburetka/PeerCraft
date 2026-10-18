@@ -20,6 +20,14 @@ class ModDiffTest {
     }
 
     @Test
+    void changesIncludesUpgradesDowngradesAndUnknownVersionsOnlyWhenNegotiated() {
+        List<ModEntry> host = List.of(mod("upgrade", "2"), mod("downgrade", "1"), mod("same", "1"), mod("unknown", "2"), mod("new", "1"));
+        Map<String, String> local = Map.of("upgrade", "1", "downgrade", "2", "same", "1", "unknown", "");
+        assertEquals(List.of("upgrade", "downgrade", "unknown", "new"), ModDiff.changes(local, host, true).stream().map(ModEntry::id).toList());
+        assertEquals(List.of("new"), ModDiff.changes(local, host, false).stream().map(ModEntry::id).toList());
+    }
+
+    @Test
     void missingOnlyWhenJoinerLacksTheIdEntirely() {
         List<ModEntry> host = List.of(mod("aaa", "1.0"), mod("bbb", "2.0"), mod("ccc", "3.0"));
         // Joiner has aaa and bbb (bbb at a different version) — only ccc is genuinely absent.

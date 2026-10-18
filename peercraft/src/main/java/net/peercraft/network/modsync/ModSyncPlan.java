@@ -12,12 +12,35 @@ import java.util.Set;
  */
 public record ModSyncPlan(List<PlannedMod> mods, long totalBytes) {
 
+    public static final class Replacement {
+        private final String fileName, version, sha512;
+        public Replacement(String fileName, String version, String sha512) {
+            this.fileName = fileName; this.version = version; this.sha512 = sha512;
+        }
+        public String fileName() { return fileName; }
+        public String version() { return version; }
+        public String sha512() { return sha512; }
+    }
+
+    public boolean hasReplacements() {
+        for (PlannedMod mod : mods()) if (mod.replacement() != null) return true;
+        return false;
+    }
+
+    public boolean canAutoAccept(boolean enabled, boolean reofferDeclined) {
+        if (!enabled || reofferDeclined || hasReplacements()) return false;
+        for (PlannedMod mod : mods()) if (mod.catalogStatus() != CatalogStatus.PUBLISHED) return false;
+        return true;
+    }
+
     public enum Source { HTTP, P2P }
 
     /** A catalog lookup is evidence of publication, never a malware scan. */
     public enum CatalogStatus { PUBLISHED, NOT_FOUND, UNAVAILABLE }
 
-    public record PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus) {
+    public record PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus catalogStatus, Replacement replacement) {
+        public PlannedMod(ModEntry entry, Source source, String httpUrl, CatalogStatus status) { this(entry, source, httpUrl, status, null); }
+        public PlannedMod withReplacement(Replacement replacement) { return new PlannedMod(entry, source, httpUrl, catalogStatus, replacement); }
         public static PlannedMod http(ModEntry e, String url) {
             return new PlannedMod(e, Source.HTTP, url, CatalogStatus.UNAVAILABLE);
         }
@@ -27,7 +50,7 @@ public record ModSyncPlan(List<PlannedMod> mods, long totalBytes) {
         }
 
         public PlannedMod withCatalogStatus(CatalogStatus status) {
-            return new PlannedMod(entry, source, httpUrl, status);
+            return new PlannedMod(entry, source, httpUrl, status, replacement);
         }
     }
 

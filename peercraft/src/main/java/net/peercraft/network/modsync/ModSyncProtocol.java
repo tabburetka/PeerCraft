@@ -43,6 +43,8 @@ public final class ModSyncProtocol {
 
     /** MANIFEST flag: the mod list didn't fit one datagram and is being streamed as a file under {@link #MANIFEST_STREAM_ID}. */
     public static final int MANIFEST_FLAG_STREAMED = 0x1;
+    public static final int MANIFEST_FLAG_REPLACEMENTS = 0x2;
+    private static final int EXTENSION_VERSION = 1;
 
     /** Reserved {@code modId} the MANIFEST body uses when it has to travel through the file mechanism. */
     public static final String MANIFEST_STREAM_ID = "$manifest";
@@ -60,13 +62,15 @@ public final class ModSyncProtocol {
         }
     }
 
-    public record Hello(int protoVersion, Loader loader, List<ModRef> mods) {
+    public record Hello(int protoVersion, Loader loader, List<ModRef> mods, boolean replacements, String minecraftVersion) {
+        public Hello(int protoVersion, Loader loader, List<ModRef> mods) { this(protoVersion, loader, mods, false, ""); }
     }
 
     public record ModRef(String id, String version) {
     }
 
-    public record Manifest(int protoVersion, int flags, List<ModEntry> mods) {
+    public record Manifest(int protoVersion, int flags, List<ModEntry> mods, Loader loader, String minecraftVersion) {
+        public Manifest(int protoVersion, int flags, List<ModEntry> mods) { this(protoVersion, flags, mods, Loader.UNKNOWN, ""); }
         public boolean streamed() {
             return (flags & MANIFEST_FLAG_STREAMED) != 0;
         }
@@ -113,6 +117,15 @@ public final class ModSyncProtocol {
         return trim(buf);
     }
 
+    /** Append-only extension: the original overload deliberately keeps its exact v1 bytes. */
+    public static byte[] encodeHello(Loader loader, List<ModRef> mods, String minecraftVersion) {
+        byte[] original = encodeHello(loader, mods);
+        ByteBuffer buf = ByteBuffer.allocate(original.length + 4 + utf8(minecraftVersion).length);
+        buf.put(original).put((byte) EXTENSION_VERSION).put((byte) 1);
+        putStr(buf, minecraftVersion);
+        return trim(buf);
+    }
+
     public static Hello decodeHello(byte[] data, int length) {
         ByteBuffer buf = body(data, length);
         int proto = u8(buf);
@@ -124,7 +137,13 @@ public final class ModSyncProtocol {
             String version = getStr(buf);
             mods.add(new ModRef(id, version));
         }
-        return new Hello(proto, loader, mods);
+        boolean replacements = false;
+        String minecraft = "";
+        if (buf.remaining() >= 4 && u8(buf) == EXTENSION_VERSION) {
+            replacements = (u8(buf) & 1) != 0;
+            minecraft = getStr(buf);
+        }
+        return new Hello(proto, loader, mods, replacements, minecraft);
     }
 
     // ---- MANIFEST: host -> joiner ----
@@ -152,6 +171,14 @@ public final class ModSyncProtocol {
         return trim(buf);
     }
 
+    public static byte[] encodeManifest(int flags, List<ModEntry> mods, Loader loader, String minecraftVersion) {
+        byte[] original = encodeManifest(flags | MANIFEST_FLAG_REPLACEMENTS, mods);
+        ByteBuffer buf = ByteBuffer.allocate(original.length + 4 + utf8(minecraftVersion).length);
+        buf.put(original).put((byte) EXTENSION_VERSION).put(loader.wire());
+        putStr(buf, minecraftVersion);
+        return trim(buf);
+    }
+
     public static Manifest decodeManifest(byte[] data, int length) {
         ByteBuffer buf = body(data, length);
         int proto = u8(buf);
@@ -169,7 +196,13 @@ public final class ModSyncProtocol {
             String sources = getStr(buf);
             mods.add(new ModEntry(id, version, modSize, sha, fileName, ModEntry.Env.fromWire(env), homepage, sources));
         }
-        return new Manifest(proto, flags, mods);
+        Loader loader = Loader.UNKNOWN;
+        String minecraft = "";
+        if ((flags & MANIFEST_FLAG_REPLACEMENTS) != 0 && buf.remaining() >= 4 && u8(buf) == EXTENSION_VERSION) {
+            loader = Loader.fromWire(u8(buf));
+            minecraft = getStr(buf);
+        }
+        return new Manifest(proto, flags, mods, loader, minecraft);
     }
 
     public static byte[] encodeManifestNone() {

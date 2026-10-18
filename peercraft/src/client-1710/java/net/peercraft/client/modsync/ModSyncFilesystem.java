@@ -18,9 +18,9 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 
 /**
- * Where mod-sync's downloaded jars land: a dot-prefixed temp dir the loader never scans, then
- * an atomic move into {@code mods/}. Deliberately <b>purely additive</b> — it never moves,
- * deletes or overwrites a jar the player already had.
+ * Transport scratch files and streaming SHA-512 utilities. Installation batches are committed
+ * by ModSyncPendingInstaller through the standalone ModSyncInstaller transaction engine.
+ * The older additive install API is retained for compatibility, not used for version matching.
  */
 public final class ModSyncFilesystem {
 
@@ -75,6 +75,7 @@ public final class ModSyncFilesystem {
      * Moves a hash-verified jar into {@code mods/}. If a file with the same name is somehow
      * already there it's left alone and this is a no-op — mod-sync never clobbers.
      */
+    @Deprecated
     public static Installed install(Path verifiedPart, ModEntry entry, Path modsDir) throws IOException {
         if (!entry.hasSafeFileName()) {
             throw new IOException("unsafe file name: " + entry.fileName());

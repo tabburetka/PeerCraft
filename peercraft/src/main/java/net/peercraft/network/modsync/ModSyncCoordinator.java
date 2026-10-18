@@ -94,6 +94,11 @@ public final class ModSyncCoordinator implements RawPacketListener {
         void onFileFailed(String modId, String reasonKey);
     }
 
+    private String joinerMinecraft = "";
+    private volatile boolean replacementsAllowed;
+
+    public boolean replacementsAllowed() { return replacementsAllowed; }
+
     private final Sender sender;
     private final boolean isHost;
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -141,6 +146,14 @@ public final class ModSyncCoordinator implements RawPacketListener {
                                             List<ModSyncProtocol.ModRef> localMods, Path tmpDir,
                                             long maxModBytes, JoinerHandler handler) {
         return new ModSyncCoordinator(sender, false, loader, List.copyOf(localMods), tmpDir, maxModBytes, handler, null, null);
+    }
+
+    public static ModSyncCoordinator joiner(Sender sender, ModSyncProtocol.Loader loader,
+                                            List<ModSyncProtocol.ModRef> localMods, Path tmpDir,
+                                            long maxModBytes, JoinerHandler handler, String minecraftVersion) {
+        ModSyncCoordinator c = joiner(sender, loader, localMods, tmpDir, maxModBytes, handler);
+        c.joinerMinecraft = minecraftVersion;
+        return c;
     }
 
     public static ModSyncCoordinator host(Sender sender, ModSyncHostProvider provider, Path hostTmpDir) {
@@ -292,7 +305,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
     // ================= joiner side =================
 
     private void runHelloLoop() {
-        byte[] hello = ModSyncProtocol.encodeHello(joinerLoader, joinerMods);
+        byte[] hello = joinerMinecraft.isEmpty() ? ModSyncProtocol.encodeHello(joinerLoader, joinerMods)
+                : ModSyncProtocol.encodeHello(joinerLoader, joinerMods, joinerMinecraft);
         long started = System.currentTimeMillis();
         long deadline = started + HANDSHAKE_TIMEOUT_MILLIS;
         long hardDeadline = started + MAX_HOST_PREPARATION_MILLIS;
@@ -358,7 +372,14 @@ public final class ModSyncCoordinator implements RawPacketListener {
             }
             return;
         }
+        authorizeReplacements(manifest);
         settleManifest(manifest.mods());
+    }
+
+    private void authorizeReplacements(ModSyncProtocol.Manifest manifest) {
+        replacementsAllowed = (manifest.flags() & ModSyncProtocol.MANIFEST_FLAG_REPLACEMENTS) != 0
+                && joinerLoader != ModSyncProtocol.Loader.UNKNOWN && joinerLoader == manifest.loader()
+                && !joinerMinecraft.isEmpty() && joinerMinecraft.equals(manifest.minecraftVersion());
     }
 
     private void settleManifest(List<ModEntry> mods) {
@@ -507,7 +528,10 @@ public final class ModSyncCoordinator implements RawPacketListener {
             return;
         }
 
-        List<ModEntry> missing = ModDiff.missing(joinerVersions, hostMods);
+        boolean canReplace = hello.replacements() && hostLoader != ModSyncProtocol.Loader.UNKNOWN
+                && hostLoader == hello.loader() && !provider.minecraftVersion().isEmpty()
+                && provider.minecraftVersion().equals(hello.minecraftVersion());
+        List<ModEntry> missing = ModDiff.changes(joinerVersions, hostMods, canReplace);
         for (ModEntry e : missing) {
             offeredById.put(e.id(), e);
         }
@@ -532,7 +556,9 @@ public final class ModSyncCoordinator implements RawPacketListener {
             return;
         }
 
-        byte[] inline = ModSyncProtocol.encodeManifest(0, missing);
+        byte[] inline = canReplace
+                ? ModSyncProtocol.encodeManifest(0, missing, hostLoader, provider.minecraftVersion())
+                : ModSyncProtocol.encodeManifest(0, missing);
         if (inline.length <= MANIFEST_INLINE_LIMIT) {
             cachedHelloResponse = inline;
             sender.send(inline);
@@ -783,6 +809,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
                     r.close();
                     deleteQuietly(r.partFile());
                     ModSyncProtocol.Manifest m = ModSyncProtocol.decodeManifest(body, body.length);
+                    if (m.protoVersion() != ModSyncProtocol.PROTO_VERSION || m.streamed()) throw new IOException("invalid streamed manifest");
+                    authorizeReplacements(m);
                     settleManifest(m.mods());
                 } catch (IOException e) {
                     if (manifestSettled.compareAndSet(false, true)) {

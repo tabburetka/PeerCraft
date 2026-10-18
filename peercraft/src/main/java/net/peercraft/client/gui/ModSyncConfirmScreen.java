@@ -160,7 +160,7 @@ public class ModSyncConfirmScreen extends Screen {
         };
     }
     private String rowDetails(ModSyncPlan.PlannedMod mod) {
-        return Component.translatable(catalogKey(mod)).getString() + " · "
+        return Component.translatable(mod.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace").getString() + " · " + Component.translatable(catalogKey(mod)).getString() + " · "
                 + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
                 : "peercraft.modsync.confirm.tag_required").getString()
                 + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod);
@@ -241,7 +241,7 @@ public class ModSyncConfirmScreen extends Screen {
         if (mouseX < contentLeft() || mouseX >= contentLeft() + contentWidth()
                 || mouseY < LIST_TOP || row >= visibleRows() || row + scroll >= mods.size()) return null;
         ModSyncPlan.PlannedMod mod = mods.get(row + scroll);
-        return Component.literal(rowName(mod.entry()) + "\n" + mod.entry().fileName() + "\n"
+        return Component.literal(rowName(mod) + "\n" + mod.entry().fileName() + "\n"
                 + rowDetails(mod) + "\n" + Component.translatable("peercraft.modsync.catalog.explanation").getString());
     }
 
@@ -263,7 +263,9 @@ public class ModSyncConfirmScreen extends Screen {
                 : "peercraft.modsync.confirm.source_p2p").getString();
     }
 
-    private static String rowName(ModEntry e) {
+    private static String rowName(ModSyncPlan.PlannedMod mod) {
+        ModEntry e = mod.entry();
+        if (mod.replacement() != null) return e.id() + "  " + mod.replacement().version() + " → " + e.version();
         return e.version().isBlank() ? e.id() : e.id() + "  " + e.version();
     }
 
@@ -314,7 +316,7 @@ public class ModSyncConfirmScreen extends Screen {
             if (!isClient(m)) graphics.drawString(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
-            graphics.drawString(this.font, this.font.plainSubstrByWidth(rowName(e), textWidth), textX, textY, 0xFFE9DFCB, false);
+            graphics.drawString(this.font, this.font.plainSubstrByWidth(rowName(m), textWidth), textX, textY, 0xFFE9DFCB, false);
             graphics.drawString(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, catalogColor(m), false);
         }
         drawScrollbar(graphics, centerX, vis.size());
@@ -395,7 +397,7 @@ public class ModSyncConfirmScreen extends Screen {
             if (!isClient(m)) graphics.text(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
-            graphics.text(this.font, this.font.plainSubstrByWidth(rowName(e), textWidth), textX, textY, 0xFFE9DFCB, false);
+            graphics.text(this.font, this.font.plainSubstrByWidth(rowName(m), textWidth), textX, textY, 0xFFE9DFCB, false);
             graphics.text(this.font, this.font.plainSubstrByWidth(rowDetails(m), textWidth), textX, textY + 11, catalogColor(m), false);
         }
         drawScrollbar(graphics, centerX, vis.size());

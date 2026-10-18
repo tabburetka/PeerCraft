@@ -24,11 +24,14 @@ import java.util.List;
 public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
 
 
-    private final String titleText = PeerCraftLang.tr("peercraft.modsync.restart.title");
+    private final boolean prepared;
     private final List<String> installed;
 
-    public ModSyncRestartRequiredScreen(List<String> installed) {
-        super(PeerCraftLang.tr("peercraft.modsync.restart.title"), 340, 400);
+    public ModSyncRestartRequiredScreen(List<String> installed) { this(installed, false); }
+
+    public ModSyncRestartRequiredScreen(List<String> installed, boolean prepared) {
+        super(PeerCraftLang.tr(prepared ? "peercraft.modsync.prepared.title" : "peercraft.modsync.restart.title"), 340, 400);
+        this.prepared = prepared;
         this.installed = Collections.unmodifiableList(new ArrayList<>(installed));
     }
 
@@ -63,7 +66,7 @@ public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
         java.util.List<String> paragraphs = new java.util.ArrayList<>();
-        paragraphs.add(PeerCraftLang.tr("peercraft.modsync.restart.body", installed.size()));
+        paragraphs.add(PeerCraftLang.tr(prepared ? "peercraft.modsync.prepared.body" : "peercraft.modsync.restart.body", installed.size()));
         paragraphs.add(""); paragraphs.addAll(installed);
         drawBody(paragraphs, PeerCraftUi.TEXT_TITLE);
         super.drawScreen(mouseX, mouseY, partialTicks);

@@ -274,3 +274,5 @@ processResources {
 		expand("mod_version": project.mod_version, "mod_id": project.mod_id, "mod_name": project.mod_name)
 	}
 }
+
+apply from: new File(rootProject.projectDir, '../peercraft/gradle/modsync-helper.gradle')

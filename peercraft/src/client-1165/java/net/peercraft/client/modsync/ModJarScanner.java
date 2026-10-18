@@ -1,214 +1,156 @@
 package net.peercraft.client.modsync;
 
-// Minecraft 1.16.5 Fabric backport of src/main/.../client/modsync/ModJarScanner.java —
-// `record ScannedJar` lowered to a static final class with the same accessor names;
-// InputStream.readAllBytes() (Java 9) -> a manual read loop. Reads fabric.mod.json /
-// neoforge.mods.toml exactly like the original (1.16.5 mods all carry fabric.mod.json).
-// Keep in sync with the original.
-
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import net.peercraft.network.modsync.ModEntry;
+import net.peercraft.network.modsync.ModDiff;
+import net.peercraft.platform.services.PlatformMod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.nio.file.*;
+import java.util.*;
+import java.util.jar.Manifest;
+import java.util.regex.*;
+import java.util.zip.*;
 
-/**
- * Lists the actual {@code *.jar} files sitting directly in the {@code mods/} folder and reads
- * each one's declared mod id / version straight from {@code fabric.mod.json} /
- * {@code META-INF/neoforge.mods.toml} inside the jar — WITHOUT going through the loader's
- * runtime mod list.
- */
+/** Physical top-level jars are the unit of installation. Shared Java 8 implementation across all clients. */
 public final class ModJarScanner {
-
     private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
-    private static final Pattern TOML_STR = Pattern.compile("(?m)^\\s*%s\\s*=\\s*\"([^\"]*)\"");
+    private ModJarScanner() { }
 
-    private ModJarScanner() {
-    }
-
-    /** Java 8 twin of the original {@code record ScannedJar(...)} — same component accessor names. */
     public static final class ScannedJar {
         private final Path jarPath;
-        private final String id;
-        private final String version;
+        private final String id, version, fileName;
         private final ModEntry.Env env;
-        private final String fileName;
-
-        public ScannedJar(Path jarPath, String id, String version, ModEntry.Env env, String fileName) {
-            this.jarPath = jarPath;
-            this.id = id;
-            this.version = version;
-            this.env = env;
-            this.fileName = fileName;
+        private final boolean replaceable;
+        public ScannedJar(Path path, String id, String version, ModEntry.Env env, String fileName) {
+            this(path, id, version, env, fileName, true);
         }
-
-        public Path jarPath() {
-            return jarPath;
+        public ScannedJar(Path path, String id, String version, ModEntry.Env env, String fileName, boolean replaceable) {
+            this.jarPath = path; this.id = id; this.version = version; this.env = env;
+            this.fileName = fileName; this.replaceable = replaceable;
         }
-
-        public String id() {
-            return id;
-        }
-
-        public String version() {
-            return version;
-        }
-
-        public ModEntry.Env env() {
-            return env;
-        }
-
-        public String fileName() {
-            return fileName;
-        }
+        public Path jarPath() { return jarPath; }
+        public String id() { return id; }
+        public String version() { return version; }
+        public ModEntry.Env env() { return env; }
+        public String fileName() { return fileName; }
+        public boolean replaceable() { return replaceable; }
     }
 
-    /** Every {@code *.jar} directly in {@code modsDir}, one {@link ScannedJar} each. */
-    public static List<ScannedJar> scan(Path modsDir) {
-        List<ScannedJar> out = new ArrayList<>();
-        if (modsDir == null || !Files.isDirectory(modsDir)) {
-            return out;
-        }
+    public static List<ScannedJar> scan(Path modsDir) { return scan(modsDir, Collections.<PlatformMod>emptyList()); }
+
+    public static List<ScannedJar> scan(Path modsDir, List<PlatformMod> loaded) {
+        List<ScannedJar> out = new ArrayList<ScannedJar>();
+        if (modsDir == null || !Files.isDirectory(modsDir)) return out;
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(modsDir, "*.jar")) {
-            for (Path jar : ds) {
-                if (Files.isRegularFile(jar)) {
-                    out.add(read(jar));
-                }
-            }
+            for (Path jar : ds) if (Files.isRegularFile(jar, LinkOption.NOFOLLOW_LINKS)) out.add(read(jar, loaded));
         } catch (IOException e) {
-            LOGGER.warn("[ModSync] Не удалось прочитать папку mods {}: {}", modsDir, e.toString());
+            throw new IllegalStateException("Cannot inspect mod inventory: " + modsDir, e);
         }
+        Collections.sort(out, Comparator.comparing(ScannedJar::fileName));
         return out;
     }
 
-    private static ScannedJar read(Path jar) {
-        String fileName = jar.getFileName().toString();
-        try (ZipFile zf = new ZipFile(jar.toFile())) {
-            ScannedJar fromFabric = fromFabricJson(zf, jar, fileName);
-            if (fromFabric != null) {
-                return fromFabric;
-            }
-            ScannedJar fromToml = fromModsToml(zf, jar, fileName);
-            if (fromToml != null) {
-                return fromToml;
+    private static ScannedJar read(Path jar, List<PlatformMod> loaded) {
+        String name = jar.getFileName().toString();
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            ScannedJar entry = fabric(zip, jar, name);
+            if (entry == null) entry = toml(zip, jar, name);
+            if (entry == null) entry = mcmod(zip, jar, name);
+            if (entry != null) {
+                String version = entry.version();
+                if (!ModDiff.knownVersion(version)) {
+                    Set<String> versions = new LinkedHashSet<String>();
+                    for (PlatformMod mod : loaded) {
+                        if (!mod.nested() && mod.jarPath() != null && mod.id().equals(entry.id())
+                                && mod.jarPath().toAbsolutePath().normalize().equals(jar.toAbsolutePath().normalize())
+                                && ModDiff.knownVersion(mod.version())) versions.add(mod.version());
+                    }
+                    if (versions.size() == 1) version = versions.iterator().next();
+                    if (!ModDiff.knownVersion(version)) {
+                        ZipEntry manifest = zip.getEntry("META-INF/MANIFEST.MF");
+                        if (manifest != null) try (InputStream in = zip.getInputStream(manifest)) {
+                            version = clean(new Manifest(in).getMainAttributes().getValue("Implementation-Version"));
+                        }
+                    }
+                }
+                return new ScannedJar(jar, entry.id(), version, entry.env(), name, entry.replaceable());
             }
         } catch (IOException | RuntimeException e) {
-            LOGGER.debug("[ModSync] {} — не удалось прочитать метаданные: {}", fileName, e.toString());
+            LOGGER.debug("[ModSync] Cannot read {}: {}", name, e.toString());
         }
-        return new ScannedJar(jar, stem(fileName), "", ModEntry.Env.BOTH, fileName);
+        // Older Forge mods can use annotations without mcmod.info. Resolve only an unambiguous physical origin.
+        List<PlatformMod> matches = new ArrayList<PlatformMod>();
+        for (PlatformMod mod : loaded) if (!mod.nested() && mod.jarPath() != null
+                && mod.jarPath().toAbsolutePath().normalize().equals(jar.toAbsolutePath().normalize())) matches.add(mod);
+        if (!matches.isEmpty()) {
+            PlatformMod mod = matches.get(0);
+            return new ScannedJar(jar, mod.id(), clean(mod.version()), ModEntry.Env.BOTH, name, matches.size() == 1);
+        }
+        // Filename fallback is useful for legacy additions, but never authorizes replacing a file.
+        return new ScannedJar(jar, name.substring(0, name.length() - 4).toLowerCase(Locale.ROOT), "", ModEntry.Env.BOTH, name, false);
     }
 
-    private static ScannedJar fromFabricJson(ZipFile zf, Path jar, String fileName) throws IOException {
-        ZipEntry e = zf.getEntry("fabric.mod.json");
-        if (e == null) {
-            return null;
-        }
-        try (Reader r = new InputStreamReader(zf.getInputStream(e), StandardCharsets.UTF_8)) {
-            JsonElement root = new JsonParser().parse(r);
-            if (root == null || !root.isJsonObject()) {
-                return null;
-            }
-            JsonObject o = root.getAsJsonObject();
-            String id = str(o, "id");
-            if (id.isEmpty()) {
-                return null;
-            }
-            return new ScannedJar(jar, id, sanitizeVersion(str(o, "version")), envFromFabric(str(o, "environment")), fileName);
-        }
+    private static ScannedJar fabric(ZipFile z, Path path, String name) throws IOException {
+        ZipEntry e = z.getEntry("fabric.mod.json");
+        if (e == null) return null;
+        JsonElement root = json(z, e);
+        if (!root.isJsonObject()) return null;
+        JsonObject o = root.getAsJsonObject();
+        String id = str(o, "id");
+        if (id.isEmpty()) return null;
+        String environment = str(o, "environment");
+        ModEntry.Env env = "client".equals(environment) ? ModEntry.Env.CLIENT : "server".equals(environment) ? ModEntry.Env.SERVER : ModEntry.Env.BOTH;
+        // Nested modules and aliases are not independent replacement targets.
+        return new ScannedJar(path, id, clean(str(o, "version")), env, name);
     }
 
-    /** {@code fabric.mod.json} {@code "environment"}: {@code "client"} / {@code "server"} / {@code "*"} (or absent). */
-    private static ModEntry.Env envFromFabric(String environment) {
-        if ("client".equalsIgnoreCase(environment)) {
-            return ModEntry.Env.CLIENT;
-        }
-        if ("server".equalsIgnoreCase(environment)) {
-            return ModEntry.Env.SERVER;
-        }
-        return ModEntry.Env.BOTH;
-    }
-
-    private static ModEntry.Env envFromToml(String toml) {
-        int depIdx = toml.indexOf("[[dependencies");
-        String modsRegion = depIdx >= 0 ? toml.substring(0, depIdx) : toml;
-        Matcher m = Pattern.compile("(?i)\\bside\\s*=\\s*\"(client|server|both)\"").matcher(modsRegion);
-        if (m.find()) {
-            if ("client".equalsIgnoreCase(m.group(1))) {
-                return ModEntry.Env.CLIENT;
-            }
-            if ("server".equalsIgnoreCase(m.group(1))) {
-                return ModEntry.Env.SERVER;
-            }
-        }
-        return ModEntry.Env.BOTH;
-    }
-
-    private static ScannedJar fromModsToml(ZipFile zf, Path jar, String fileName) throws IOException {
-        for (String path : new String[]{"META-INF/neoforge.mods.toml", "META-INF/mods.toml"}) {
-            ZipEntry e = zf.getEntry(path);
-            if (e == null) {
-                continue;
-            }
-            String toml;
-            try (InputStream in = zf.getInputStream(e)) {
-                toml = new String(readAll(in), StandardCharsets.UTF_8);
-            }
-            String id = tomlValue(toml, "modId");
-            if (id.isEmpty()) {
-                continue;
-            }
-            return new ScannedJar(jar, id, sanitizeVersion(tomlValue(toml, "version")), envFromToml(toml), fileName);
+    private static ScannedJar toml(ZipFile z, Path path, String name) throws IOException {
+        for (String metadata : new String[]{"META-INF/neoforge.mods.toml", "META-INF/mods.toml"}) {
+            ZipEntry e = z.getEntry(metadata);
+            if (e == null) continue;
+            String text;
+            try (InputStream in = z.getInputStream(e)) { text = new String(bytes(in), StandardCharsets.UTF_8); }
+            // Only read the [[mods]] block, never a dependency's version or modId.
+            Matcher blocks = Pattern.compile("(?ms)^\\s*\\[\\[mods\\]\\]\\s*$(.*?)(?=^\\s*\\[|\\z)").matcher(text);
+            String first = null; int count = 0;
+            while (blocks.find()) { if (first == null) first = blocks.group(1); count++; }
+            if (first == null) continue;
+            String id = value(first, "modId");
+            if (!id.isEmpty()) return new ScannedJar(path, id, clean(value(first, "version")), ModEntry.Env.BOTH, name, count == 1);
         }
         return null;
     }
 
-    private static byte[] readAll(InputStream in) throws IOException {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) != -1) {
-            bos.write(buf, 0, n);
-        }
-        return bos.toByteArray();
+    private static ScannedJar mcmod(ZipFile z, Path path, String name) throws IOException {
+        ZipEntry e = z.getEntry("mcmod.info");
+        if (e == null) return null;
+        JsonElement root = json(z, e);
+        if (root.isJsonObject() && root.getAsJsonObject().has("modList")) root = root.getAsJsonObject().get("modList");
+        if (!root.isJsonArray() || root.getAsJsonArray().size() == 0) return null;
+        JsonArray mods = root.getAsJsonArray();
+        if (!mods.get(0).isJsonObject()) return null;
+        JsonObject o = mods.get(0).getAsJsonObject();
+        String id = str(o, "modid");
+        return id.isEmpty() ? null : new ScannedJar(path, id, clean(str(o, "version")), ModEntry.Env.BOTH, name, mods.size() == 1);
     }
 
+    private static JsonElement json(ZipFile z, ZipEntry e) throws IOException {
+        try (Reader r = new InputStreamReader(z.getInputStream(e), StandardCharsets.UTF_8)) { return new JsonParser().parse(r); }
+    }
+    private static byte[] bytes(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(); byte[] b = new byte[8192]; int n;
+        while ((n = in.read(b)) != -1) out.write(b, 0, n);
+        return out.toByteArray();
+    }
     private static String str(JsonObject o, String key) {
-        JsonElement e = o.get(key);
-        return e != null && e.isJsonPrimitive() ? e.getAsString() : "";
+        JsonElement e = o.get(key); return e != null && e.isJsonPrimitive() ? e.getAsString() : "";
     }
-
-    private static String tomlValue(String toml, String key) {
-        Matcher m = Pattern.compile(String.format(TOML_STR.pattern(), Pattern.quote(key))).matcher(toml);
+    private static String value(String block, String key) {
+        Matcher m = Pattern.compile("(?m)^\\s*" + Pattern.quote(key) + "\\s*=\\s*[\"']([^\"']*)[\"']").matcher(block);
         return m.find() ? m.group(1) : "";
     }
-
-    /** A build-time placeholder like {@code ${file.jarVersion}} isn't a real version — treat as unknown. */
-    private static String sanitizeVersion(String v) {
-        return (v == null || v.contains("${")) ? "" : v;
-    }
-
-    private static String stem(String fileName) {
-        String s = fileName.toLowerCase();
-        if (s.endsWith(".jar")) {
-            s = s.substring(0, s.length() - 4);
-        }
-        return s.isEmpty() ? "mod" : s;
-    }
+    private static String clean(String s) { return ModDiff.knownVersion(s) ? s : ""; }
 }

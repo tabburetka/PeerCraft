@@ -30,6 +30,9 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
     private volatile long overallDone;
     private volatile int completed;
     private volatile String errorKey;
+    private String errorDetail = "";
+    private Button cancelButton;
+    private boolean cancellationAllowed = true;
 
     public ModSyncProgressScreen(ModSyncPlan plan, Runnable onCancel) {
         super(Component.translatable("peercraft.modsync.progress.title"));
@@ -46,14 +49,21 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
                 ? Component.translatable("peercraft.modsync.restart.back")
                 : Component.translatable("peercraft.modsync.confirm.cancel");
         Button.OnPress action = errorKey != null ? b -> toTitle() : b -> onCancel.run();
-        this.addRenderableWidget(dialogAction(label, action, true, 0, 1));
+        cancelButton = this.addRenderableWidget(dialogAction(label, action, true, 0, 1));
+        cancelButton.active = cancellationAllowed || errorKey != null;
     }
 
     @Override
     public void onClose() {
-        if (errorKey == null) {
+        if (errorKey == null && cancellationAllowed) {
             onCancel.run();
         }
+    }
+
+    public void beginCommit() {
+        cancellationAllowed = false;
+        currentState = State.INSTALLING;
+        if (cancelButton != null) cancelButton.active = false;
     }
 
     public void setCurrentMod(String modId) {
@@ -80,6 +90,11 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
     public void setOverall(long bytesDone, int modsDone) {
         this.overallDone = bytesDone;
         this.completed = modsDone;
+    }
+
+    public void showError(String key, String detail) {
+        errorDetail = detail == null ? "" : detail;
+        showError(key);
     }
 
     public void showError(String key) {
@@ -113,11 +128,11 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
 
     private Component currentLine() {
         if (errorKey != null) {
-            return Component.translatable(errorKey);
+            return Component.literal(Component.translatable(errorKey).getString() + (errorDetail.isEmpty() ? "" : "\n" + errorDetail));
         }
         String key = switch (currentState) {
             case VERIFYING -> "peercraft.modsync.progress.verifying";
-            case INSTALLING -> "peercraft.modsync.progress.installing";
+            case INSTALLING -> plan.hasReplacements() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
             default -> "peercraft.modsync.progress.mod";
         };
         return Component.translatable(key, currentModId.isEmpty() ? "…" : currentModId);

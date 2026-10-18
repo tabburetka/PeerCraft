@@ -186,10 +186,60 @@ class ModSyncLoopbackIntegrationTest {
         }
     }
 
+    @Test
+    @Timeout(30)
+    void replacementsRequireBothNewPeersAndMatchingGameAndLoader(@TempDir Path dir) throws Exception {
+        byte[] bytes = randomBytes(256, 8);
+        FakeHostProvider provider = new FakeHostProvider(Collections.singletonList(entry("mod", "1", bytes)),
+                Collections.singletonMap("mod", bytes), dir.resolve("host-serve"));
+        provider.minecraft = "1.21.1";
+        List<ModSyncProtocol.ModRef> local = Collections.singletonList(new ModSyncProtocol.ModRef("mod", "2"));
+        Harness modern = start(dir.resolve("modern"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FORGE);
+        try {
+            assertEquals("1", modern.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS).get(0).version());
+            assertTrue(modern.joiner.replacementsAllowed());
+        } finally { modern.close(); }
+        Harness old = start(dir.resolve("old-client"), provider, local, 0);
+        try { old.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertFalse(old.joiner.replacementsAllowed()); }
+        finally { old.close(); }
+        Harness wrongGame = start(dir.resolve("wrong-game"), provider, local, 0, "1.21.2", ModSyncProtocol.Loader.FORGE);
+        try { wrongGame.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertFalse(wrongGame.joiner.replacementsAllowed()); }
+        finally { wrongGame.close(); }
+        Harness wrongLoader = start(dir.resolve("wrong-loader"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FABRIC);
+        try { wrongLoader.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertFalse(wrongLoader.joiner.replacementsAllowed()); }
+        finally { wrongLoader.close(); }
+        provider.minecraft = ""; // An old host has no extension and offers only missing IDs.
+        Harness oldHost = start(dir.resolve("old-host"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FORGE);
+        try { oldHost.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertFalse(oldHost.joiner.replacementsAllowed()); }
+        finally { oldHost.close(); }
+    }
+
+    @Test
+    @Timeout(30)
+    void streamedManifestPreservesReplacementNegotiation(@TempDir Path dir) throws Exception {
+        List<ModEntry> mods = new ArrayList<>(); List<ModSyncProtocol.ModRef> refs = new ArrayList<>();
+        Map<String, byte[]> jars = new HashMap<>(); byte[] bytes = randomBytes(256, 7);
+        for (int i = 0; i < 120; i++) {
+            String id = "replacement_" + i;
+            mods.add(entry(id, "2", bytes)); refs.add(new ModSyncProtocol.ModRef(id, "1")); jars.put(id, bytes);
+        }
+        FakeHostProvider provider = new FakeHostProvider(mods, jars, dir.resolve("host-serve")); provider.minecraft = "1.12.2";
+        Harness h = start(dir, provider, refs, 0, "1.12.2", ModSyncProtocol.Loader.FORGE);
+        try {
+            assertEquals(120, h.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS).size());
+            assertTrue(h.joiner.replacementsAllowed());
+        } finally { h.close(); }
+    }
+
     // ================= harness =================
 
     private static Harness start(Path dir, FakeHostProvider provider,
                                  List<ModSyncProtocol.ModRef> joinerMods, double dropRate) throws Exception {
+        return start(dir, provider, joinerMods, dropRate, "", ModSyncProtocol.Loader.FORGE);
+    }
+
+    private static Harness start(Path dir, FakeHostProvider provider, List<ModSyncProtocol.ModRef> joinerMods,
+                                 double dropRate, String minecraft, ModSyncProtocol.Loader loader) throws Exception {
         Path joinerTmp = dir.resolve("joiner-tmp");
         Files.createDirectories(joinerTmp);
         Files.createDirectories(provider.tmp);
@@ -238,7 +288,7 @@ class ModSyncLoopbackIntegrationTest {
 
         TestJoinerHandler handler = new TestJoinerHandler();
         ModSyncCoordinator joiner = ModSyncCoordinator.joiner(
-                toHost, ModSyncProtocol.Loader.FORGE, joinerMods, joinerTmp, 64L * 1024 * 1024, handler);
+                toHost, loader, joinerMods, joinerTmp, 64L * 1024 * 1024, handler, minecraft);
         joinRef[0] = joiner;
         joiner.startJoiner();
 
@@ -282,6 +332,8 @@ class ModSyncLoopbackIntegrationTest {
     }
 
     private static final class FakeHostProvider implements ModSyncHostProvider {
+        String minecraft = "";
+        @Override public String minecraftVersion() { return minecraft; }
         private final List<ModEntry> mods;
         private final Map<String, byte[]> jars;
         final Path tmp;

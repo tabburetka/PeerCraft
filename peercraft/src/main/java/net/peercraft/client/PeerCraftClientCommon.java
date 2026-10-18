@@ -37,6 +37,8 @@ public final class PeerCraftClientCommon {
         net.peercraft.network.handoff.WorldInstallRecovery.start(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());
 
+        net.peercraft.client.modsync.ModSyncPendingInstaller.initialize();
+
         String mode = PeerCraftConfig.mode();
 
         // Best-effort: clear any half-written mod-sync temp files (*.jar.part, serving/) from a

@@ -43,6 +43,8 @@ public final class ModSyncManifestStore {
         save(file(), manifest);
     }
 
+    public static boolean saveChecked(ModSyncManifest manifest) { return save(file(), manifest); }
+
     static ModSyncManifest load(Path path) {
         if (!Files.exists(path)) {
             return new ModSyncManifest();
@@ -56,7 +58,7 @@ public final class ModSyncManifestStore {
         }
     }
 
-    static void save(Path path, ModSyncManifest manifest) {
+    static boolean save(Path path, ModSyncManifest manifest) {
         try {
             Path parent = path.toAbsolutePath().getParent();
             if (parent != null) {
@@ -66,9 +68,12 @@ public final class ModSyncManifestStore {
             try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING)) {
                 GSON.toJson(manifest, writer);
             }
-            Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            try { Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE); }
+            catch (java.nio.file.AtomicMoveNotSupportedException e) { Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING); }
+            return true;
         } catch (IOException e) {
             LOGGER.error("[ModSync] Не удалось сохранить {}", path, e);
+            return false;
         }
     }
 }

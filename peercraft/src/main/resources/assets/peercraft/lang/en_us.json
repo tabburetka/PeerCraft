@@ -421,5 +421,18 @@
   "peercraft.gui.welcome.title": "Welcome to PeerCraft",
   "peercraft.gui.welcome.message": "Create an account or sign in with Mojang to play with friends.",
   "peercraft.gui.welcome.later": "Later",
-  "peercraft.gui.welcome.existing": "I have a PeerCraft account"
+  "peercraft.gui.welcome.existing": "I have a PeerCraft account",
+  "peercraft.modsync.operation.add": "Add",
+  "peercraft.modsync.operation.replace": "Replace",
+  "peercraft.modsync.prepared.title": "Changes prepared",
+  "peercraft.modsync.prepared.body": "Prepared %s changes. Close Minecraft and wait for the PeerCraft helper to finish. Then start the game through your launcher. Old JARs will be kept in config/peercraft/modsync/operations.",
+  "peercraft.modsync.review.title": "Some mods cannot be synchronized",
+  "peercraft.modsync.review.body": "Skipped %s entries. These files will remain unchanged.",
+  "peercraft.modsync.review.continue": "Continue",
+  "peercraft.modsync.skip.unknown": "%s: could not determine a reliable version on both sides.",
+  "peercraft.modsync.skip.ambiguous": "%s: duplicate mod IDs or a JAR containing several mods; automatic replacement is unavailable.",
+  "peercraft.modsync.skip.incompatible": "%s: replacement support, Minecraft version, or loader could not be confirmed.",
+  "peercraft.modsync.skip.collision": "%s: the target filename belongs to another installed mod.",
+  "peercraft.modsync.fail.inventory": "Could not verify the mod files, or another Mod Sync operation is pending. Close Minecraft, wait for the helper, then retry.",
+  "peercraft.modsync.progress.preparing_install": "Preparing replacement: %s"
 }

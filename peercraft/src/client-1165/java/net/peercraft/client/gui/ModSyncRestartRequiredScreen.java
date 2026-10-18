@@ -24,10 +24,14 @@ public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
 
     private static final int MAX_LISTED = 12;
 
+    private final boolean prepared;
     private final List<String> installed;
 
-    public ModSyncRestartRequiredScreen(List<String> installed) {
-        super(new TranslatableComponent("peercraft.modsync.restart.title"), 300);
+    public ModSyncRestartRequiredScreen(List<String> installed) { this(installed, false); }
+
+    public ModSyncRestartRequiredScreen(List<String> installed, boolean prepared) {
+        super(new TranslatableComponent(prepared ? "peercraft.modsync.prepared.title" : "peercraft.modsync.restart.title"), 300);
+        this.prepared = prepared;
         this.installed = Collections.unmodifiableList(new ArrayList<>(installed));
     }
 
@@ -53,7 +57,7 @@ public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         renderBackground(poseStack);
         java.util.List<String> lines = new java.util.ArrayList<>();
-        lines.add(new TranslatableComponent("peercraft.modsync.restart.body", installed.size()).getString());
+        lines.add(new TranslatableComponent(prepared ? "peercraft.modsync.prepared.body" : "peercraft.modsync.restart.body", installed.size()).getString());
         lines.add(""); lines.addAll(installed);
         drawBody(poseStack, lines, PeerCraftUi.TEXT_TITLE);
         super.render(poseStack, mouseX, mouseY, partialTick);

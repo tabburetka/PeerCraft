@@ -21,10 +21,14 @@ public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
 
     private int scroll;
 
+    private final boolean prepared;
     private final List<String> installed;
 
-    public ModSyncRestartRequiredScreen(List<String> installed) {
-        super(Component.translatable("peercraft.modsync.restart.title"));
+    public ModSyncRestartRequiredScreen(List<String> installed) { this(installed, false); }
+
+    public ModSyncRestartRequiredScreen(List<String> installed, boolean prepared) {
+        super(Component.translatable(prepared ? "peercraft.modsync.prepared.title" : "peercraft.modsync.restart.title"));
+        this.prepared = prepared;
         this.installed = List.copyOf(installed);
     }
 
@@ -39,7 +43,7 @@ public class ModSyncRestartRequiredScreen extends PeerCraftDialogScreen {
 
     private List<net.minecraft.util.FormattedCharSequence> bodyLines() {
         List<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
-        lines.addAll(font.split(Component.translatable("peercraft.modsync.restart.body", installed.size()), dialog.contentWidth() - 8));
+        lines.addAll(font.split(Component.translatable(prepared ? "peercraft.modsync.prepared.body" : "peercraft.modsync.restart.body", installed.size()), dialog.contentWidth() - 8));
         for (String file : installed) lines.addAll(font.split(Component.literal(file), dialog.contentWidth() - 8));
         return lines;
     }
