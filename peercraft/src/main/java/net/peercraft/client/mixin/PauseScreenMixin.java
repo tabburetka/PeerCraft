@@ -15,20 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * While hosting a world over the rendezvous server, add a "Hand off hosting…" button to the
- * pause screen, opening {@link HandoffPlayerPickerScreen}.
- *
- * <p>This used to try to repurpose the vanilla "Open to LAN" button's slot — but vanilla's own
- * {@code PauseScreen.createPauseMenu()} only puts that button there while
- * {@code IntegratedServer.isPublished()} is still false; the instant it flips true (which is
- * exactly the state {@code isHostingViaRendezvous()} requires), vanilla swaps that grid cell
- * for the player-reporting button instead. So a button search keyed on "Open to LAN" never
- * found anything to replace — confirmed by decompiling {@code PauseScreen} across the version
- * matrix (1.21.x and 26.x alike): the branch is symmetric everywhere, an already-published
- * server never has the vanilla button in the grid at all. Adding our own standalone button
- * below whatever vanilla actually built avoids depending on that branch entirely.
- */
+/** Adds the session and eligible handoff actions in one non-overlapping row. */
 @Mixin(PauseScreen.class)
 public abstract class PauseScreenMixin extends Screen {
 
@@ -37,33 +24,33 @@ public abstract class PauseScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void peercraft$addHandoffButton(CallbackInfo ci) {
-        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || !PeerCraftConfig.handoff()) {
-            return;
-        }
-        if (!P2PBridge.INSTANCE.isHostingViaRendezvous()) {
-            return;
-        }
-
-        // Vanilla's own grid is already laid out by this point (createPauseMenu() ran at
-        // init() HEAD) — drop our button just below the lowest widget it built, whatever that
-        // grid happens to contain on this version/state.
-        int maxBottom = 0;
-        for (GuiEventListener child : this.children()) {
-            if (child instanceof AbstractWidget widget) {
-                maxBottom = Math.max(maxBottom, widget.getY() + widget.getHeight());
+    private void peercraft$addSessionButtons(CallbackInfo ci) {
+        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) return;
+        boolean handoff = PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous();
+        int bottom = 0;
+        for (GuiEventListener child : children()) {
+            if (child instanceof AbstractWidget) {
+                AbstractWidget widget = (AbstractWidget) child;
+                bottom = Math.max(bottom, widget.getY() + widget.getHeight());
             }
         }
-
-        int width = 204;
-        int x = this.width / 2 - width / 2;
-        int y = maxBottom + 4;
-
-        Button handoffButton = Button.builder(Component.translatable("peercraft.handoff.menu.button"),
-                        b -> PeerCraftUi.setScreen(this.minecraft, new HandoffPlayerPickerScreen((PauseScreen) (Object) this)))
-                .bounds(x, y, width, 20)
-                .build();
-        handoffButton.active = !P2PBridge.INSTANCE.handoffInProgress();
-        this.addRenderableWidget(handoffButton);
+        net.peercraft.client.theme.SessionPauseLayout layout =
+                net.peercraft.client.theme.SessionPauseLayout.below(width, height, bottom, handoff);
+        if (layout.shiftUp > 0) for (GuiEventListener child : children()) {
+            if (child instanceof AbstractWidget) {
+                AbstractWidget widget = (AbstractWidget) child;
+                widget.setY(widget.getY() - layout.shiftUp);
+            }
+        }
+        addRenderableWidget(Button.builder(Component.translatable("peercraft.session.title"),
+                b -> PeerCraftUi.setScreen(minecraft, new net.peercraft.client.gui.PeerCraftSessionScreen(this)))
+                .bounds(layout.left, layout.top, layout.buttonWidth, 20).build());
+        if (handoff) {
+            Button button = Button.builder(Component.translatable("peercraft.handoff.menu.button"),
+                    b -> PeerCraftUi.setScreen(minecraft, new HandoffPlayerPickerScreen(this)))
+                    .bounds(layout.handoffLeft(), layout.top, layout.buttonWidth, 20).build();
+            button.active = !P2PBridge.INSTANCE.handoffInProgress();
+            addRenderableWidget(button);
+        }
     }
 }

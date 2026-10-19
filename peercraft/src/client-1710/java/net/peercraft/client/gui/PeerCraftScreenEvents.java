@@ -41,6 +41,10 @@ import java.util.List;
  * </ul>
  */
 public class PeerCraftScreenEvents {
+    @cpw.mods.fml.common.eventhandler.SubscribeEvent(priority = cpw.mods.fml.common.eventhandler.EventPriority.LOWEST)
+    public void onPlayerList(net.minecraftforge.client.event.RenderGameOverlayEvent.Pre event) {
+        SessionPlayerListOverlay.render(event);
+    }
     @SubscribeEvent
     public void onTransportNoticeTick(cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent event) {
         if (event.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.END) TransportNoticeController.tick();
@@ -203,30 +207,25 @@ public class PeerCraftScreenEvents {
      */
     @SuppressWarnings("unchecked")
     private void onPauseMenuInit(GuiScreenEvent.InitGuiEvent.Post event) {
-        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || !PeerCraftConfig.handoff()) {
-            return;
-        }
-        if (!P2PBridge.INSTANCE.isHostingViaRendezvous()) {
-            return;
-        }
-
+        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) return;
+        boolean handoff = PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous();
         GuiScreen gui = event.gui;
         List<GuiButton> buttons = event.buttonList;
-
-        int maxBottom = 0;
-        for (GuiButton b : buttons) {
-            maxBottom = Math.max(maxBottom, b.yPosition + b.height);
+        int bottom = 0;
+        for (GuiButton button : buttons) bottom = Math.max(bottom, button.yPosition + button.height);
+        net.peercraft.client.theme.SessionPauseLayout layout =
+                net.peercraft.client.theme.SessionPauseLayout.below(gui.width, gui.height, bottom, handoff);
+        if (layout.shiftUp > 0) for (GuiButton button : buttons) button.yPosition -= layout.shiftUp;
+        buttons.add(IdButton.builder(PeerCraftLang.tr("peercraft.session.title"),
+                () -> Minecraft.getMinecraft().displayGuiScreen(new PeerCraftSessionScreen(gui)))
+                .bounds(layout.left, layout.top, layout.buttonWidth, 20).build());
+        if (handoff) {
+            IdButton button = IdButton.builder(PeerCraftLang.tr("peercraft.handoff.menu.button"),
+                    () -> Minecraft.getMinecraft().displayGuiScreen(new HandoffPlayerPickerScreen(gui)))
+                    .bounds(layout.handoffLeft(), layout.top, layout.buttonWidth, 20).build();
+            button.enabled = !P2PBridge.INSTANCE.handoffInProgress();
+            buttons.add(button);
         }
-
-        int width = 204;
-        int x = gui.width / 2 - width / 2;
-        int y = maxBottom + 4;
-
-        IdButton handoffButton = IdButton.builder(PeerCraftLang.tr("peercraft.handoff.menu.button"),
-                        () -> Minecraft.getMinecraft().displayGuiScreen(new HandoffPlayerPickerScreen(gui)))
-                .bounds(x, y, width, 20).build();
-        handoffButton.enabled = !P2PBridge.INSTANCE.handoffInProgress();
-        buttons.add(handoffButton);
     }
 
     private void setGatedVisible(boolean visible) {

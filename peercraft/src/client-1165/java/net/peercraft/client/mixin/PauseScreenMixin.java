@@ -16,13 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Minecraft 1.16.5 backport of {@code src/main/.../client/mixin/PauseScreenMixin.java}. Same
- * hook ({@code PauseScreen.init()} TAIL) and layout approach (drop below whatever vanilla's own
- * grid built). Deltas: no Java 16 {@code instanceof} pattern variable; {@code AbstractWidget} has
- * a public {@code y} field instead of {@code getY()}; {@code addRenderableWidget} -&gt;
- * {@code addButton}; no {@code Button.builder} fluent API -&gt; {@code new Button(...)}.
- */
+/** Adds the session and eligible handoff actions in one non-overlapping row. */
 @Mixin(PauseScreen.class)
 public abstract class PauseScreenMixin extends Screen {
 
@@ -31,30 +25,33 @@ public abstract class PauseScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void peercraft$addHandoffButton(CallbackInfo ci) {
-        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode()) || !PeerCraftConfig.handoff()) {
-            return;
-        }
-        if (!P2PBridge.INSTANCE.isHostingViaRendezvous()) {
-            return;
-        }
-
-        int maxBottom = 0;
-        for (GuiEventListener child : this.children()) {
+    private void peercraft$addSessionButtons(CallbackInfo ci) {
+        if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) return;
+        boolean handoff = PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous();
+        int bottom = 0;
+        for (GuiEventListener child : children()) {
             if (child instanceof AbstractWidget) {
                 AbstractWidget widget = (AbstractWidget) child;
-                maxBottom = Math.max(maxBottom, widget.y + widget.getHeight());
+                bottom = Math.max(bottom, widget.y + widget.getHeight());
             }
         }
-
-        int width = 204;
-        int x = this.width / 2 - width / 2;
-        int y = maxBottom + 4;
-
-        Button handoffButton = new Button(x, y, width, 20,
-                new TranslatableComponent("peercraft.handoff.menu.button"),
-                b -> PeerCraftUi.setScreen(this.minecraft, new HandoffPlayerPickerScreen((PauseScreen) (Object) this)));
-        handoffButton.active = !P2PBridge.INSTANCE.handoffInProgress();
-        this.addButton(handoffButton);
+        net.peercraft.client.theme.SessionPauseLayout layout =
+                net.peercraft.client.theme.SessionPauseLayout.below(width, height, bottom, handoff);
+        if (layout.shiftUp > 0) for (GuiEventListener child : children()) {
+            if (child instanceof AbstractWidget) {
+                AbstractWidget widget = (AbstractWidget) child;
+                widget.y -= layout.shiftUp;
+            }
+        }
+        addButton(new Button(layout.left, layout.top, layout.buttonWidth, 20,
+                new TranslatableComponent("peercraft.session.title"),
+                b -> PeerCraftUi.setScreen(minecraft, new net.peercraft.client.gui.PeerCraftSessionScreen(this))));
+        if (handoff) {
+            Button button = new Button(layout.handoffLeft(), layout.top, layout.buttonWidth, 20,
+                    new TranslatableComponent("peercraft.handoff.menu.button"),
+                    b -> PeerCraftUi.setScreen(minecraft, new HandoffPlayerPickerScreen(this)));
+            button.active = !P2PBridge.INSTANCE.handoffInProgress();
+            addButton(button);
+        }
     }
 }
