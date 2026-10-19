@@ -2,8 +2,7 @@ package net.peercraft.network.modsync;
 
 // Java 8 twin of src/main/.../network/modsync/ModSyncPlan.java — records hand-lowered
 // to Java 8 final classes with the same accessor names; List.copyOf -> unmodifiable ArrayList.
-// Keep in sync with the original. (On 1.12.2 the joiner never produces Source.HTTP — the
-// Modrinth fast-path isn't ported — but the constant is kept so the port stays mechanical.)
+// Keep in sync with the original.
 
 import java.util.ArrayList;
 import java.util.Collections;

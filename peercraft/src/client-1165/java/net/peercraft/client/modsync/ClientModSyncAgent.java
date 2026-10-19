@@ -2,10 +2,7 @@ package net.peercraft.client.modsync;
 
 // Minecraft 1.16.5 Fabric backport of src/main/.../client/modsync/ClientModSyncAgent.java
 // (structural twin of the src/client-1710 backport). Deltas vs src/main:
-//   * HTTP / Modrinth fast-path NOT ported (no java.net.http on Java 8) — every missing mod is
-//     streamed from the host over P2P. ModrinthClient / ModDownloader / selfVersion() are gone;
-//     planning collapses to "every entry -> PlannedMod.p2p"; fetch() always goes P2P;
-//     recordInstall always writes source="p2p". `record ModrinthDownloadDeps` removed.
+//   * HTTPS downloads use the shared Java 8 ModrinthDownloader with P2P fallback.
 //   * 1.16.5 GUI API: Minecraft.getInstance(); mc.setScreen(s); mc.execute(r); TitleScreen.
 //   * Status lines are 1.16.5 Components (new TranslatableComponent(key, args)); the
 //     ModSync*Screen twins take Component, like src/main.
@@ -25,6 +22,7 @@ import net.peercraft.client.gui.ModSyncIssuesScreen;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModrinthCatalogClient;
+import net.peercraft.network.modsync.ModrinthDownloader;
 import net.peercraft.network.modsync.ModSyncAgent;
 import net.peercraft.network.modsync.ModSyncCoordinator;
 import net.peercraft.network.modsync.ModSyncLink;
@@ -276,7 +274,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
-            ModSyncPlan plan = inventory.annotate(ModSyncPlan.of(plannedP2p(visible)));
+            ModSyncPlan plan = inventory.annotate(ModSyncPlan.of(plannedDownloads(visible)));
             Set<String> optionalDeclined = new LinkedHashSet<String>();
             for (ModSyncPlan.PlannedMod mod : plan.mods()) if (mod.entry().env() == ModEntry.Env.CLIENT && declined.contains(mod.entry().id())) optionalDeclined.add(mod.entry().id());
             ModSyncPlan selected = plan.excluding(optionalDeclined);
@@ -305,13 +303,13 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    /** no Modrinth fast-path here — every missing jar is streamed from the host over P2P. */
-    private List<ModSyncPlan.PlannedMod> plannedP2p(List<ModEntry> missing) {
-        ModSyncPlan.CatalogStatus[] statuses = ModrinthCatalogClient.checkAll(missing,
+    /** Resolve exact catalog files; unavailable entries retain the P2P path. */
+    private List<ModSyncPlan.PlannedMod> plannedDownloads(List<ModEntry> missing) {
+        ModSyncPlan.PlannedMod[] resolved = ModrinthCatalogClient.lookupAll(missing,
                 count -> prepStatus("peercraft.modsync.prepare.checking", count, missing.size()));
         List<ModSyncPlan.PlannedMod> out = new ArrayList<>(missing.size());
         for (int i = 0; i < missing.size(); i++) {
-            out.add(ModSyncPlan.PlannedMod.p2p(missing.get(i)).withCatalogStatus(statuses[i]));
+            out.add(resolved[i]);
         }
         return out;
     }
@@ -376,7 +374,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 if (verified != null) verifiedFiles.add(verified);
                 if (terminated.get()) return;
                 if (verified == null) { failDownload("peercraft.modsync.fail.transfer", screen); return; }
-                if (!e.sha512Hex().equals(ModSyncInventory.hex(ModSyncFilesystem.hashFile(verified))))
+                if (Files.size(verified) != e.sizeBytes() || !e.sha512Hex().equalsIgnoreCase(ModSyncInventory.hex(ModSyncFilesystem.hashFile(verified))))
                     throw new java.io.IOException("Downloaded file failed verification: " + e.id());
                 names.add(e.id() + " " + (pm.replacement() == null ? "" : pm.replacement().version() + " → ") + e.version());
                 currentBase += Math.max(0, e.sizeBytes()); currentModsDone++;
@@ -406,8 +404,17 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    /** always a peer-to-peer transfer. Returns a hash-verified part file or null. */
+    /** HTTPS failures, including integrity failures, fall back to the host. */
     private Path fetch(ModSyncPlan.PlannedMod pm, Path part, long maxModBytes, ModSyncProgressScreen screen) {
+        if (pm.source() == ModSyncPlan.Source.HTTP) {
+            runOnClientThread(() -> screen.setState(pm.entry().id(), ModSyncProgressScreen.State.DOWNLOADING));
+            boolean downloaded = ModrinthDownloader.download(pm.httpUrl(), part, pm.entry(), maxModBytes,
+                    () -> terminated.get(), (received, total) -> onFileProgress(pm.entry().id(), received, total));
+            if (downloaded) return part;
+            if (terminated.get()) return null;
+            LOGGER.info("[ModSync] HTTPS failed for {}; falling back to P2P", pm.entry().id());
+            runOnClientThread(() -> screen.updateProgress(pm.entry().id(), 0, pm.entry().sizeBytes()));
+        }
         return fetchP2p(pm.entry(), screen);
     }
 

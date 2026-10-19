@@ -58,8 +58,8 @@ val backportReplaced = listOf(
     "**/net/peercraft/client/handoff/SafeHandoffPlatform.java",
 	"**/net/peercraft/mixin/**",
 	// Mod sync: the loader-agnostic core is records / switch-expressions (compiled from
-	// src/modsync-java8 instead), and the client layer twins drop the Java-11 HTTP fast-path
-	// (P2P-only on Java 8) and target the 1.16.5 GUI API — see src/client-1165/.../modsync
+	// src/modsync-java8 instead), and the client layer twins use HttpsURLConnection
+	// for the Modrinth fast-path and target the 1.16.5 GUI API — see src/client-1165/.../modsync
 	// and the four ModSync*Screen twins (already covered by the client/gui/** entry above).
 	"**/net/peercraft/network/modsync/**",
 	"**/net/peercraft/client/modsync/**",
