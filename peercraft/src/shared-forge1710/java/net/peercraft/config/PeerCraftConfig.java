@@ -100,6 +100,11 @@ public final class PeerCraftConfig {
         return boolValue("internetPlay", false);
     }
 
+    /** Sending also requires the recorded first-run choice; see TelemetryConsent. */
+    public static boolean telemetryEnabled() {
+        return boolValue("telemetry.enabled", false);
+    }
+
     public static String rendezvousHost() {
         return stringValue("rendezvousHost", DEFAULT_RENDEZVOUS_HOST);
     }

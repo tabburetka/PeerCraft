@@ -24,6 +24,41 @@ import static org.junit.jupiter.api.Assertions.*;
 class RendezvousClientTest {
 
     @Test
+    @Timeout(10)
+    void registerRoomSendsVersionForEveryPrivateRoomType() throws Exception {
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+        for (int mode = 0; mode < 3; mode++) {
+            try (DatagramSocket serverSocket = new DatagramSocket(0, loopback);
+                 DatagramSocket clientSocket = new DatagramSocket()) {
+                serverSocket.setSoTimeout(3000);
+                RendezvousClient client = new RendezvousClient(new P2PSender(clientSocket), loopback,
+                        serverSocket.getLocalPort());
+                try {
+                    client.registerRoom(4, () -> 1, mode == 0 ? null : java.util.UUID.randomUUID(),
+                            mode == 0 ? null : new byte[16], mode == 2, false, "private world", "1.21.1",
+                            (code, changed) -> {}, new RendezvousClient.MatchCallback() {
+                                @Override public void onMatched(RendezvousProtocol.Address peer, long token) {}
+                                @Override public void onFailed(String reason) { fail(reason); }
+                            });
+                    byte[] buffer = new byte[512];
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    serverSocket.receive(packet);
+                    RendezvousProtocol.Register register = RendezvousProtocol.decodeRegister(
+                            packet.getData(), packet.getLength());
+                    assertEquals("1.21.1", register.mcVersion());
+                    assertEquals("", register.worldName());
+                    assertFalse(register.publicRoom());
+                    assertEquals(mode != 0, register.account().isPresent());
+                    assertEquals(mode == 2, register.friendsOnly());
+                    assertTrue(register.connectivity().isPresent());
+                } finally {
+                    client.cancel();
+                }
+            }
+        }
+    }
+
+    @Test
     @Timeout(15)
     void stopsResendingRegisterOnceRoomCreatedArrives() throws Exception {
         InetAddress loopback = InetAddress.getByName("127.0.0.1");

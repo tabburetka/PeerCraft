@@ -52,6 +52,7 @@ public final class RendezvousServer implements AutoCloseable {
     private final HandoffDispatch handoffIo;
     private final AccountService accountService;
     private final AnalyticsStore analytics;
+    private final TelemetryCollector telemetry;
     private final Path dataDir;
     private final RelayMatchRegistry relayMatches;
     private final LongSupplier clock;
@@ -111,6 +112,7 @@ public final class RendezvousServer implements AutoCloseable {
             opened = null;
         }
         this.analytics = opened;
+        this.telemetry = new TelemetryCollector(opened, clock);
     }
 
     /** Injectable provider seam for local integration tests; no external provider is contacted. */
@@ -174,6 +176,7 @@ public final class RendezvousServer implements AutoCloseable {
                 return t;
             });
             sweeper.scheduleAtFixedRate(registry::sweepExpired, SWEEP_INTERVAL_SECONDS, SWEEP_INTERVAL_SECONDS, TimeUnit.SECONDS);
+            sweeper.scheduleAtFixedRate(telemetry::maintenance, SWEEP_INTERVAL_SECONDS, SWEEP_INTERVAL_SECONDS, TimeUnit.SECONDS);
             sweeper.scheduleAtFixedRate(() -> {
                 try { handoffIo.execute(() -> { try { handoffs.maintenance(); } catch (IOException e) { logErr("Handoff retention failed"); } }); }
                 catch (java.util.concurrent.RejectedExecutionException ignored) { }
@@ -241,6 +244,11 @@ public final class RendezvousServer implements AutoCloseable {
     }
 
     private void handle(DatagramSocket socket, byte[] data, InetAddress fromAddr, int fromPort) throws IOException {
+        if (net.peercraft.network.telemetry.TelemetryProtocol.isEvent(data, data.length)) {
+            byte[] ack = telemetry.accept(data, fromAddr);
+            if (ack != null) socket.send(new DatagramPacket(ack, ack.length, fromAddr, fromPort));
+            return; // Do not count diagnostics as visitors, requests, or account activity.
+        }
         if (data.length > 0 && data[0] == HandoffAuthorityProtocol.MAGIC) {
             HandoffAuthorityProtocol.Message request = HandoffAuthorityProtocol.decode(data, data.length);
             if (analytics != null) analytics.request("handoff", fromAddr, data.length);

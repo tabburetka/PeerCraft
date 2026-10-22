@@ -1,0 +1,19 @@
+gradle.projectsEvaluated {
+    def p = gradle.rootProject.findProject(':1.21.1-fabric')
+    def smoke = p.sourceSets.create('telemetrySmoke')
+    smoke.java.srcDir(gradle.rootProject.file('../local-test/telemetry-smoke/java'))
+    smoke.resources.srcDir(gradle.rootProject.file('../local-test/telemetry-smoke/resources'))
+    smoke.compileClasspath += p.sourceSets.main.output + p.sourceSets.main.compileClasspath
+    smoke.runtimeClasspath += p.sourceSets.main.runtimeClasspath
+    p.loom.mods.create('peercraft_telemetry_smoke').sourceSet(smoke)
+    p.loom.runs.named('client').configure {
+        runDir('/tmp/peercraft-telemetry-ui-runtime')
+        vmArg('-Dpeercraft.mode=disabled')
+        vmArg('-Dpeercraft.rendezvousHost=127.0.0.1')
+        vmArg('-Dpeercraft.rendezvousPort=9')
+    }
+    p.tasks.named('runClient').configure {
+        dependsOn(p.tasks.named('telemetrySmokeClasses'))
+        classpath += smoke.output
+    }
+}

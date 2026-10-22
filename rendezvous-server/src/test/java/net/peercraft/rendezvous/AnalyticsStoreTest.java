@@ -76,4 +76,20 @@ class AnalyticsStoreTest {
             dashboard.stop();
         }
     }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void missingVersionsStayUnreportedAfterTheDistinctVersionLimit() throws Exception {
+        AnalyticsStore store = new AnalyticsStore(temp, System::currentTimeMillis);
+        for (int i = 0; i < 30; i++) store.version("1.21." + i);
+        store.version("");
+        store.version(null);
+        store.version("invalid version");
+        store.version("26.2");
+        var days = (List<Map<String, Object>>) store.snapshot().get("days");
+        var versions = (Map<String, Long>) days.getFirst().get("versions");
+        assertEquals(3L, versions.get("unknown"));
+        assertEquals(1L, versions.get("other"));
+        assertEquals(34L, versions.values().stream().mapToLong(Long::longValue).sum());
+    }
 }

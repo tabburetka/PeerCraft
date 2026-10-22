@@ -467,5 +467,11 @@
   "peercraft.session.hosts.explain": "A host needs enough performance for the world and stable connections to the other participants.",
   "peercraft.session.hosts.unavailable": "Connection testing between participants is not connected yet. No reliable host ranking is available.",
   "peercraft.session.hosts.world": "This world has not been benchmarked on another computer. Current ping alone cannot identify the best host.",
-  "peercraft.session.hosts.manual": "Hosting is handed off manually with separate confirmation. Opening this screen never starts a handoff."
+  "peercraft.session.hosts.manual": "Hosting is handed off manually with separate confirmation. Opening this screen never starts a handoff.",
+  "peercraft.telemetry.title": "Help improve PeerCraft",
+  "peercraft.telemetry.body": "Allow technical statistics to be sent to the PeerCraft server? Mod, game, loader and Java versions, OS family, connection results and timing, Mod Sync errors and disconnects help find problems. No usernames, chat, mod lists or world contents. You can change this in PeerCraft settings.",
+  "peercraft.telemetry.allow": "Allow",
+  "peercraft.telemetry.decline": "Do not send",
+  "peercraft.gui.settings.telemetry": "Technical statistics",
+  "peercraft.gui.settings.telemetry_desc": "Send environment versions, connection results and timing, Mod Sync and disconnect error codes. No usernames, chat or world contents. Turning this off immediately stops sending and clears the queue."
 }

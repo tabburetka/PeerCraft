@@ -72,8 +72,9 @@ public final class RendezvousProtocol {
      * effect when {@code account} is present — a room can't be gated to "friends" with no
      * account to own the friends list. {@code publicRoom}/{@code worldName}/{@code mcVersion}
      * (Phase 7) work regardless of whether an account is attached — anonymous hosts can host
-     * publicly too, see RoomRegistry.register(). {@code worldName}/{@code mcVersion} are only
-     * meaningful when publicRoom is true; empty otherwise. {@code mcVersion} is the host's
+     * publicly too, see RoomRegistry.register(). {@code worldName} is empty for non-public rooms.
+     * New clients also report {@code mcVersion} for private rooms in an optional trailer.
+     * {@code mcVersion} is the host's
      * running Minecraft version (e.g. "1.21.1") — vanilla's own network protocol only lets
      * same-version clients actually connect, so the browser needs this to warn about (or filter
      * out) incompatible rooms before a joiner wastes a punch attempt on one.
@@ -276,15 +277,42 @@ public final class RendezvousProtocol {
         for (int i = 0; i < count; i++) candidates.add(readAddress(b));
         return Optional.of(new ConnectivityAdvertisement((flags & 1) != 0, (flags & 2) != 0, candidates, clientAttempt));
     }
+    // Optional private-room version trailer follows connectivity, whose legacy decoder
+    // stops after its candidates and ignores trailing bytes. Keep public/legacy bytes intact.
+    private static final byte REGISTER_VERSION_EXTENSION = (byte) 0xCB;
+    private static final int MAX_REGISTER_VERSION_LENGTH = 24;
+    private static byte[] appendRegisterVersion(byte[] register, String mcVersion) {
+        if (!validRegisterVersion(mcVersion)) return register;
+        byte[] version = mcVersion.getBytes(StandardCharsets.US_ASCII);
+        if (register.length + 3 + version.length > 512) return register;
+        ByteBuffer extension = ByteBuffer.allocate(3 + version.length);
+        extension.put(REGISTER_VERSION_EXTENSION).put((byte) 1).put((byte) version.length).put(version);
+        return append(register, extension.array());
+    }
+    private static boolean validRegisterVersion(String value) {
+        return value != null && value.length() <= MAX_REGISTER_VERSION_LENGTH
+                && value.matches("[0-9A-Za-z._+-]{1,24}");
+    }
+    private static String readRegisterVersion(ByteBuffer buffer, String publicVersion) {
+        if (buffer.remaining() < 3 || buffer.get() != REGISTER_VERSION_EXTENSION || buffer.get() != 1) return publicVersion;
+        int length = buffer.get() & 255;
+        if (length < 1 || length > MAX_REGISTER_VERSION_LENGTH || buffer.remaining() != length) return publicVersion;
+        byte[] bytes = new byte[length];
+        buffer.get(bytes);
+        String version = new String(bytes, StandardCharsets.US_ASCII);
+        return publicVersion.isEmpty() && validRegisterVersion(version) ? version : publicVersion;
+    }
     public static byte[] encodeRegisterAnonymous(int maxPlayers, int currentPlayerCount, boolean publicRoom,
                                                 String worldName, String mcVersion, ConnectivityAdvertisement connectivity) {
-        return append(encodeRegisterAnonymous(maxPlayers, currentPlayerCount, publicRoom, worldName, mcVersion), encodeConnectivity(connectivity));
+        byte[] register = append(encodeRegisterAnonymous(maxPlayers, currentPlayerCount, publicRoom, worldName, mcVersion), encodeConnectivity(connectivity));
+        return publicRoom ? register : appendRegisterVersion(register, mcVersion);
     }
     public static byte[] encodeRegisterWithAccount(int maxPlayers, int currentPlayerCount, UUID accountId, byte[] sessionToken,
                                                  boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion,
                                                  ConnectivityAdvertisement connectivity) {
-        return append(encodeRegisterWithAccount(maxPlayers, currentPlayerCount, accountId, sessionToken, friendsOnly,
+        byte[] register = append(encodeRegisterWithAccount(maxPlayers, currentPlayerCount, accountId, sessionToken, friendsOnly,
                 publicRoom, worldName, mcVersion), encodeConnectivity(connectivity));
+        return publicRoom ? register : appendRegisterVersion(register, mcVersion);
     }
     public static byte[] encodeJoin(String code, ConnectivityAdvertisement connectivity) {
         return append(append(encodeJoin(code), new byte[] { 0 }), encodeConnectivity(connectivity));
@@ -421,7 +449,9 @@ public final class RendezvousProtocol {
             boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
             String worldName = publicRoom ? readShortString(buf) : "";
             String mcVersion = publicRoom ? readShortString(buf) : "";
-            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, publicRoom, worldName, mcVersion, readConnectivity(buf));
+            Optional<ConnectivityAdvertisement> connectivity = readConnectivity(buf);
+            mcVersion = readRegisterVersion(buf, mcVersion);
+            return new Register(maxPlayers, currentPlayerCount, Optional.empty(), false, publicRoom, worldName, mcVersion, connectivity);
         }
         UUID accountId = new UUID(buf.getLong(), buf.getLong());
         byte[] sessionToken = new byte[16];
@@ -430,7 +460,9 @@ public final class RendezvousProtocol {
         boolean publicRoom = buf.remaining() >= 1 && buf.get() != 0;
         String worldName = publicRoom ? readShortString(buf) : "";
         String mcVersion = publicRoom ? readShortString(buf) : "";
-        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly, publicRoom, worldName, mcVersion, readConnectivity(buf));
+        Optional<ConnectivityAdvertisement> connectivity = readConnectivity(buf);
+        mcVersion = readRegisterVersion(buf, mcVersion);
+        return new Register(maxPlayers, currentPlayerCount, Optional.of(new AccountRef(accountId, sessionToken)), friendsOnly, publicRoom, worldName, mcVersion, connectivity);
     }
 
     // ---- ROOM_CREATED: server -> host ----

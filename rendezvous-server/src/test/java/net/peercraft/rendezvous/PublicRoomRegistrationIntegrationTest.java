@@ -4,18 +4,22 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Production client codec over real UDP; separate sockets simulate NAT port remapping. */
 @Timeout(15)
 class PublicRoomRegistrationIntegrationTest {
+    @TempDir Path dataDir;
     private RendezvousServer server;
     private Thread serverThread;
     private InetAddress loopback;
@@ -23,7 +27,7 @@ class PublicRoomRegistrationIntegrationTest {
     @BeforeEach
     void startServer() throws Exception {
         loopback = InetAddress.getByName("127.0.0.1");
-        server = new RendezvousServer(0);
+        server = new RendezvousServer(0, System::currentTimeMillis, dataDir, true);
         serverThread = new Thread(() -> {
             try { server.run(); }
             catch (Exception ignored) { /* server closed during teardown */ }
@@ -137,6 +141,44 @@ class PublicRoomRegistrationIntegrationTest {
             assertEquals(a, register(first, request));
             assertNotEquals(a, register(second, request));
             assertEquals(2, list(browser).size());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void analyticsCountsPrivateAndFriendsVersionsOnceWhileLegacyRoomsStayUnreported() throws Exception {
+        try (DatagramSocket privateHost = new DatagramSocket();
+             DatagramSocket friendsHost = new DatagramSocket();
+             DatagramSocket publicHost = new DatagramSocket();
+             DatagramSocket oldPrivateHost = new DatagramSocket();
+             DatagramSocket oldFriendsHost = new DatagramSocket();
+             DatagramSocket browser = new DatagramSocket()) {
+            var account = registerAccount(friendsHost);
+            var packets = List.of(
+                    net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterAnonymous(4, 0, false, "Private world", "1.21.1", session()),
+                    net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterWithAccount(4, 0, account.accountId(),
+                            account.sessionToken(), true, false, "Friends world", "1.12.2", session()),
+                    net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterAnonymous(4, 0, true, "Public world", "1.7.10"),
+                    net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterAnonymous(4, 0, false, "Private world", "26.2"),
+                    net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterWithAccount(4, 0, account.accountId(),
+                            account.sessionToken(), true, false, "Friends world", "26.2"));
+            var hosts = List.of(privateHost, friendsHost, publicHost, oldPrivateHost, oldFriendsHost);
+            for (int i = 0; i < hosts.size(); i++) {
+                String code = register(hosts.get(i), packets.get(i));
+                assertEquals(code, register(hosts.get(i), packets.get(i)));
+            }
+            var listed = list(browser);
+            assertEquals(1, listed.size());
+            assertEquals("Public world", listed.getFirst().worldName());
+
+            server.close();
+            serverThread.join(2000);
+            var snapshot = new AnalyticsStore(dataDir.resolve("analytics"), System::currentTimeMillis).snapshot();
+            var days = (List<Map<String, Object>>) snapshot.get("days");
+            var counts = (Map<String, Long>) days.getFirst().get("counts");
+            assertEquals(5L, counts.get("room.created"));
+            assertEquals(5L, counts.get("room.keepalive"));
+            assertEquals(Map.of("1.21.1", 1L, "1.12.2", 1L, "1.7.10", 1L, "unknown", 2L), days.getFirst().get("versions"));
         }
     }
 }

@@ -91,6 +91,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case "hostUdpPort": return "50001";
             case "peerHost": return "127.0.0.1";
             case "peerPort": return "";
+            case "telemetry.enabled": return "false";
             case "internetPlay": return "false";
             case "rendezvousHost": return PeerCraftConfig.DEFAULT_RENDEZVOUS_HOST;
             case "rendezvousPort": return "51000";
@@ -125,6 +126,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
     }
 
     private static boolean forcedByFlag(String key) {
+        if ("telemetry.enabled".equals(key)) return false;
         String prop = System.getProperty("peercraft." + key);
         if (prop != null && !prop.trim().isEmpty()) {
             return true;
@@ -150,6 +152,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         }
         this.rows.clear();
 
+        addRow("telemetry.enabled", KIND_BOOL, false, false, 0, 0, "telemetry");
         addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
         addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
         addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");
@@ -233,13 +236,21 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         return this.font.plainSubstrByWidth(text, Math.max(0, maxWidth - this.font.width("..."))) + "...";
     }
 
+    private void telemetryChanged(Row row, boolean value) {
+        if ("telemetry.enabled".equals(row.key) && !value) {
+            net.peercraft.config.TelemetryConsent.choose(false);
+            this.settings.telemetryEnabled = "false";
+            this.settings.telemetryNoticeAcknowledged = true;
+        }
+    }
+
     private AbstractWidget buildWidget(Row row) {
         int x = controlX();
         int y = rowsTop;
         String current = seed(row.key);
         switch (row.kind) {
             case KIND_BOOL:
-                return new ModSyncCheckbox(x, y, 20, 20, TextComponent.EMPTY, "true".equalsIgnoreCase(current), v -> { });
+                return new ModSyncCheckbox(x, y, 20, 20, TextComponent.EMPTY, "true".equalsIgnoreCase(current), v -> telemetryChanged(row, v));
             case KIND_MODE:
                 return makeCycle(row, MODE_VALUES, current, x, y, "mode.");
             case KIND_MODSYNC:
@@ -327,8 +338,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
     }
 
     private void onReset() {
-        PeerCraftSettingsStore.clear();
-        PeerCraftConfig.applyOverrides(new LinkedHashMap<>());
+        net.peercraft.config.TelemetryConsent.resetSettings();
         PeerCraftUi.setScreen(this.minecraft, new PeerCraftSettingsScreen(this.lastScreen));
     }
 
@@ -356,6 +366,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
 
         for (Row row : this.rows) {
             String value = readWidget(row);
+            if ("telemetry.enabled".equals(row.key)) { this.settings.telemetryEnabled = value; continue; }
             String value2 = value == null ? "" : value.trim();
             if (value2.isEmpty()
                     || value2.equals(builtinDefault(row.key))
@@ -370,6 +381,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
 
         PeerCraftSettingsStore.save(this.settings);
         PeerCraftConfig.applyOverrides(this.settings.toOverrideMap());
+        net.peercraft.config.TelemetryConsent.apply(this.settings);
         HandoffClientController.INSTANCE.resendPreference();
         PeerCraftUi.setScreen(this.minecraft, this.lastScreen);
     }

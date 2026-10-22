@@ -828,6 +828,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         String friendRoomCode = friend.roomCode();
         P2PBridge.INSTANCE.startClientViaRendezvous(friendRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    @Override public String telemetryEntry() { return "friend"; }
                     private P2PBridge.ClientJoinAttempt attempt;
                     @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
                         attempt = started;
@@ -1159,6 +1160,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         String gameRoomCode = game.code();
         P2PBridge.INSTANCE.startClientViaRendezvous(gameRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    @Override public String telemetryEntry() { return "public"; }
                     private P2PBridge.ClientJoinAttempt attempt;
                     @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
                         attempt = started;

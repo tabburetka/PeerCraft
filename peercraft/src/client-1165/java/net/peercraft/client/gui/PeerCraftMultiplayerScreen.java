@@ -614,6 +614,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         P2PBridge.INSTANCE.startClientViaRendezvous(friend.roomCode(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    @Override public String telemetryEntry() { return "friend"; }
                     private P2PBridge.ClientJoinAttempt attempt;
                     @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
                         attempt = started;
@@ -957,6 +958,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
         P2PBridge.INSTANCE.startClientViaRendezvous(game.code(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
+                    @Override public String telemetryEntry() { return "public"; }
                     private P2PBridge.ClientJoinAttempt attempt;
                     @Override public void onStarted(P2PBridge.ClientJoinAttempt started) {
                         attempt = started;

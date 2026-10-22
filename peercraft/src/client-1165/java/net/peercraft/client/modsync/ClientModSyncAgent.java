@@ -63,6 +63,17 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     private volatile ModSyncLink link;
     private volatile Outcome outcome;
+    private net.peercraft.network.telemetry.Telemetry.Operation telemetryOwner;
+    private final AtomicBoolean telemetryReported = new AtomicBoolean(false);
+    private long telemetryStart;
+    private String telemetryReason = "none";
+    @Override public void telemetryOperation(net.peercraft.network.telemetry.Telemetry.Operation owner) { telemetryOwner = owner; }
+    private void reportTelemetry(String result, String reason) {
+        if (telemetryStart != 0 && telemetryReported.compareAndSet(false, true))
+            net.peercraft.network.telemetry.Telemetry.modSync(telemetryOwner, result, reason,
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - telemetryStart), 0, 0);
+    }
+
     private volatile ModSyncCoordinator coordinator;
     private volatile ModSyncPreparingScreen preparingScreen;
     private volatile ModSyncProgressScreen progressScreen;
@@ -87,7 +98,16 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     public void run(ModSyncLink link, Outcome outcome) {
         if (cancelled) return;
         this.link = link;
-        this.outcome = outcome;
+        telemetryStart = System.nanoTime();
+        this.outcome = new Outcome() {
+            @Override public void proceedToConnect() { reportTelemetry("continued", telemetryReason); outcome.proceedToConnect(); }
+            @Override public void abortJoin() { abortJoin("user_cancel"); }
+            @Override public void abortJoin(String reason) {
+                reportTelemetry("restart_required".equals(reason) ? "restart_required" : "cancelled", reason);
+                outcome.abortJoin(reason);
+            }
+            @Override public void fail(String reason) { reportTelemetry("failure", reason); outcome.fail(reason); }
+        };
         ModSyncPreparingScreen prep = new ModSyncPreparingScreen(this::onUserCancel);
         this.preparingScreen = prep;
         runOnClientThread(() -> setScreen(prep));
@@ -128,6 +148,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     /** Stop attempt-owned work without reopening a screen the player has left. */
     @Override
     public void cancel() {
+        reportTelemetry("cancelled", "user_cancel");
         cancelled = true;
         terminated.set(true);
         p2pFiles.values().forEach(f -> f.completeExceptionally(new TransferFailed("peercraft.modsync.cancelled")));
@@ -139,16 +160,19 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
 
     @Override
     public void onNothingMissing() {
+        telemetryReason = "no_changes";
         finishProceed();
     }
 
     @Override
     public void onHandshakeTimeout() {
+        telemetryReason = "handshake_timeout";
         finishProceed();
     }
 
     @Override
     public void onAbort(String reasonKey) {
+        telemetryReason = "host_abort";
         // Mod sync is an enhancement, not a gate. If the host aborts the handshake, don't
         // dead-end the join — proceed to connect and let vanilla show its "missing mods"
         // screen if it comes to that.
@@ -391,7 +415,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             }
             safeSendAbort("done");
             runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names, plan.hasReplacements())));
-            finishAbort();
+            finishAbort("restart_required");
         } catch (Exception e) {
             LOGGER.warn("[ModSync] Install batch failed: {}", e.toString());
             if (!terminated.get()) {
@@ -457,9 +481,10 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
         }
     }
 
-    private void finishAbort() {
+    private void finishAbort() { finishAbort("user_cancel"); }
+    private void finishAbort(String reason) {
         if (terminated.compareAndSet(false, true)) {
-            outcome.abortJoin();
+            outcome.abortJoin(reason);
         }
     }
 

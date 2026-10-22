@@ -32,7 +32,15 @@
   </section>
   <section class="split">
     <div class="panel"><div class="panel-head"><div><h2 data-i18n="eventsTitle">Что происходит</h2><p id="eventPeriod" data-i18n="todayPeriod">За сегодня</p></div></div><div id="events"></div></div>
-    <div class="panel"><div class="panel-head"><div><h2 data-i18n="versionsTitle">Версии Minecraft</h2><p data-i18n="versionsPeriod">По новым комнатам за последние 30 дней</p></div></div><div id="versions"></div></div>
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="versionsTitle">Версии Minecraft</h2><p data-i18n="versionsPeriod">По новым комнатам за последние 30 дней</p></div></div><div id="versions"></div><p id="versionsCoverage" class="footnote" hidden></p></div>
+  </section>
+  <section class="split">
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="telemetryTitle">Клиентская диагностика</h2><p data-i18n="telemetryCohort">Только клиенты, разрешившие отправку · выбранный период</p></div></div><div id="telemetryFunnel"></div><p class="footnote" data-i18n="telemetryCaution">Попытки, а не уникальные люди. Нет результата — ещё ожидается или отчёт не доставлен; это не доказанный сбой. Отмены и перезапуски не считаются ошибками.</p></div>
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="telemetryErrors">Ошибки и этапы</h2><p data-i18n="telemetryCodes">Коды причин · без текстов исключений</p></div></div><div id="telemetryErrors"></div></div>
+  </section>
+  <section class="split">
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="telemetryTiming">Время успешного входа</h2><p data-i18n="telemetryBuckets">Интервалы времени · от начала попытки до входа в мир</p></div></div><div id="telemetryTiming"></div></div>
+    <div class="panel"><div class="panel-head"><div><h2 data-i18n="telemetryEnvironment">Версии клиентов</h2><p data-i18n="telemetryLaunches">По запускам с разрешённой отправкой · не по всем пользователям</p></div></div><div id="telemetryEnvironment"></div><div id="telemetryModsync"></div></div>
   </section>
   <div class="footnote"><strong data-i18n="howToRead">Как читать данные.</strong> <span data-i18n="footnote">Посетитель — уникальный сетевой адрес; несколько людей за одним роутером считаются одним, а один человек с разными адресами может считаться несколько раз. Аккаунты учитываются только при подтверждённой сессии. Подбор означает ответ сервера с адресами игроков, а не доказанное успешное подключение к миру. Повторные сетевые попытки могут увеличить число подборов. Исторические данные до установки этой версии недоступны.</span></div>
 </main>
@@ -40,6 +48,24 @@
 const $ = id => document.getElementById(id);
 const translations = {
   ru: {
+    telemetryTitle: "Клиентская диагностика",
+    telemetryCohort: "Только клиенты, разрешившие отправку · выбранный период",
+    telemetryCaution: "Попытки, а не уникальные люди. Нет результата — ещё ожидается или отчёт не доставлен; это не доказанный сбой. Отмены и перезапуски не считаются ошибками.",
+    telemetryErrors: "Ошибки и этапы",
+    telemetryCodes: "Коды причин · без текстов исключений",
+    telemetryTiming: "Время успешного входа",
+    telemetryBuckets: "Интервалы времени · от начала попытки до входа в мир",
+    telemetryEnvironment: "Версии клиентов",
+    telemetryLaunches: "По запускам с разрешённой отправкой · не по всем пользователям",
+    telemetryEmpty: "Данные появятся после разрешения отправки в новом релизе мода",
+    telemetryObserved: "Наблюдаемые попытки",
+    telemetrySuccess: "Настоящие входы в мир",
+    telemetryFailure: "Неудачные входы",
+    telemetryCancelled: "Отмены пользователем",
+    telemetryRestart: "Нужен перезапуск",
+    telemetryMissing: "Ожидается / результат не доставлен",
+    telemetryRate: "Успех среди входов с известным результатом",
+    telemetryNoErrors: "Ошибок за этот период не получено",
     pageTitle: 'PeerCraft · Статистика сервера', title: 'Статистика сервера', subtitle: 'Обзор активности и игровых комнат',
     languageLabel: 'Язык страницы', overview: 'Обзор', coverage: 'Данные собираются с момента запуска этой версии сервера · время по UTC',
     periodLabel: 'Период графиков', days30: '30 дней', days90: '90 дней', byMonth: 'По месяцам', metricsLabel: 'Основные показатели',
@@ -55,7 +81,10 @@ const translations = {
     footnote: 'Посетитель — уникальный сетевой адрес; несколько людей за одним роутером считаются одним, а один человек с разными адресами может считаться несколько раз. Аккаунты учитываются только при подтверждённой сессии. Подбор означает ответ сервера с адресами игроков, а не доказанное успешное подключение к миру. Повторные сетевые попытки могут увеличить число подборов. Исторические данные до установки этой версии недоступны.',
     loading: 'Загрузка данных…', updated: 'Обновлено', noConnection: 'Нет связи с сервером статистики',
     publicRooms: 'публичных', friendsOnlyRooms: 'для друзей', noAudience: 'Данные появятся после первых запросов',
-    noEvents: 'Пока нет событий', noVersions: 'Версии появятся после создания комнат',
+    noEvents: 'Пока нет событий', noVersions: 'Пока нет комнат с переданной версией',
+    versionsKnown: 'Версия передана', versionsOf: 'из', versionsRooms: 'комнат', versionsMissing: 'Без версии',
+    versionsMissingHint: 'Старые клиенты передают версию только для публичных комнат. Исторические записи без версии восстановить нельзя.',
+    versionsOther: 'Другие версии',
     eventRequests: 'Запросы к серверу', eventAuthOk: 'Успешные входы', eventAuthLicensed: 'Входы с лицензией',
     eventAuthUnlicensed: 'Входы без лицензии', eventAuthFail: 'Неудачные входы', eventRoomCreated: 'Созданные комнаты',
     eventRoomPublic: 'Публичные комнаты', eventRoomFriends: 'Комнаты для друзей', eventJoinMatched: 'Успешные подборы',
@@ -64,6 +93,24 @@ const translations = {
     eventHandoff: 'Сообщения передачи мира'
   },
   en: {
+    telemetryTitle: "Client diagnostics",
+    telemetryCohort: "Only clients allowing statistics · selected period",
+    telemetryCaution: "Attempts, not unique people. No result means pending or not delivered, not a proven failure. Cancellations and required restarts are not errors.",
+    telemetryErrors: "Errors and stages",
+    telemetryCodes: "Reason codes · no exception messages",
+    telemetryTiming: "Time to a successful world join",
+    telemetryBuckets: "Duration buckets · attempt start to entering a world",
+    telemetryEnvironment: "Client versions",
+    telemetryLaunches: "Launches allowing statistics · not all users",
+    telemetryEmpty: "Data will appear after players allow statistics in the new mod release",
+    telemetryObserved: "Observed attempts",
+    telemetrySuccess: "Actual world joins",
+    telemetryFailure: "Failed joins",
+    telemetryCancelled: "User cancellations",
+    telemetryRestart: "Restart required",
+    telemetryMissing: "Pending / result not delivered",
+    telemetryRate: "Success among joins with a known result",
+    telemetryNoErrors: "No errors reported in this period",
     pageTitle: 'PeerCraft · Server statistics', title: 'Server statistics', subtitle: 'Activity and game room overview',
     languageLabel: 'Page language', overview: 'Overview', coverage: 'Data has been collected since this server version was installed · times are in UTC',
     periodLabel: 'Chart period', days30: '30 days', days90: '90 days', byMonth: 'Monthly', metricsLabel: 'Key metrics',
@@ -79,7 +126,10 @@ const translations = {
     footnote: 'A visitor is a unique network address. People behind the same router count as one, and one person using different addresses may count more than once. Accounts count only after a verified session. A match means the server returned player addresses; it does not prove a successful connection to a world. Network retries can increase the match count. Historical data from before this version was installed is unavailable.',
     loading: 'Loading data…', updated: 'Updated', noConnection: 'Cannot connect to the statistics server',
     publicRooms: 'public', friendsOnlyRooms: 'friends-only', noAudience: 'Data will appear after the first requests',
-    noEvents: 'No events yet', noVersions: 'Versions will appear after rooms are created',
+    noEvents: 'No events yet', noVersions: 'No rooms have reported a version yet',
+    versionsKnown: 'Version reported', versionsOf: 'of', versionsRooms: 'rooms', versionsMissing: 'Not reported',
+    versionsMissingHint: 'Older clients report the version only for public rooms. Historical records without a version cannot be recovered.',
+    versionsOther: 'Other versions',
     eventRequests: 'Server requests', eventAuthOk: 'Successful sign-ins', eventAuthLicensed: 'Licensed sign-ins',
     eventAuthUnlicensed: 'Unlicensed sign-ins', eventAuthFail: 'Failed sign-ins', eventRoomCreated: 'Rooms created',
     eventRoomPublic: 'Public rooms', eventRoomFriends: 'Friends-only rooms', eventJoinMatched: 'Successful matches',
@@ -213,9 +263,68 @@ function fillMonths(months, today) {
   return rows;
 }
 
+function renderTelemetry(days, today) {
+  const since = period === 'month' ? new Date(Date.UTC(Number(today.slice(0,4)), Number(today.slice(5,7))-12, 1)).toISOString().slice(0,10)
+      : new Date(Date.parse(today+'T00:00:00Z') - (Number(period)-1)*86400000).toISOString().slice(0,10);
+  const totals = new Map();
+  for (const day of days.filter(d => d.date >= since && d.date <= today)) {
+    for (const [dimension, values] of Object.entries(day.telemetry || {})) {
+      if (!totals.has(dimension)) totals.set(dimension, new Map());
+      const map = totals.get(dimension);
+      for (const [key, value] of Object.entries(values)) map.set(key, (map.get(key)||0)+value);
+    }
+  }
+  const map = key => totals.get(key) || new Map();
+  const add = (container, label, value) => {
+    const row=document.createElement('div'); row.className='feature';
+    const name=document.createElement('b'); name.textContent=label;
+    const count=document.createElement('span'); count.textContent=typeof value==='string'?value:fmt(value);
+    row.append(name,count);container.append(row);
+  };
+  const empty = (container, key) => {const p=document.createElement('p');p.className='empty';p.textContent=t(key);container.append(p);};
+  const funnel=$('telemetryFunnel');funnel.replaceChildren();
+  const joins=map('joins'), events=map('events');
+  const observed=joins.get('observed')||0, success=joins.get('success')||0, failure=joins.get('failure')||0;
+  if (!observed) empty(funnel,'telemetryEmpty');
+  else {
+    for (const [label,key] of [['telemetryObserved','observed'],['telemetrySuccess','success'],['telemetryFailure','failure'],['telemetryCancelled','cancelled'],['telemetryRestart','restart_required']]) add(funnel,t(label),joins.get(key)||0);
+    const terminal=[...joins].filter(([key])=>key!=='observed').reduce((sum,[,count])=>sum+count,0);
+    add(funnel,t('telemetryMissing'),Math.max(0,observed-terminal));
+    add(funnel,t('telemetryRate'),success+failure ? `${(100*success/(success+failure)).toLocaleString(locale(),{maximumFractionDigits:1})}% (${fmt(success+failure)})` : '—');
+  }
+  const errors=$('telemetryErrors');errors.replaceChildren();
+  const sorted=[...map('errors')].sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(!sorted.length) empty(errors,observed?'telemetryNoErrors':'telemetryEmpty');
+  for(const [key,count] of sorted)add(errors,key,count);
+  for(const [dimension,prefix] of [['results_by_mod','PeerCraft'],['results_by_mc','Minecraft'],['results_by_loader','Loader']]) {
+    const groups=new Map();
+    for(const [key,count] of map(dimension)) {
+      const at=key.lastIndexOf(':'), name=key.slice(0,at), outcome=key.slice(at+1);
+      if(!['success','failure'].includes(outcome))continue;
+      const row=groups.get(name)||{success:0,failure:0};row[outcome]+=count;groups.set(name,row);
+    }
+    for(const [name,result] of [...groups].sort((a,b)=>b[1].failure-a[1].failure).slice(0,4)) {
+      const total=result.success+result.failure;
+      add(errors,`${prefix} ${name} · ${t('telemetryFailure')}`,`${fmt(result.failure)} / ${fmt(total)} (${(100*result.failure/total).toLocaleString(locale(),{maximumFractionDigits:1})}%)`);
+    }
+  }
+  const timing=$('telemetryTiming');timing.replaceChildren();
+  const labels={'lt_1s':'< 1 s','1_5s':'1–5 s','5_15s':'5–15 s','15_60s':'15–60 s','1_5m':'1–5 min','5_30m':'5–30 min','gte_30m':'≥ 30 min'};
+  if(!map('join_time_success').size)empty(timing,'telemetryEmpty');
+  else for(const [key,label] of Object.entries(labels))add(timing,label,map('join_time_success').get(key)||0);
+  const env=$('telemetryEnvironment');env.replaceChildren();
+  if(!events.get('client_started'))empty(env,'telemetryEmpty');
+  else for(const dim of ['mod_versions','mc_versions','loaders','java','os']) {
+    for(const [key,count] of [...map(dim)].sort((a,b)=>b[1]-a[1]).slice(0,4))add(env,`${({'mod_versions':'PeerCraft','mc_versions':'Minecraft','loaders':'Loader','java':'Java','os':'OS'})[dim]} · ${key}`,count);
+  }
+  const mods=$('telemetryModsync');mods.replaceChildren();
+  for(const [key,count] of [...map('modsync')].sort((a,b)=>b[1]-a[1]).slice(0,5))add(mods,`Mod Sync · ${key}`,count);
+}
+
 function render(data) {
   const today = data.generatedAt.slice(0, 10), month = today.slice(0, 7);
   const days = data.days || [], months = data.months || [];
+  renderTelemetry(days, today);
   const day = days.find(row => row.date === today), mo = months.find(row => row.month === month), live = data.live || {};
   $('todayVisitors').textContent = fmt(day?.visitors);
   $('monthVisitors').textContent = fmt(mo?.visitors);
@@ -239,13 +348,18 @@ function render(data) {
   for (const row of days.filter(item => item.date >= since)) {
     for (const [name, count] of Object.entries(row.versions || {})) versions[name] = (versions[name] || 0) + count;
   }
-  const sorted = Object.entries(versions).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const unreported = versions.unknown || 0;
+  const known = Object.entries(versions).filter(([name]) => name !== 'unknown');
+  const reported = known.reduce((sum, [, count]) => sum + count, 0);
+  const coverage = $('versionsCoverage'); coverage.hidden = reported + unreported === 0;
+  coverage.textContent = `${t('versionsKnown')}: ${fmt(reported)} ${t('versionsOf')} ${fmt(reported + unreported)} ${t('versionsRooms')}. ${t('versionsMissing')}: ${fmt(unreported)}.${unreported ? ' ' + t('versionsMissingHint') : ''}`;
+  const sorted = known.sort((a, b) => b[1] - a[1]).slice(0, 8);
   const vmax = sorted[0]?.[1] || 1, list = $('versions'); list.replaceChildren();
   if (!sorted.length) {
     const empty = document.createElement('div'); empty.className = 'empty'; empty.textContent = t('noVersions'); list.append(empty);
   } else for (const [name, count] of sorted) {
     const row = document.createElement('div'); row.className = 'version-row';
-    const label = document.createElement('span'); label.textContent = name;
+    const label = document.createElement('span'); label.textContent = name === 'other' ? t('versionsOther') : name;
     const track = document.createElement('div'); track.className = 'version-track';
     const fill = document.createElement('div'); fill.className = 'version-fill'; fill.style.width = `${100 * count / vmax}%`; track.append(fill);
     const value = document.createElement('strong'); value.textContent = fmt(count);

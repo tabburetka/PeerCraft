@@ -169,7 +169,8 @@ public final class RendezvousClient implements RawPacketListener {
      * connect (vanilla's own network protocol only lets same-version clients talk to each
      * other) and filter by it. Unlike friendsOnly, publicRoom/mcVersion work whether or not
      * accountId/accountSessionToken are null (anonymous hosts can host publicly too).
-     * {@code worldName}/{@code mcVersion} are only meaningful while publicRoom is true.
+     * {@code worldName} is sent only for public rooms; {@code mcVersion} also identifies
+     * private-room versions for aggregate server statistics.
      */
     public void registerRoom(int maxPlayers, IntSupplier currentPlayerCountSupplier, java.util.UUID accountId, byte[] accountSessionToken,
                               boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion,
@@ -199,7 +200,7 @@ public final class RendezvousClient implements RawPacketListener {
         if (this.publicRoom) {
             return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion, connectivity);
         }
-        return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, false, "", "", connectivity);
+        return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, false, "", this.mcVersion, connectivity);
     }
 
     public void joinRoom(String code, MatchCallback matchCallback) {

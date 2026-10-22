@@ -22,6 +22,13 @@ import java.util.Map;
  */
 public final class PeerCraftSettings {
 
+    @SerializedName("telemetry.enabled")
+    public String telemetryEnabled;
+
+    /** The first-run choice is separate from a launch flag: silence never grants consent. */
+    @SerializedName("_telemetryNoticeAcknowledged")
+    public boolean telemetryNoticeAcknowledged;
+
     // ---- normal section -------------------------------------------------------------------
     @SerializedName("modSync.client")
     public String modSyncClient;
@@ -80,7 +87,7 @@ public final class PeerCraftSettings {
 
     /** Config-key ↔ field, in screen order. Used by both {@link #toOverrideMap()} and the screen. */
     public static final String[] FLAG_KEYS = {
-            "modSync.client", "modSync.host", "modSync.reofferDeclined",
+            "telemetry.enabled", "modSync.client", "modSync.host", "modSync.reofferDeclined",
             "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
             "handoff", "handoff.declineSuccessor", "handoff.confirmBeforeOffer", "handoff.chatNotify",
             "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
@@ -89,6 +96,7 @@ public final class PeerCraftSettings {
 
     public String get(String key) {
         switch (key) {
+            case "telemetry.enabled": return telemetryEnabled;
             case "modSync.client": return modSyncClient;
             case "modSync.host": return modSyncHost;
             case "modSync.reofferDeclined": return modSyncReofferDeclined;
@@ -116,6 +124,7 @@ public final class PeerCraftSettings {
     public void set(String key, String value) {
         String v = (value == null || value.trim().isEmpty()) ? null : value.trim();
         switch (key) {
+            case "telemetry.enabled": telemetryEnabled = v; break;
             case "modSync.client": modSyncClient = v; break;
             case "modSync.host": modSyncHost = v; break;
             case "modSync.reofferDeclined": modSyncReofferDeclined = v; break;

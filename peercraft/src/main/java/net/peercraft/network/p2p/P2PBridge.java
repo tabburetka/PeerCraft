@@ -1,6 +1,7 @@
 package net.peercraft.network.p2p;
 
 import net.peercraft.config.ModSyncMode;
+import net.peercraft.network.telemetry.Telemetry;
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.handoff.HandoffClientAgent;
 import net.peercraft.network.handoff.HandoffCoordinator;
@@ -343,12 +344,19 @@ public class P2PBridge {
     public final class ClientJoinAttempt {
         private volatile boolean cancelled;
         private final ModSyncAgent modSync;
-        private ClientJoinAttempt(ModSyncAgent modSync) { this.modSync = modSync; }
+        private final Telemetry.Operation telemetry;
+        private ClientJoinAttempt(ModSyncAgent modSync, String entry) {
+            this.modSync = modSync;
+            this.telemetry = Telemetry.beginJoin(entry);
+            if (modSync != null) modSync.telemetryOperation(telemetry);
+        }
+        public Telemetry.Operation telemetry() { return telemetry; }
         public boolean isCurrent() { return currentJoinAttempt == this && !cancelled; }
         public boolean isBusy() { return isCurrent() && rendezvousClientBusy.get(); }
         public void cancel() {
             synchronized (P2PBridge.this) {
                 if (!isBusy() || retainingHandoffTransport()) return;
+                telemetry.finish("cancelled", "user_cancel");
                 cancelled = true; // Invalidate queued callbacks before releasing resources.
                 if (modSync != null) modSync.cancel();
                 ClientSession session = currentClientSession;
@@ -460,10 +468,10 @@ public class P2PBridge {
     /**
      * As {@link #startHostViaRendezvous(int, int, boolean, HostListener)}, but additionally
      * lists the room in the public game browser (Phase 7, works with or without an account —
-     * see RendezvousClient.registerRoom). {@code worldName}/{@code mcVersion} are only
-     * meaningful while {@code publicRoom} is true — {@code mcVersion} isn't auto-detected here:
-     * this class has no {@code net.minecraft.*} imports (it's called from Mixins that do), so
-     * the caller computes it and passes it in, same as {@code worldName}.
+     * see RendezvousClient.registerRoom). {@code worldName} is sent only for public rooms;
+     * {@code mcVersion} also identifies private-room versions for aggregate server statistics.
+     * This class has no {@code net.minecraft.*} imports (it's called from Mixins that do), so
+     * the caller computes the version and passes it in, same as {@code worldName}.
      */
     public void startHostViaRendezvous(int mcPort, int maxPlayers, boolean friendsOnly, boolean publicRoom, String worldName, String mcVersion, HostListener listener) {
         startHostViaRendezvous(mcPort, maxPlayers, friendsOnly, publicRoom, worldName, mcVersion, listener, null);
@@ -564,6 +572,7 @@ public class P2PBridge {
     // responsible for marshaling to the right thread if needed.
     public interface ConnectListener {
         default void onStarted(ClientJoinAttempt attempt) {}
+        default String telemetryEntry() { return "code"; }
         default boolean isCurrentAttempt() { return true; }
         void onStatus(String message);
         void onConnected();
@@ -630,17 +639,18 @@ public class P2PBridge {
             listener.onFailed("peercraft.p2p.fail.already_connecting");
             return;
         }
-        final ClientJoinAttempt attempt = new ClientJoinAttempt(modSync);
+        final ClientJoinAttempt attempt = new ClientJoinAttempt(modSync, listener.telemetryEntry());
         currentJoinAttempt = attempt;
         listener.onStarted(attempt);
         armBusyWatchdog(attempt);
         ConnectListener guardedListener = new ConnectListener() {
             @Override public boolean isCurrentAttempt() { return attempt.isBusy(); }
             @Override public void onStatus(String message) {
-                forClientAttempt(this, () -> listener.onStatus(message));
+                forClientAttempt(this, () -> { attempt.telemetry.stage(message); listener.onStatus(message); });
             }
             @Override public void onConnected() {
                 forClientAttempt(this, () -> {
+                    attempt.telemetry.stage("minecraft_login");
                     Runnable hook = onClientConnected;
                     if (hook != null) {
                         try { hook.run(); }
@@ -653,6 +663,7 @@ public class P2PBridge {
             }
             @Override public void onFailed(String reason) {
                 forClientAttempt(this, () -> {
+                    attempt.telemetry.finish("failed", reason);
                     releaseClientJoin();
                     listener.onFailed(reason);
                 });
@@ -725,6 +736,10 @@ public class P2PBridge {
         if (session == null || session.sessionId != sessionId) return;
         ClientJoinAttempt attempt = currentJoinAttempt;
         if (attempt != null) attempt.cancelled = true;
+        if (session.joinAttempt != null) {
+            session.joinAttempt.telemetry.finish("failed", session.endReason);
+            session.joinAttempt.telemetry.sessionEnded(session.endReason);
+        }
         if (session != null && session.sessionId == sessionId) {
             // Tell the host we're gone *now* with a best-effort FIN, so it drops its TCP
             // connection to the integrated server and that server runs its normal
@@ -910,6 +925,7 @@ public class P2PBridge {
         Consumer<String> modeHook = onTransportSelected;
         if (modeHook != null && !attempt.host) modeHook.accept("peercraft.p2p.mode." + route.mode());
         if (attempt.host) return;
+        markClientTransportReady(attempt.listener);
         clearRendezvousListener();
         if (attempt.modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) attempt.listener.onConnected();
         else runModSyncHandshake(attempt.modSync, attempt.listener);
@@ -947,6 +963,11 @@ public class P2PBridge {
             HostConnection conn = hostConnectionsByAddress.get(peer);
             if (conn != null) closeHostConnection(conn);
         } else {
+            ClientSession session = currentClientSession;
+            if (session != null) {
+                session.endReason = "transport_failure";
+                if (session.joinAttempt != null) session.joinAttempt.telemetry.markTransportFailure(reason);
+            }
             Consumer<String> hook = onTransportFailure;
             if (hook != null && (currentClientSession != null || retainingHandoffTransport())) hook.accept(reason);
             if (proxy != null) proxy.disconnectClient();
@@ -1020,6 +1041,7 @@ public class P2PBridge {
                     clearRendezvousListener();
                     setClientTargetPeer(ip, port);
                     LOGGER.info("[P2PBridge] P2P-соединение установлено напрямую с {}:{}", ip, port);
+                    markClientTransportReady(listener);
                     if (modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) {
                         listener.onConnected();
                         return;
@@ -1045,6 +1067,8 @@ public class P2PBridge {
     // successful punch and onConnected(). The agent (client layer) drives the handshake over
     // the link and calls exactly one Outcome method.
     private void runModSyncHandshake(ModSyncAgent modSync, ConnectListener listener) {
+        ClientJoinAttempt owner = currentJoinAttempt;
+        if (owner != null && listener.isCurrentAttempt()) owner.telemetry.stage("modsync");
         modSyncActive.set(true);
         ModSyncLink link = new ModSyncLink() {
             @Override
@@ -1073,10 +1097,13 @@ public class P2PBridge {
             }
 
             @Override
-            public void abortJoin() {
+            public void abortJoin() { abortJoin("cancelled"); }
+
+            @Override
+            public void abortJoin(String reason) {
                 forClientAttempt(listener, () -> {
                     modSyncActive.set(false);
-                    abortModSyncClient();
+                    abortModSyncClient(reason);
                 });
             }
 
@@ -1106,10 +1133,27 @@ public class P2PBridge {
         authorizedPeers.remove(clientTargetPeer);
         securedPeers.remove(clientTargetPeer);
     }
-    public synchronized void abortModSyncClient() {
+    public synchronized void abortModSyncClient() { abortModSyncClient("cancelled"); }
+
+    private synchronized void abortModSyncClient(String reason) {
         ClientJoinAttempt attempt = currentJoinAttempt;
-        if (attempt != null) attempt.cancelled = true;
+        if (attempt != null) {
+            attempt.telemetry.finish("restart_required".equals(reason) ? "restart_required" : "cancelled", reason);
+            attempt.cancelled = true;
+        }
         releaseClientJoin();
+    }
+
+    private void markClientTransportReady(ConnectListener listener) {
+        ClientJoinAttempt attempt = currentJoinAttempt;
+        if (attempt != null && listener.isCurrentAttempt()) attempt.telemetry.transportReady();
+    }
+
+    /** Called on the client tick only after vanilla has installed the player and world. */
+    public synchronized void observeClientWorld(boolean inWorld) {
+        ClientSession session = currentClientSession;
+        if (inWorld && session != null && session.joinAttempt != null && session.joinAttempt.isCurrent())
+            session.joinAttempt.telemetry.worldJoined();
     }
 
     // Last-resort timeout for callers without a UI owner. Normal screen cancellation is
@@ -1449,7 +1493,7 @@ public class P2PBridge {
     // sendProxyDataToP2P(...) call for this TCP connection.
     public synchronized long beginClientSession(Socket socket) {
         long sessionId = ThreadLocalRandom.current().nextLong();
-        this.currentClientSession = new ClientSession(sessionId);
+        this.currentClientSession = new ClientSession(sessionId, currentJoinAttempt);
         LOGGER.info("[P2PBridge] Новая клиентская сессия {} для {}", sessionId, socket.getRemoteSocketAddress());
         return sessionId;
     }
@@ -1891,6 +1935,7 @@ public class P2PBridge {
                 // MC client now so vanilla shows "connection lost" instead of hanging on
                 // the socket until its 30s read timeout.
                 LOGGER.info("[P2PBridge] Хост закрыл сессию {} (FIN) — отключаем локальный MC-клиент", session.sessionId);
+                session.endReason = "remote_closed";
                 if (this.currentClientSession == session) endClientSession(session.sessionId);
                 if (this.proxy != null) {
                     this.proxy.disconnectClient();
@@ -1898,6 +1943,7 @@ public class P2PBridge {
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
             LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, e.getMessage());
+            session.endReason = "broken_session";
             if (this.currentClientSession == session) endClientSession(session.sessionId);
             if (this.proxy != null) {
                 this.proxy.disconnectClient();
@@ -2042,8 +2088,12 @@ public class P2PBridge {
         final AtomicLong outSeq = new AtomicLong(0);
         final Map<Long, byte[]> sentPackets = newRetransmitBuffer();
 
-        ClientSession(long sessionId) {
+        final ClientJoinAttempt joinAttempt;
+        volatile String endReason = "socket_closed";
+
+        ClientSession(long sessionId, ClientJoinAttempt joinAttempt) {
             this.sessionId = sessionId;
+            this.joinAttempt = joinAttempt;
         }
     }
 }

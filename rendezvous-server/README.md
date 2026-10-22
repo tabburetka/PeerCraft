@@ -78,12 +78,39 @@ Unique sets are capped at 100,000 entries per UTC day to bound memory use.
 The RU/EN buttons switch the dashboard language immediately; the choice is saved in
 the browser on that device.
 
+Older clients include the Minecraft version only in public-room registrations;
+private and friends-only rooms therefore appear as `unknown` in the stored aggregates.
+The dashboard separates these unreported versions from the version ranking and
+shows reporting coverage, without altering historical data. Updated clients also
+send the version for private/friends-only rooms in an optional REGISTER trailer
+that older servers ignore. This does not publish the room or send its private name.
+Both the updated client and server are required to count those versions; updating
+the server alone cannot recover versions omitted by older clients.
+
 Aggregates start when this version first runs; older history cannot be reconstructed.
 Analytics are stored under `<dataDir>/analytics/` for 400 days. The store contains
 HMAC hashes for unique counting, not raw IP addresses, account IDs, names, tokens,
 room codes, or passwords. Keep `analytics.key` with `analytics.json` when moving the
 server: replacing the key would make cross-day uniqueness inaccurate. This local HTTP
 dashboard has no login, so bind it to a trusted LAN address only.
+
+## Opt-in client diagnostics
+
+Updated clients can send a small diagnostic stream after the player's first-run choice.
+It uses the existing rendezvous UDP port, with versioned types `0x70` and `0x71`; no
+new public HTTP endpoint or port is opened. Older clients continue to work unchanged.
+Update the server before publishing clients so it can acknowledge these optional packets.
+Diagnostics are handled before the existing request/visitor counters and never inflate them.
+
+The collector persists only bounded daily aggregates: environment versions, observed join
+outcomes, stage/time buckets and Mod Sync/disconnect summaries. Random event/operation IDs
+are used only in memory for 24-hour deduplication. Source addresses are used only for an
+in-memory rate window, pruned by the 30-second maintenance task; neither is written into
+these new aggregates. UDP is not encrypted. The UI explains the diagnostic cohort and keeps
+cancellations, required restarts and missing reports separate from proven failures.
+
+See [the implemented data and consent contract](../docs/telemetry-next-release.md) for
+fields, limits, opt-out behavior and the distinction from existing server operational data.
 
 ## Test
 

@@ -14,6 +14,9 @@ public interface ModSyncAgent {
 
     void run(ModSyncLink link, Outcome outcome);
 
+    /** Attempt ownership for a summary that cannot be attributed to a later join. */
+    default void telemetryOperation(net.peercraft.network.telemetry.Telemetry.Operation owner) {}
+
     /** Silent cancellation when the owner leaves the join flow. */
     default void cancel() {}
 
@@ -23,6 +26,9 @@ public interface ModSyncAgent {
 
         /** Mods were downloaded (restart needed) or the player cancelled — do NOT connect, release the join lock. */
         void abortJoin();
+
+        /** Distinguishes an intentional restart from cancellation without changing old adapters. */
+        default void abortJoin(String reason) { abortJoin(); }
 
         /** Something went wrong — surface {@code reasonKey} through the existing ConnectListener failure path. */
         void fail(String reasonKey);

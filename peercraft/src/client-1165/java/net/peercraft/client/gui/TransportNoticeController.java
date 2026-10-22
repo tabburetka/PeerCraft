@@ -15,6 +15,7 @@ public final class TransportNoticeController {
     private static P2PBridge.ClientJoinAttempt joinAttempt;
     private static Screen joinScreen, returnScreen;
     private static boolean vanillaConnecting;
+    private static java.lang.ref.WeakReference<Object> previousWorld = new java.lang.ref.WeakReference<Object>(null);
     private TransportNoticeController() {}
 
     public static void trackJoin(P2PBridge.ClientJoinAttempt attempt, Screen owner, Screen back) {
@@ -22,9 +23,14 @@ public final class TransportNoticeController {
         joinScreen = owner;
         returnScreen = back;
         vanillaConnecting = false;
+        previousWorld = new java.lang.ref.WeakReference<Object>(Minecraft.getInstance().level);
     }
 
-    public static void connecting() { vanillaConnecting = true; }
+    public static void connecting() {
+        vanillaConnecting = true;
+        P2PBridge.ClientJoinAttempt attempt = joinAttempt;
+        if (attempt != null && attempt.isCurrent()) attempt.telemetry().stage("minecraft_login");
+    }
 
     private static void tickJoin(Screen current, boolean inWorld) {
         P2PBridge.ClientJoinAttempt attempt = joinAttempt;
@@ -39,6 +45,8 @@ public final class TransportNoticeController {
         if (!vanillaConnecting && (current == joinScreen
                 || current instanceof ModSyncPreparingScreen || current instanceof ModSyncConfirmScreen
                 || current instanceof ModSyncProgressScreen || current instanceof ModSyncSecurityNoticeScreen)) return;
+        if (vanillaConnecting && current instanceof DisconnectedScreen)
+            attempt.telemetry().finish("failed", "vanilla_disconnect");
         attempt.cancel();
         allowRetry(true);
         joinAttempt = null;
@@ -70,6 +78,7 @@ public final class TransportNoticeController {
             mc.player.displayClientMessage(message, false);
         }
         Screen current = mc.screen;
+        if (TelemetryNoticeController.maybeShow(current)) return;
         if (current instanceof TitleScreen
                 && !net.peercraft.config.PeerCraftConfig.MODE_DISABLED.equals(net.peercraft.config.PeerCraftConfig.mode())
                 && net.peercraft.client.account.AccountWelcome.claim(
@@ -77,6 +86,7 @@ public final class TransportNoticeController {
             PeerCraftUi.setScreen(mc, new PeerCraftAccountScreen(current, true));
             return;
         }
+        P2PBridge.INSTANCE.observeClientWorld(vanillaConnecting && mc.player != null && mc.level != null && mc.level != previousWorld.get());
         tickJoin(current, mc.player != null);
         if (pendingFailure != null && mc.player == null && current instanceof DisconnectedScreen) {
             String reason = pendingFailure; pendingFailure = null;

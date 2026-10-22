@@ -45,6 +45,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case "hostUdpPort": return "50001";
             case "peerHost": return "127.0.0.1";
             case "peerPort": return "";
+            case "telemetry.enabled": return "false";
             case "internetPlay": return "false";
             case "rendezvousHost": return PeerCraftConfig.DEFAULT_RENDEZVOUS_HOST;
             case "rendezvousPort": return "51000";
@@ -79,6 +80,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
     }
 
     private static boolean forcedByFlag(String key) {
+        if ("telemetry.enabled".equals(key)) return false;
         String prop = System.getProperty("peercraft." + key);
         if (prop != null && !prop.trim().isEmpty()) {
             return true;
@@ -103,6 +105,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         controlWidth=Math.max(70,Math.min(150,dialog.contentWidth()*2/5));
         rowsTop=dialog.contentTop()+36;rowPitch=dialog.compact?24:30;
         listBottom=backY()-28; rows.clear();
+        addRow("telemetry.enabled", KIND_BOOL, false, false, 0, 0, "telemetry");
         addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
         addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
         addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");
@@ -143,6 +146,14 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         Row row=new Row(key,kind,developer,restart,min,max,labelKey);rows.add(row);return row;
     }
     private int controlX() { return dialog.contentX()+dialog.contentWidth()-controlWidth-12; }
+    private void telemetryChanged(Row row, boolean value) {
+        if ("telemetry.enabled".equals(row.key) && !value) {
+            net.peercraft.config.TelemetryConsent.choose(false);
+            this.settings.telemetryEnabled = "false";
+            this.settings.telemetryNoticeAcknowledged = true;
+        }
+    }
+
     private Object buildWidget(Row row) {
         String current=seed(row.key);
         if(row.kind==KIND_INT || row.kind==KIND_STRING) {
@@ -151,7 +162,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         }
         GuiButton button;
         if(row.kind==KIND_BOOL) {
-            ToggleButton cb=new ToggleButton(controlX(),rowsTop,"","true".equalsIgnoreCase(current),value->{});
+            ToggleButton cb=new ToggleButton(controlX(),rowsTop,"","true".equalsIgnoreCase(current),value->telemetryChanged(row,value));
             cb.width=16;cb.height=16;button=cb;
         } else {
             row.cycleValues=row.kind==KIND_MODE?MODE_VALUES:MODSYNC_VALUES;
@@ -189,7 +200,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         return row.cycleValues.get(row.cycleIndex);
     }
     private void onReset() {
-        PeerCraftSettingsStore.clear();PeerCraftConfig.applyOverrides(new LinkedHashMap<String,String>());
+        net.peercraft.config.TelemetryConsent.resetSettings();
         PeerCraftUi.setScreen(mc,new PeerCraftSettingsScreen(lastScreen));
     }
     private void focusRow(Row row) {
@@ -209,10 +220,11 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         }
         for(Row row:rows) {
             String value=readWidget(row).trim();
+            if ("telemetry.enabled".equals(row.key)) { settings.telemetryEnabled=value; continue; }
             settings.set(row.key,value.isEmpty() || value.equals(builtinDefault(row.key)) || value.equals(PeerCraftConfig.baselineValue(row.key)) || forcedByFlag(row.key)?null:value);
         }
         settings.showDeveloperSection=developerToggle.isChecked();PeerCraftSettingsStore.save(settings);
-        PeerCraftConfig.applyOverrides(settings.toOverrideMap());HandoffClientController.INSTANCE.resendPreference();PeerCraftUi.setScreen(mc,lastScreen);
+        PeerCraftConfig.applyOverrides(settings.toOverrideMap());net.peercraft.config.TelemetryConsent.apply(settings);HandoffClientController.INSTANCE.resendPreference();PeerCraftUi.setScreen(mc,lastScreen);
     }
     @Override protected void actionPerformed(GuiButton button) {
         if(button instanceof ToggleButton)((ToggleButton)button).fire();else if(button instanceof IdButton)((IdButton)button).onPress.run();

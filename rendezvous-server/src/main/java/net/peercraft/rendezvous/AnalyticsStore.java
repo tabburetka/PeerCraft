@@ -37,6 +37,9 @@ final class AnalyticsStore {
         Set<String> visitors = new HashSet<>();
         Set<String> accounts = new HashSet<>();
         Map<String, Long> versions = new HashMap<>();
+        // Optional in schema 1; separate bounded dimensions avoid a Cartesian
+        // product of environment, failure, duration and operation fields.
+        Map<String, Map<String, Long>> telemetry = new HashMap<>();
     }
 
     static final class State {
@@ -111,10 +114,26 @@ final class AnalyticsStore {
         // Versions are self-reported; bound both string length and distinct values per day.
         String normalized = value != null && value.matches("[0-9A-Za-z._+-]{1,24}") ? value : "unknown";
         Day day = day();
-        if (!day.versions.containsKey(normalized) && day.versions.size() >= 30) normalized = "other";
+        // Missing reports must stay separate from reported versions even after the
+        // distinct-version cap, so dashboard coverage never counts them as known.
+        if (!normalized.equals("unknown") && !day.versions.containsKey(normalized) && day.versions.size() >= 30) normalized = "other";
         increment(day.versions, normalized, 1);
         dirty = true;
     }
+
+    /** Client-only aggregate; never calls request/account or stores operation IDs. */
+    synchronized void telemetry(String date, String dimension, String value) {
+        Day day = state.days.computeIfAbsent(date, ignored -> new Day());
+        if (day.telemetry == null) day.telemetry = new HashMap<>();
+        Map<String, Long> values = day.telemetry.computeIfAbsent(dimension, ignored -> new HashMap<>());
+        // Even syntactically valid release strings are untrusted. Reserve one
+        // bucket for overflow rather than growing per-version maps indefinitely.
+        String bucket = values.containsKey(value) || values.size() < 64 ? value : "other";
+        increment(values, bucket, 1);
+        dirty = true;
+    }
+
+    String telemetryDate() { return today(); }
 
     private static void increment(Map<String, Long> map, String key, long by) {
         map.merge(key, by, Long::sum);
@@ -181,6 +200,11 @@ final class AnalyticsStore {
             row.put("accounts", day.accounts.size());
             row.put("counts", new HashMap<>(day.counts));
             row.put("versions", new HashMap<>(day.versions));
+            Map<String, Map<String, Long>> telemetry = new LinkedHashMap<>();
+            if (day.telemetry != null) day.telemetry.forEach((name, values) -> {
+                if (values != null) telemetry.put(name, new HashMap<>(values));
+            });
+            row.put("telemetry", telemetry);
             days.add(row);
         });
         List<Map<String, Object>> months = new ArrayList<>();

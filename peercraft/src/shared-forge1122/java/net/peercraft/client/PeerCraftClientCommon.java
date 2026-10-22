@@ -35,6 +35,12 @@ public final class PeerCraftClientCommon {
             LOGGER.warn("[PeerCraft] settings.json пропущен: {}", e.toString());
         }
 
+        try { net.peercraft.config.TelemetryConsent.initialize(); }
+        catch (RuntimeException unavailable) {
+            net.peercraft.network.telemetry.Telemetry.setEnabled(false);
+            LOGGER.debug("[PeerCraft] Diagnostics initialization skipped");
+        }
+
         net.peercraft.network.handoff.WorldInstallRecovery.start(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());
 

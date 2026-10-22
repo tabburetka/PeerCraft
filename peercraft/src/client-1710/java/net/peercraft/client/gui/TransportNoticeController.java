@@ -13,6 +13,7 @@ public final class TransportNoticeController {
     private static P2PBridge.ClientJoinAttempt joinAttempt;
     private static GuiScreen joinScreen, returnScreen;
     private static boolean vanillaConnecting;
+    private static java.lang.ref.WeakReference<Object> previousWorld = new java.lang.ref.WeakReference<Object>(null);
     private TransportNoticeController() {}
 
     public static void trackJoin(P2PBridge.ClientJoinAttempt attempt, GuiScreen owner, GuiScreen back) {
@@ -20,9 +21,14 @@ public final class TransportNoticeController {
         joinScreen = owner;
         returnScreen = back;
         vanillaConnecting = false;
+        previousWorld = new java.lang.ref.WeakReference<Object>(Minecraft.getMinecraft().theWorld);
     }
 
-    public static void connecting() { vanillaConnecting = true; }
+    public static void connecting() {
+        vanillaConnecting = true;
+        P2PBridge.ClientJoinAttempt attempt = joinAttempt;
+        if (attempt != null && attempt.isCurrent()) attempt.telemetry().stage("minecraft_login");
+    }
 
     private static void tickJoin(GuiScreen current, boolean inWorld) {
         P2PBridge.ClientJoinAttempt attempt = joinAttempt;
@@ -37,6 +43,8 @@ public final class TransportNoticeController {
         if (!vanillaConnecting && (current == joinScreen
                 || current instanceof ModSyncPreparingScreen || current instanceof ModSyncConfirmScreen
                 || current instanceof ModSyncProgressScreen || current instanceof ModSyncSecurityNoticeScreen)) return;
+        if (vanillaConnecting && current instanceof GuiDisconnected)
+            attempt.telemetry().finish("failed", "vanilla_disconnect");
         attempt.cancel();
         allowRetry(true);
         joinAttempt = null;
@@ -67,6 +75,7 @@ public final class TransportNoticeController {
             mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(PeerCraftLang.tr(pendingMode))); pendingMode = null;
         }
         GuiScreen current = mc.currentScreen;
+        if (TelemetryNoticeController.maybeShow(current)) return;
         if (current instanceof GuiMainMenu
                 && !net.peercraft.config.PeerCraftConfig.MODE_DISABLED.equals(net.peercraft.config.PeerCraftConfig.mode())
                 && net.peercraft.client.account.AccountWelcome.claim(
@@ -74,6 +83,7 @@ public final class TransportNoticeController {
             PeerCraftUi.setScreen(mc, new PeerCraftAccountScreen(current, true));
             return;
         }
+        P2PBridge.INSTANCE.observeClientWorld(vanillaConnecting && mc.thePlayer != null && mc.theWorld != null && mc.theWorld != previousWorld.get());
         tickJoin(current, mc.thePlayer != null);
         if (pendingFailure != null && mc.thePlayer == null && current instanceof GuiDisconnected) {
             String reason = pendingFailure; pendingFailure = null;
