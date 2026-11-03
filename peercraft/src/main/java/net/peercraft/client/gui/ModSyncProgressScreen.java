@@ -132,7 +132,7 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
         }
         String key = switch (currentState) {
             case VERIFYING -> "peercraft.modsync.progress.verifying";
-            case INSTALLING -> plan.hasReplacements() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
+            case INSTALLING -> plan.needsRestart() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
             default -> "peercraft.modsync.progress.mod";
         };
         return Component.translatable(key, currentModId.isEmpty() ? "…" : currentModId);

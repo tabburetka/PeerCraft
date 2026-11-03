@@ -130,6 +130,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             if (terminated.get()) return;
             ModSyncCoordinator c = ModSyncCoordinator.joiner(
                     link::send, LoaderTag.current(), inventory.refs(), tmpDir, maxModBytes, this, InstalledModScanner.minecraftVersion());
+            if (PeerCraftConfig.modSyncRemoveExtra() != net.peercraft.config.ModSyncRemoveMode.OFF) c.requestExtras();
             this.coordinator = c;
             if (terminated.get()) { c.cancel(); return; }
             link.bindInbound(c);
@@ -226,17 +227,18 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     private void reviewManifest(List<ModEntry> offered) {
         if (terminated.get()) return;
         List<ModEntry> safe = inventory.candidates(offered, coordinator.replacementsAllowed());
-        if (inventory.issues.isEmpty()) { planAndPrompt(safe); return; }
+        List<ModSyncPlan.Removal> extras = inventory.removals(coordinator.extraIds());
+        if (inventory.issues.isEmpty()) { planAndPrompt(safe, extras); return; }
         List<String> warnings = new ArrayList<String>();
         for (ModSyncInventory.Issue issue : inventory.issues) warnings.add(PeerCraftLang.tr("peercraft.modsync.skip." + issue.reason, issue.id));
         runOnClientThread(() -> setScreen(new ModSyncIssuesScreen(warnings,
                 () -> {
-                    Thread t = new Thread(() -> planAndPrompt(safe), "PeerCraft-ModSync-Plan");
+                    Thread t = new Thread(() -> planAndPrompt(safe, extras), "PeerCraft-ModSync-Plan");
                     t.setDaemon(true); t.start();
                 }, this::onUserCancel)));
     }
 
-    private void planAndPrompt(List<ModEntry> missing) {
+    private void planAndPrompt(List<ModEntry> missing, List<ModSyncPlan.Removal> extras) {
         try {
             // One-time trust gate: mod sync installs jars the host chooses, and a jar is
             // arbitrary code. Shown before every branch below so it can't be skipped; once
@@ -247,7 +249,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                             PeerCraftSettings s = PeerCraftSettingsStore.load();
                             s.modSyncTrustAcknowledged = true;
                             PeerCraftSettingsStore.save(s);
-                            Thread t = new Thread(() -> planAndPrompt(missing), "PeerCraft-ModSync-Plan");
+                            Thread t = new Thread(() -> planAndPrompt(missing, extras), "PeerCraft-ModSync-Plan");
                             t.setDaemon(true);
                             t.start();
                         },
@@ -296,14 +298,17 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return;
             }
 
+            List<ModSyncPlan.Removal> removals = applyRemoveMode(extras);
+
             boolean forceScreen = PeerCraftConfig.modSyncReofferDeclined();
-            boolean anythingNew = !toFetch.isEmpty();
+            boolean anythingNew = !toFetch.isEmpty() || !removals.isEmpty();
             if (!forceScreen && !anythingNew) {
                 finishProceed();
                 return;
             }
 
-            ModSyncPlan plan = inventory.annotate(ModSyncPlan.of(plannedDownloads(visible)));
+            List<ModSyncPlan.PlannedMod> planned = visible.isEmpty() ? new ArrayList<ModSyncPlan.PlannedMod>() : plannedDownloads(visible);
+            ModSyncPlan plan = inventory.annotate(ModSyncPlan.of(planned)).withRemovals(removals);
             Set<String> optionalDeclined = new LinkedHashSet<String>();
             for (ModSyncPlan.PlannedMod mod : plan.mods()) if (mod.entry().env() == ModEntry.Env.CLIENT && declined.contains(mod.entry().id())) optionalDeclined.add(mod.entry().id());
             ModSyncPlan selected = plan.excluding(optionalDeclined);
@@ -322,7 +327,10 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                     finalPlan,
                     preDeselected,
                     deselectedIds -> {
-                        ModSyncDeclinedStore.save(deselectedIds);
+                        // Only offered downloads are "declined"; an unticked removal is just kept this time.
+                        Set<String> declinedDownloads = new LinkedHashSet<>();
+                        for (ModSyncPlan.PlannedMod pm : finalPlan.mods()) if (deselectedIds.contains(pm.entry().id())) declinedDownloads.add(pm.entry().id());
+                        ModSyncDeclinedStore.save(declinedDownloads);
                         startDownloadThread(finalPlan.excluding(deselectedIds));
                     },
                     this::onUserCancel)));
@@ -341,6 +349,21 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
             out.add(resolved[i]);
         }
         return out;
+    }
+
+    /**
+     * {@code modSync.removeExtra}: "keep_client" drops purely client-side mods (by the jar's own
+     * metadata — no Modrinth refinement on this branch, see keepJoinRequired in src/main) from
+     * the removal list, "all" keeps every extra. Each one is still confirmed on the screen.
+     */
+    private List<ModSyncPlan.Removal> applyRemoveMode(List<ModSyncPlan.Removal> extras) {
+        net.peercraft.config.ModSyncRemoveMode mode = PeerCraftConfig.modSyncRemoveExtra();
+        List<ModSyncPlan.Removal> kept = new ArrayList<>();
+        if (mode == net.peercraft.config.ModSyncRemoveMode.OFF) return kept;
+        for (ModSyncPlan.Removal r : extras) {
+            if (mode == net.peercraft.config.ModSyncRemoveMode.ALL || r.env() != ModEntry.Env.CLIENT) kept.add(r);
+        }
+        return kept;
     }
 
     private void abortTooBig() {
@@ -372,7 +395,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
     }
 
     private void startDownloadThread(ModSyncPlan plan) {
-        if (plan.mods().isEmpty()) {
+        if (plan.isEmpty()) {
             finishProceed();
             return;
         }
@@ -409,17 +432,18 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 currentBase += Math.max(0, e.sizeBytes()); currentModsDone++;
                 runOnClientThread(() -> screen.setOverall(currentBase, currentModsDone));
             }
+            for (ModSyncPlan.Removal r : plan.removals()) names.add("− " + r.id() + " (" + r.fileName() + ")");
             if (terminated.get()) return;
             committing.set(true);
             if (terminated.get()) return;
             runOnClientThread(screen::beginCommit);
-            if (plan.hasReplacements()) {
+            if (plan.needsRestart()) {
                 ModSyncPendingInstaller.arm(plan, verifiedFiles, roomCode, inventory.fingerprints(), () -> terminated.get());
             } else {
                 ModSyncPendingInstaller.installNow(plan, verifiedFiles, roomCode, inventory.fingerprints());
             }
             safeSendAbort("done");
-            runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names, plan.hasReplacements())));
+            runOnClientThread(() -> setScreen(new ModSyncRestartRequiredScreen(names, plan.needsRestart())));
             finishAbort("restart_required");
         } catch (Exception e) {
             LOGGER.warn("[ModSync] Install batch failed: {}", e.toString());

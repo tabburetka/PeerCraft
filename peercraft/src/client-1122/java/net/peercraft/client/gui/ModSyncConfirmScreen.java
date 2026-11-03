@@ -42,7 +42,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.confirm.title");
     private final ModSyncPlan plan;
     private final List<ModSyncPlan.PlannedMod> allMods;
-    /** Ids of client-side mods the player has unchecked. Only CLIENT-env ids ever land here. */
+    /** Ids of client-side downloads and of removals the player has unchecked. */
     private final Set<String> deselected;
     private final Consumer<Set<String>> onAccept;
     private final Runnable onCancel;
@@ -61,8 +61,12 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         this.onCancel = onCancel;
 
         this.allMods = new ArrayList<>(plan.mods());
+        for (ModSyncPlan.Removal r : plan.removals()) {
+            removalIds.add(r.id());
+            this.allMods.add(ModSyncPlan.PlannedMod.p2p(new ModEntry(r.id(), r.version(), 0, new byte[0], r.fileName(), r.env(), "", "")));
+        }
         this.allMods.sort(Comparator
-                .comparingInt((ModSyncPlan.PlannedMod m) -> isClient(m) ? 1 : 0)
+                .comparingInt((ModSyncPlan.PlannedMod m) -> isRemoval(m) ? 2 : isClient(m) ? 1 : 0)
                 .thenComparing(m -> m.entry().id()));
 
         this.deselected = new LinkedHashSet<>();
@@ -75,6 +79,18 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
     private static boolean isClient(ModSyncPlan.PlannedMod m) {
         return m.entry().env() == ModEntry.Env.CLIENT;
+    }
+
+    /** Rows standing in for {@link ModSyncPlan#removals()}; nothing is downloaded for them. */
+    private final Set<String> removalIds = new LinkedHashSet<>();
+
+    private boolean isRemoval(ModSyncPlan.PlannedMod m) {
+        return removalIds.contains(m.entry().id());
+    }
+
+    /** Client-side downloads and every removal can be unticked; join-required downloads cannot. */
+    private boolean selectable(ModSyncPlan.PlannedMod m) {
+        return isClient(m) || isRemoval(m);
     }
 
     @Override
@@ -97,10 +113,10 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     private List<String> summaryLines() {
         int count = 0;
         for (ModSyncPlan.PlannedMod mod : allMods) {
-            if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
+            if (!isRemoval(mod) && mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
         }
         return count == 0 ? java.util.Collections.emptyList()
-                : PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.confirm.catalog_summary", count, allMods.size()),
+                : PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.modsync.confirm.catalog_summary", count, plan.count()),
                         Math.max(1, dialog.contentWidth() - 8));
     }
     private int selectionInfoY() { return backY() - dialog.buttonPitch() - 28; }
@@ -154,7 +170,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         int rows = Math.min(visibleRows(), vis.size() - scroll);
         for (int i = 0; i < rows; i++) {
             ModSyncPlan.PlannedMod m = vis.get(scroll + i);
-            if (!isClient(m)) {
+            if (!selectable(m)) {
                 continue;
             }
             final String id = m.entry().id();
@@ -231,11 +247,18 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     }
 
     private int catalogColor(ModSyncPlan.PlannedMod m) {
+        if (isRemoval(m)) return PeerCraftUi.TEXT_ACCENT;
         switch (m.catalogStatus()) {
             case PUBLISHED: return PeerCraftUi.TEXT_SUCCESS;
             case NOT_FOUND: return PeerCraftUi.TEXT_ACCENT;
             default: return PeerCraftUi.TEXT_MUTED;
         }
+    }
+
+    private String countLine(ModSyncPlan selected) {
+        String downloads = PeerCraftLang.tr("peercraft.modsync.confirm.count_selected", selected.count(), plan.count());
+        if (plan.removals().isEmpty()) return downloads;
+        return downloads + " · " + PeerCraftLang.tr("peercraft.modsync.confirm.remove_selected", selected.removals().size(), plan.removals().size());
     }
 
     private static String rowName(ModSyncPlan.PlannedMod mod) {
@@ -259,20 +282,22 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             int rowY = listTop + i * ROW_HEIGHT;
             int textX = dialog.contentX() + 24;
             int textWidth = Math.max(1, dialog.contentWidth() - 34);
-            if (!client) this.fontRenderer.drawStringWithShadow("—", dialog.contentX() + 3, rowY + 7, PeerCraftUi.TEXT_MUTED);
+            if (!selectable(m)) this.fontRenderer.drawStringWithShadow("—", dialog.contentX() + 3, rowY + 7, PeerCraftUi.TEXT_MUTED);
             this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(rowName(m), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
             String tag = PeerCraftLang.tr(client ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required");
-            String details = PeerCraftLang.tr(m.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace") + " · " + catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
+            String details = isRemoval(m)
+                    ? PeerCraftLang.tr("peercraft.modsync.operation.remove") + " · " + tag + " · " + PeerCraftLang.tr("peercraft.modsync.confirm.not_on_host")
+                    : PeerCraftLang.tr(m.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace") + " · " + catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
             this.fontRenderer.drawStringWithShadow(this.fontRenderer.trimStringToWidth(details, textWidth), textX, rowY + 14,
                     catalogColor(m));
             if (mouseX >= textX && mouseX < textX + textWidth && mouseY >= rowY && mouseY < rowY + ROW_HEIGHT) {
                 hovered = PeerCraftUi.wrap(this.fontRenderer, rowName(m) + "\n" + details + "\n"
-                        + PeerCraftLang.tr("peercraft.modsync.catalog.explanation"), dialog.contentWidth());
+                        + PeerCraftLang.tr(isRemoval(m) ? "peercraft.modsync.confirm.remove_explanation" : "peercraft.modsync.catalog.explanation"), dialog.contentWidth());
             }
         }
         drawScrollbar(vis.size());
         ModSyncPlan selected = plan.excluding(deselected);
-        this.drawCenteredString(this.fontRenderer, this.fontRenderer.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.count_selected", selected.count(), plan.count()), dialog.contentWidth()),
+        this.drawCenteredString(this.fontRenderer, this.fontRenderer.trimStringToWidth(countLine(selected), dialog.contentWidth()),
                 width / 2, selectionInfoY(), PeerCraftUi.TEXT_TITLE);
         this.drawCenteredString(this.fontRenderer, this.fontRenderer.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())), dialog.contentWidth()),
                 width / 2, selectionInfoY() + 12, PeerCraftUi.TEXT_ACCENT);

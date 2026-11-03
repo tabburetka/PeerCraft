@@ -74,4 +74,11 @@ class ModDiffTest {
 
         assertEquals(List.of("good"), clean.stream().map(ModEntry::id).toList());
     }
+
+    @Test
+    void extrasAreJoinerIdsTheHostLacksMinusLoaderAndPeerCraft() {
+        List<String> joiner = List.of("shared", "extra", "peercraft", "minecraft", "extra", "");
+        assertEquals(List.of("extra"), ModDiff.extras(joiner, java.util.Set.of("shared")));
+        assertEquals(List.of(), ModDiff.extras(List.of("shared"), java.util.Set.of("shared")));
+    }
 }

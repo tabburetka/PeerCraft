@@ -43,6 +43,21 @@ public final class ModDiff {
         return out;
     }
 
+    /**
+     * Host side: the joiner's mods the host has no jar for at all, in the joiner's order.
+     * {@code hostIds} must be the host's COMPLETE id set — including mods withheld from the
+     * offer (client-only in "required" mode) — or the joiner would be told to delete a mod the
+     * host actually has. Hard-excluded ids (loader, PeerCraft itself) are never listed.
+     */
+    public static List<String> extras(Iterable<String> joinerIds, java.util.Set<String> hostIds) {
+        List<String> out = new ArrayList<String>();
+        for (String id : joinerIds) {
+            if (id == null || id.trim().isEmpty() || ModSyncFilter.HARD_EXCLUDED_IDS.contains(id)) continue;
+            if (!hostIds.contains(id) && !out.contains(id)) out.add(id);
+        }
+        return out;
+    }
+
     public static boolean knownVersion(String version) {
         return version != null && !version.trim().isEmpty() && !version.contains("${");
     }

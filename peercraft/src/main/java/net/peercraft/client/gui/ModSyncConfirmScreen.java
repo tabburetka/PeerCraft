@@ -26,6 +26,8 @@ import java.util.function.Consumer;
  * A filter button cycles all / client-only / required. What the player unchecks is remembered
  * (see {@code ModSyncDeclinedStore}) so this screen doesn't reappear on every re-join.
  * Auto-accept skips this screen only when every selected jar has a public catalog match.
+ * Local mods the host doesn't have ({@code modSync.removeExtra}) are listed as removal rows,
+ * each with its own checkbox (ticked by default); auto-accept never skips a removal.
  */
 public class ModSyncConfirmScreen extends Screen {
 
@@ -37,7 +39,7 @@ public class ModSyncConfirmScreen extends Screen {
 
     private final ModSyncPlan plan;
     private final List<ModSyncPlan.PlannedMod> allMods;
-    /** Ids of client-side mods the player has unchecked. Only CLIENT-env ids ever land here. */
+    /** Ids of client-side downloads and of removals the player has unchecked. */
     private final Set<String> deselected;
     private final Consumer<Set<String>> onAccept;
     private final Runnable onCancel;
@@ -57,8 +59,12 @@ public class ModSyncConfirmScreen extends Screen {
         this.onCancel = onCancel;
 
         this.allMods = new ArrayList<>(plan.mods());
+        for (ModSyncPlan.Removal r : plan.removals()) {
+            removalIds.add(r.id());
+            this.allMods.add(ModSyncPlan.PlannedMod.p2p(new ModEntry(r.id(), r.version(), 0, new byte[0], r.fileName(), r.env(), "", "")));
+        }
         this.allMods.sort(Comparator
-                .comparingInt((ModSyncPlan.PlannedMod m) -> isClient(m) ? 1 : 0)
+                .comparingInt((ModSyncPlan.PlannedMod m) -> isRemoval(m) ? 2 : isClient(m) ? 1 : 0)
                 .thenComparing(m -> m.entry().id()));
 
         this.deselected = new LinkedHashSet<>();
@@ -71,6 +77,18 @@ public class ModSyncConfirmScreen extends Screen {
 
     private static boolean isClient(ModSyncPlan.PlannedMod m) {
         return m.entry().env() == ModEntry.Env.CLIENT;
+    }
+
+    /** Rows standing in for {@link ModSyncPlan#removals()}; nothing is downloaded for them. */
+    private final Set<String> removalIds = new LinkedHashSet<>();
+
+    private boolean isRemoval(ModSyncPlan.PlannedMod m) {
+        return removalIds.contains(m.entry().id());
+    }
+
+    /** Client-side downloads and every removal can be unticked; join-required downloads cannot. */
+    private boolean selectable(ModSyncPlan.PlannedMod m) {
+        return isClient(m) || isRemoval(m);
     }
 
     @Override
@@ -135,15 +153,15 @@ public class ModSyncConfirmScreen extends Screen {
     private int unconfirmedCount() {
         int count = 0;
         for (ModSyncPlan.PlannedMod mod : allMods) {
-            if (mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
+            if (!isRemoval(mod) && mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
         }
         return count;
     }
     private Component intro() {
         int unconfirmed = unconfirmedCount();
         return unconfirmed == 0
-                ? Component.translatable("peercraft.modsync.confirm.intro2", allMods.size())
-                : Component.translatable("peercraft.modsync.confirm.catalog_summary", unconfirmed, allMods.size());
+                ? Component.translatable("peercraft.modsync.confirm.intro2", plan.count())
+                : Component.translatable("peercraft.modsync.confirm.catalog_summary", unconfirmed, plan.count());
     }
     private static String catalogKey(ModSyncPlan.PlannedMod mod) {
         return switch (mod.catalogStatus()) {
@@ -152,7 +170,8 @@ public class ModSyncConfirmScreen extends Screen {
             case UNAVAILABLE -> "peercraft.modsync.catalog.unavailable";
         };
     }
-    private static int catalogColor(ModSyncPlan.PlannedMod mod) {
+    private int catalogColor(ModSyncPlan.PlannedMod mod) {
+        if (isRemoval(mod)) return PeerCraftUi.TEXT_ACCENT;
         return switch (mod.catalogStatus()) {
             case PUBLISHED -> PeerCraftUi.TEXT_SUCCESS;
             case NOT_FOUND -> PeerCraftUi.TEXT_ACCENT;
@@ -160,10 +179,23 @@ public class ModSyncConfirmScreen extends Screen {
         };
     }
     private String rowDetails(ModSyncPlan.PlannedMod mod) {
+        if (isRemoval(mod)) {
+            return Component.translatable("peercraft.modsync.operation.remove").getString() + " · "
+                    + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
+                    : "peercraft.modsync.confirm.tag_required").getString()
+                    + " · " + Component.translatable("peercraft.modsync.confirm.not_on_host").getString();
+        }
         return Component.translatable(mod.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace").getString() + " · " + Component.translatable(catalogKey(mod)).getString() + " · "
                 + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
                 : "peercraft.modsync.confirm.tag_required").getString()
                 + " · " + humanSize(mod.entry().sizeBytes()) + " · " + sourceLabel(mod);
+    }
+
+    private Component countLine(ModSyncPlan sel) {
+        Component downloads = Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count());
+        if (plan.removals().isEmpty()) return downloads;
+        return Component.literal(downloads.getString() + " · " + Component.translatable("peercraft.modsync.confirm.remove_selected",
+                sel.removals().size(), plan.removals().size()).getString());
     }
 
     private int visibleRows() {
@@ -186,7 +218,7 @@ public class ModSyncConfirmScreen extends Screen {
         int rows = Math.min(visibleRows(), vis.size() - scroll);
         for (int i = 0; i < rows; i++) {
             ModSyncPlan.PlannedMod m = vis.get(scroll + i);
-            if (!isClient(m)) {
+            if (!selectable(m)) {
                 continue;
             }
             final String id = m.entry().id();
@@ -241,8 +273,8 @@ public class ModSyncConfirmScreen extends Screen {
         if (mouseX < contentLeft() || mouseX >= contentLeft() + contentWidth()
                 || mouseY < LIST_TOP || row >= visibleRows() || row + scroll >= mods.size()) return null;
         ModSyncPlan.PlannedMod mod = mods.get(row + scroll);
-        return Component.literal(rowName(mod) + "\n" + mod.entry().fileName() + "\n"
-                + rowDetails(mod) + "\n" + Component.translatable("peercraft.modsync.catalog.explanation").getString());
+        return Component.literal(rowName(mod) + "\n" + mod.entry().fileName() + "\n" + rowDetails(mod) + "\n"
+                + Component.translatable(isRemoval(mod) ? "peercraft.modsync.confirm.remove_explanation" : "peercraft.modsync.catalog.explanation").getString());
     }
 
     static String humanSize(long bytes) {
@@ -313,7 +345,7 @@ public class ModSyncConfirmScreen extends Screen {
             ModSyncPlan.PlannedMod m = vis.get(scroll + i);
             ModEntry e = m.entry();
             int textY = LIST_TOP + i * ROW_HEIGHT + 2;
-            if (!isClient(m)) graphics.drawString(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
+            if (!selectable(m)) graphics.drawString(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
             graphics.drawString(this.font, this.font.plainSubstrByWidth(rowName(m), textWidth), textX, textY, 0xFFE9DFCB, false);
@@ -331,7 +363,7 @@ public class ModSyncConfirmScreen extends Screen {
 
         ModSyncPlan sel = plan.excluding(deselected);
         graphics.drawCenteredString(this.font,
-                Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
+                countLine(sel),
                 centerX, this.height - 86, 0xFFFFFFFF);
         graphics.drawCenteredString(this.font,
                 Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
@@ -394,7 +426,7 @@ public class ModSyncConfirmScreen extends Screen {
             ModSyncPlan.PlannedMod m = vis.get(scroll + i);
             ModEntry e = m.entry();
             int textY = LIST_TOP + i * ROW_HEIGHT + 2;
-            if (!isClient(m)) graphics.text(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
+            if (!selectable(m)) graphics.text(this.font, "—", contentLeft() + 3, textY + 5, 0xFFA99D89, false);
             int textX = contentLeft() + 24;
             int textWidth = Math.max(1, contentWidth() - 24);
             graphics.text(this.font, this.font.plainSubstrByWidth(rowName(m), textWidth), textX, textY, 0xFFE9DFCB, false);
@@ -406,7 +438,7 @@ public class ModSyncConfirmScreen extends Screen {
 
         ModSyncPlan sel = plan.excluding(deselected);
         graphics.centeredText(this.font,
-                Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count()),
+                countLine(sel),
                 centerX, this.height - 86, 0xFFFFFFFF);
         graphics.centeredText(this.font,
                 Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),

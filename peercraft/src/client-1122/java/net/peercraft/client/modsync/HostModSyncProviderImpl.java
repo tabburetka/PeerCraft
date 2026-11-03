@@ -5,6 +5,7 @@ package net.peercraft.client.modsync;
 // Keep in sync with the original.
 
 import net.peercraft.network.modsync.ModEntry;
+import net.peercraft.platform.services.PlatformMod;
 import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.modsync.ModSyncProtocol;
@@ -39,6 +40,10 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     private final net.peercraft.config.ModSyncMode mode;
     private final CountDownLatch hashed = new CountDownLatch(1);
     private volatile List<ModEntry> cached = Collections.emptyList();
+    /** Every scanned id, withheld/excluded ones included — what ModDiff.extras compares against. */
+    private final java.util.Set<String> allIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Set once the whole folder was scanned; a partial id set must never drive removals. */
+    private volatile boolean allIdsComplete;
     private final Map<String, Path> jarById = new LinkedHashMap<>();
 
     private HostModSyncProviderImpl(Path modsDir, net.peercraft.config.ModSyncMode mode) {
@@ -71,6 +76,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
         for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir, InstalledModScanner.allInstalled())) {
+            allIds.add(sj.id());
             String envStr;
             switch (sj.env()) {
                 case CLIENT:
@@ -101,6 +107,10 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 LOGGER.warn("[ModSync] Не удалось захешировать {}: {}", sj.fileName(), e.toString());
             }
         }
+        // Also every id the loader has loaded (jar-in-jar libraries included), so a joiner is never
+        // told to remove a library the host only carries nested inside another mod.
+        for (PlatformMod pm : InstalledModScanner.allInstalled()) allIds.add(pm.id());
+        allIdsComplete = true;
         cached = Collections.unmodifiableList(new ArrayList<>(out));
         hashed.countDown();
         LOGGER.info("[ModSync] Готово {} модов для отдачи заходящим ({} пропущено как загрузчик/PeerCraft).", cached.size(), skipped);
@@ -124,6 +134,13 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
             Thread.currentThread().interrupt();
         }
         return cached;
+    }
+
+    @Override
+    public java.util.Set<String> allHostModIds() {
+        hostMods(); // same bounded wait for the scan to finish
+        if (!allIdsComplete) return java.util.Collections.emptySet();
+        return java.util.Collections.unmodifiableSet(new java.util.HashSet<String>(allIds));
     }
 
     @Override

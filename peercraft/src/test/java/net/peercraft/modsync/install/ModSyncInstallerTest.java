@@ -78,6 +78,42 @@ class ModSyncInstallerTest {
         Files.delete(mods().resolve("new.jar")); ModSyncInstaller.apply(tx);
         assertEquals("original", Files.readString(old)); assertEquals("ROLLED_BACK", state(tx));
     }
+    ModSyncInstaller.Entry removal(String id, Path old) throws Exception {
+        return ModSyncInstaller.Entry.removal(id, old.getFileName().toString(), "old", ModSyncInstaller.hash(old));
+    }
+    @Test void removesExtraJarAndKeepsBackup() throws Exception {
+        Path extra = Files.writeString(mods().resolve("extra.jar"), "client only");
+        Path tx = prepare(List.of(removal("extra", extra)), List.of());
+        assertEquals("2", ModSyncInstaller.read(tx.resolve(ModSyncInstaller.PLAN)).getProperty("format"));
+        assertTrue(Files.exists(extra));
+        ModSyncInstaller.apply(tx);
+        assertFalse(Files.exists(extra)); assertEquals("client only", Files.readString(tx.resolve("backups/extra.jar")));
+        assertEquals("APPLIED", state(tx));
+    }
+    @Test void mixesInstallsAndRemovals() throws Exception {
+        Path extra = Files.writeString(mods().resolve("extra.jar"), "extra"), next = staged("download", "host");
+        Path tx = prepare(List.of(removal("extra", extra), entry("mod", null, next, "new.jar")), List.of(next));
+        ModSyncInstaller.apply(tx);
+        assertFalse(Files.exists(extra)); assertEquals("host", Files.readString(mods().resolve("new.jar")));
+    }
+    @Test void refusesRemovalOfChangedJar() throws Exception {
+        Path extra = Files.writeString(mods().resolve("extra.jar"), "extra");
+        Path tx = prepare(List.of(removal("extra", extra)), List.of());
+        Files.writeString(extra, "user edit");
+        assertThrows(java.io.IOException.class, () -> ModSyncInstaller.apply(tx));
+        assertEquals("user edit", Files.readString(extra)); assertEquals("FAILED", state(tx));
+    }
+    @Test void rollbackRestoresRemovedJar() throws Exception {
+        Path extra = Files.writeString(mods().resolve("extra.jar"), "extra"), next = staged("download", "host");
+        Path tx = prepare(List.of(removal("extra", extra), entry("mod", null, next, "new.jar")), List.of(next));
+        Files.createDirectory(mods().resolve(".peercraft-" + tx.getFileName() + "-1.tmp"));
+        assertThrows(java.io.IOException.class, () -> ModSyncInstaller.apply(tx));
+        assertEquals("ROLLED_BACK", state(tx)); assertEquals("extra", Files.readString(extra));
+        assertFalse(Files.exists(mods().resolve("new.jar")));
+    }
+    @Test void rejectsRemovalWithoutSourceJar() {
+        assertThrows(java.io.IOException.class, () -> prepare(List.of(ModSyncInstaller.Entry.removal("x", "", "", "")), List.of()));
+    }
     @Test void helperWaitsForGameLockAndHonorsCancellation() throws Exception { runHelper(true); }
     @Test void helperAppliesAfterGameLockIsReleased() throws Exception { runHelper(false); }
     void runHelper(boolean cancel) throws Exception {

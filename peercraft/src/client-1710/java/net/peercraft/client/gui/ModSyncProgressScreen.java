@@ -144,7 +144,7 @@ public class ModSyncProgressScreen extends PeerCraftDialogScreen {
                 key = "peercraft.modsync.progress.verifying";
                 break;
             case INSTALLING:
-                key = plan.hasReplacements() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
+                key = plan.needsRestart() ? "peercraft.modsync.progress.preparing_install" : "peercraft.modsync.progress.installing";
                 break;
             default:
                 key = "peercraft.modsync.progress.mod";

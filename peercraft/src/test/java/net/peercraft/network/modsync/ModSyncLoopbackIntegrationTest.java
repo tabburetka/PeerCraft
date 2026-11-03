@@ -231,6 +231,35 @@ class ModSyncLoopbackIntegrationTest {
         } finally { h.close(); }
     }
 
+    @Test
+    @Timeout(30)
+    void hostListsJoinerExtrasOnlyWhenAskedAndComparable(@TempDir Path dir) throws Exception {
+        byte[] bytes = randomBytes(256, 9);
+        FakeHostProvider provider = new FakeHostProvider(Collections.singletonList(entry("mod", "1", bytes)),
+                Collections.singletonMap("mod", bytes), dir.resolve("host-serve"));
+        provider.minecraft = "1.21.1";
+        // "nested-lib" is loaded on the host only inside another jar; it must not count as extra.
+        provider.allIds = new java.util.HashSet<>(Arrays.asList("mod", "nested-lib"));
+        List<ModSyncProtocol.ModRef> local = Arrays.asList(new ModSyncProtocol.ModRef("mod", "1"),
+                new ModSyncProtocol.ModRef("extra", "3"), new ModSyncProtocol.ModRef("nested-lib", "1"),
+                new ModSyncProtocol.ModRef("peercraft", "9"));
+        Harness asked = start(dir.resolve("asked"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FORGE, true);
+        try {
+            assertTrue(asked.handler.manifest.get(AWAIT_SECONDS, TimeUnit.SECONDS).isEmpty());
+            assertEquals(Collections.singletonList("extra"), asked.joiner.extraIds());
+        } finally { asked.close(); }
+        Harness notAsked = start(dir.resolve("not-asked"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FORGE, false);
+        try { notAsked.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertTrue(notAsked.joiner.extraIds().isEmpty()); }
+        finally { notAsked.close(); }
+        Harness wrongGame = start(dir.resolve("wrong-game"), provider, local, 0, "1.21.2", ModSyncProtocol.Loader.FORGE, true);
+        try { wrongGame.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); assertTrue(wrongGame.joiner.extraIds().isEmpty()); }
+        finally { wrongGame.close(); }
+        provider.allIds = Collections.emptySet(); // unknown host inventory never yields removals
+        Harness unknown = start(dir.resolve("unknown"), provider, local, 0, "1.21.1", ModSyncProtocol.Loader.FORGE, true);
+        try { unknown.handler.nothingMissing.get(AWAIT_SECONDS, TimeUnit.SECONDS); }
+        finally { unknown.close(); }
+    }
+
     // ================= harness =================
 
     private static Harness start(Path dir, FakeHostProvider provider,
@@ -240,6 +269,11 @@ class ModSyncLoopbackIntegrationTest {
 
     private static Harness start(Path dir, FakeHostProvider provider, List<ModSyncProtocol.ModRef> joinerMods,
                                  double dropRate, String minecraft, ModSyncProtocol.Loader loader) throws Exception {
+        return start(dir, provider, joinerMods, dropRate, minecraft, loader, false);
+    }
+
+    private static Harness start(Path dir, FakeHostProvider provider, List<ModSyncProtocol.ModRef> joinerMods,
+                                 double dropRate, String minecraft, ModSyncProtocol.Loader loader, boolean extras) throws Exception {
         Path joinerTmp = dir.resolve("joiner-tmp");
         Files.createDirectories(joinerTmp);
         Files.createDirectories(provider.tmp);
@@ -290,6 +324,7 @@ class ModSyncLoopbackIntegrationTest {
         ModSyncCoordinator joiner = ModSyncCoordinator.joiner(
                 toHost, loader, joinerMods, joinerTmp, 64L * 1024 * 1024, handler, minecraft);
         joinRef[0] = joiner;
+        if (extras) joiner.requestExtras();
         joiner.startJoiner();
 
         return new Harness(host, joiner, handler, hostNet, joinerNet);
@@ -334,6 +369,8 @@ class ModSyncLoopbackIntegrationTest {
     private static final class FakeHostProvider implements ModSyncHostProvider {
         String minecraft = "";
         @Override public String minecraftVersion() { return minecraft; }
+        java.util.Set<String> allIds = Collections.emptySet();
+        @Override public java.util.Set<String> allHostModIds() { return allIds; }
         private final List<ModEntry> mods;
         private final Map<String, byte[]> jars;
         final Path tmp;

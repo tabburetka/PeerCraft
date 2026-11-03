@@ -41,9 +41,11 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
     private static final int KIND_STRING = 2;
     private static final int KIND_MODE = 3;
     private static final int KIND_MODSYNC = 4;
+    private static final int KIND_REMOVE = 5;
 
     private static final List<String> MODE_VALUES = Arrays.asList("auto", "client", "host", "disabled");
     private static final List<String> MODSYNC_VALUES = Arrays.asList("off", "required", "all");
+    private static final List<String> REMOVE_VALUES = Arrays.asList("off", "keep_client", "all");
 
     private final Screen lastScreen;
     private PeerCraftSettings settings;
@@ -98,6 +100,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case "maxPlayers": return "4";
             case "modSync.host": return "all";
             case "modSync.client": return "all";
+            case "modSync.removeExtra": return "off";
             case "modSync.autoAccept": return "false";
             case "modSync.reofferDeclined": return "false";
             case "modSync.maxTotalMb": return "512";
@@ -155,6 +158,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         addRow("telemetry.enabled", KIND_BOOL, false, false, 0, 0, "telemetry");
         addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
         addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
+        addRow("modSync.removeExtra", KIND_REMOVE, false, false, 0, 0, "modsync_remove");
         addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");
         addRow("modSync.maxTotalMb", KIND_INT, false, false, 1, 4096, "max_total_mb");
         addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
@@ -255,6 +259,8 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
                 return makeCycle(row, MODE_VALUES, current, x, y, "mode.");
             case KIND_MODSYNC:
                 return makeCycle(row, MODSYNC_VALUES, current, x, y, "modsync_mode.");
+            case KIND_REMOVE:
+                return makeCycle(row, REMOVE_VALUES, current, x, y, "modsync_remove_mode.");
             case KIND_INT:
             case KIND_STRING:
             default:

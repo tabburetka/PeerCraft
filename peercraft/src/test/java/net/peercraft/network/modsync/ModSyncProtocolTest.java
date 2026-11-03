@@ -76,6 +76,25 @@ class ModSyncProtocolTest {
     }
 
     @Test
+    void extrasNegotiationIsAppendOnly() {
+        List<ModSyncProtocol.ModRef> refs = List.of(new ModSyncProtocol.ModRef("a", "1"));
+        byte[] plain = ModSyncProtocol.encodeHello(ModSyncProtocol.Loader.FABRIC, refs, "1.21.1");
+        byte[] asking = ModSyncProtocol.encodeHello(ModSyncProtocol.Loader.FABRIC, refs, "1.21.1", true);
+        assertEquals(plain.length, asking.length);
+        assertFalse(ModSyncProtocol.decodeHello(plain, plain.length).extras());
+        ModSyncProtocol.Hello h = ModSyncProtocol.decodeHello(asking, asking.length);
+        assertTrue(h.extras()); assertTrue(h.replacements()); assertEquals("1.21.1", h.minecraftVersion());
+
+        byte[] legacy = ModSyncProtocol.encodeManifest(0, List.of(), ModSyncProtocol.Loader.FABRIC, "1.21.1");
+        assertArrayEquals(legacy, ModSyncProtocol.encodeManifest(0, List.of(), ModSyncProtocol.Loader.FABRIC, "1.21.1", List.of()));
+        assertTrue(ModSyncProtocol.decodeManifest(legacy, legacy.length).extraIds().isEmpty());
+        byte[] enc = ModSyncProtocol.encodeManifest(0, List.of(), ModSyncProtocol.Loader.FABRIC, "1.21.1", List.of("x", "yy"));
+        ModSyncProtocol.Manifest m = ModSyncProtocol.decodeManifest(enc, enc.length);
+        assertEquals(List.of("x", "yy"), m.extraIds());
+        assertEquals(ModSyncProtocol.Loader.FABRIC, m.loader()); assertEquals("1.21.1", m.minecraftVersion());
+    }
+
+    @Test
     void manifestRoundTripIncludingHashAndEnv() {
         byte[] sha = new byte[64];
         Arrays.fill(sha, (byte) 0x7);

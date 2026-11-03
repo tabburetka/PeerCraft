@@ -26,6 +26,18 @@ class ModSyncPlanTest {
     }
 
     @Test
+    void removalsNeedRestartBlockAutoAcceptAndShareTheDeselectionSet() {
+        ModSyncPlan.PlannedMod add = mod("a", 100).withCatalogStatus(ModSyncPlan.CatalogStatus.PUBLISHED);
+        ModSyncPlan.Removal extra = new ModSyncPlan.Removal("extra", "extra.jar", "1", "hash", ModEntry.Env.CLIENT);
+        ModSyncPlan plan = ModSyncPlan.of(List.of(add)).withRemovals(List.of(extra));
+        assertTrue(plan.needsRestart()); assertFalse(plan.canAutoAccept(true, false));
+        ModSyncPlan kept = plan.excluding(Set.of("extra"));
+        assertTrue(kept.removals().isEmpty()); assertEquals(1, kept.count()); assertFalse(kept.needsRestart());
+        assertFalse(ModSyncPlan.of(List.of()).withRemovals(List.of(extra)).isEmpty());
+        assertTrue(ModSyncPlan.of(List.of()).isEmpty());
+    }
+
+    @Test
     void excludingDropsByIdAndRecomputesTotal() {
         ModSyncPlan plan = ModSyncPlan.of(List.of(mod("a", 100), mod("b", 200), mod("c", 300)));
         assertEquals(600, plan.totalBytes());
