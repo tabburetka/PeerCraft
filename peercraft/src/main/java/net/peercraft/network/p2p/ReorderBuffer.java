@@ -14,10 +14,14 @@ import java.util.TreeMap;
  *
  * On detecting a gap, {@link #accept} returns the seq that's missing (debounced) so the
  * caller can send a NACK asking the peer to resend just that one packet — this is the
- * primary loss-recovery path. A gap that still isn't resolved within
- * {@link #GAP_TIMEOUT_MILLIS}, or a backlog that grows past {@link #MAX_PENDING}, is
- * treated as an unrecoverable session error (e.g. the NACK itself got lost repeatedly,
- * or the peer is gone) so the caller can close the connection cleanly as a last resort.
+ * primary loss-recovery path. Because a NACK can itself be lost and nothing else may arrive
+ * to trigger the next one, the caller also calls {@link #poll} on a timer: while a gap is
+ * open it asks again every {@link #NACK_RETRY_MILLIS}. A gap that still isn't resolved within
+ * {@link #GAP_TIMEOUT_MILLIS} of being detected, or a backlog that grows past
+ * {@link #MAX_PENDING}, is treated as an unrecoverable session error (the peer is gone) so the
+ * caller can close the connection cleanly as a last resort. The timeout counts from the moment
+ * the gap appeared, not from the last delivery, so a quiet stretch with no traffic at all
+ * never counts against the next gap.
  *
  * <p>The three limits below are deliberately generous and can be overridden at launch with
  * {@code -Dpeercraft.reorder.maxPending}, {@code -Dpeercraft.reorder.gapTimeoutMillis} and
@@ -39,6 +43,8 @@ public final class ReorderBuffer {
     public static final long GAP_TIMEOUT_MILLIS = longProp("peercraft.reorder.gapTimeoutMillis", 12_000L, 1_000L, 600_000L);
     /** Minimum spacing between successive NACKs for the same missing seq. */
     public static final long NACK_DEBOUNCE_MILLIS = longProp("peercraft.reorder.nackDebounceMillis", 120L, 10L, 5_000L);
+    /** How often {@link #poll} repeats the NACK for a gap that no new datagram has re-triggered. */
+    public static final long NACK_RETRY_MILLIS = Math.max(NACK_DEBOUNCE_MILLIS, 250L);
 
     private static long longProp(String key, long def, long min, long max) {
         String raw = System.getProperty(key);
@@ -60,9 +66,20 @@ public final class ReorderBuffer {
     }
 
     private final TreeMap<Long, byte[]> pending = new TreeMap<>();
+    private final java.util.function.LongSupplier nanoClock;
     private long expectedSeq = 0;
-    private long expectedSince = System.currentTimeMillis();
-    private long lastNackSentAt = 0;
+    // Monotonic time the current gap was first seen; NO_GAP while delivery is contiguous.
+    private long gapSince = NO_GAP;
+    private long lastNackSentAt = NO_GAP;
+    private static final long NO_GAP = Long.MIN_VALUE;
+
+    public ReorderBuffer() {
+        this(System::nanoTime);
+    }
+
+    ReorderBuffer(java.util.function.LongSupplier nanoClock) {
+        this.nanoClock = nanoClock;
+    }
 
     public synchronized Result accept(long seq, byte[] payload) {
         if (seq < expectedSeq) {
@@ -78,16 +95,10 @@ public final class ReorderBuffer {
                 pending.put(seq, payload);
             }
 
-            long now = System.currentTimeMillis();
-            if (now - expectedSince > GAP_TIMEOUT_MILLIS) {
-                throw new SessionBrokenException("sequence gap at seq=" + expectedSeq + " not resolved within " + GAP_TIMEOUT_MILLIS + "ms");
-            }
-
-            if (now - lastNackSentAt > NACK_DEBOUNCE_MILLIS) {
-                lastNackSentAt = now;
-                return Result.request(expectedSeq);
-            }
-            return Result.none();
+            long now = nanoClock.getAsLong();
+            if (gapSince == NO_GAP) gapSince = now;
+            checkGapTimeout(now);
+            return nackIfDue(now, NACK_DEBOUNCE_MILLIS);
         }
 
         // seq == expectedSeq: flush this payload plus any now-contiguous buffered entries.
@@ -101,10 +112,37 @@ public final class ReorderBuffer {
             out.write(next.getValue(), 0, next.getValue().length);
             expectedSeq++;
         }
-        expectedSince = System.currentTimeMillis();
-        lastNackSentAt = 0;
+        // Anything still pending sits behind a different missing seq: that gap starts now.
+        gapSince = pending.isEmpty() ? NO_GAP : nanoClock.getAsLong();
+        lastNackSentAt = NO_GAP;
 
         return Result.deliver(out.toByteArray());
+    }
+
+    /**
+     * Timer-driven recovery: while a gap is open, re-requests the missing seq every
+     * {@link #NACK_RETRY_MILLIS} even if no further datagram arrives, and declares the session
+     * broken once the gap is older than {@link #GAP_TIMEOUT_MILLIS}.
+     */
+    public synchronized Result poll() {
+        if (gapSince == NO_GAP) return Result.none();
+        long now = nanoClock.getAsLong();
+        checkGapTimeout(now);
+        return nackIfDue(now, NACK_RETRY_MILLIS);
+    }
+
+    private void checkGapTimeout(long now) {
+        if (now - gapSince > GAP_TIMEOUT_MILLIS * 1_000_000L) {
+            throw new SessionBrokenException("sequence gap at seq=" + expectedSeq + " not resolved within " + GAP_TIMEOUT_MILLIS + "ms");
+        }
+    }
+
+    private Result nackIfDue(long now, long spacingMillis) {
+        if (lastNackSentAt == NO_GAP || now - lastNackSentAt > spacingMillis * 1_000_000L) {
+            lastNackSentAt = now;
+            return Result.request(expectedSeq);
+        }
+        return Result.none();
     }
 
     public static final class Result {

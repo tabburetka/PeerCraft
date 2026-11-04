@@ -1690,6 +1690,7 @@ public class P2PBridge {
     public synchronized long beginClientSession(Socket socket) {
         long sessionId = ThreadLocalRandom.current().nextLong();
         this.currentClientSession = new ClientSession(sessionId, currentJoinAttempt);
+        ensureRecoveryTimer();
         LOGGER.info("[P2PBridge] Новая клиентская сессия {} для {}", sessionId, socket.getRemoteSocketAddress());
         return sessionId;
     }
@@ -1706,7 +1707,7 @@ public class P2PBridge {
             LOGGER.warn("[P2PBridge] Отмена отправки: целевой хост ещё не задан!");
             return;
         }
-        sendChunked(dest, sessionId, session.outSeq, data, session.sentPackets);
+        sendChunked(dest, sessionId, session.outSeq, data, session.sentPackets, session.tail);
     }
 
     private void sendEncoded(PeerAddress dest, byte[] framed) {
@@ -1750,13 +1751,16 @@ public class P2PBridge {
     // Splits one TCP read into several UDP datagrams no larger than MAX_CHUNK_SIZE, each
     // with its own next seq. The receiving ReorderBuffer already knows how to transparently
     // reassemble adjacent seqs back into one chunk, so the receiver needs no changes.
-    private void sendChunked(PeerAddress dest, long sessionId, AtomicLong outSeq, byte[] data, Map<Long, byte[]> retransmitBuffer) {
+    private void sendChunked(PeerAddress dest, long sessionId, AtomicLong outSeq, byte[] data, Map<Long, byte[]> retransmitBuffer, TailProbe tail) {
+        ensureRecoveryTimer();
         sessionMonitor.queued(dest, data.length);
         int offset = 0;
         try { do {
             int len = Math.min(MAX_CHUNK_SIZE, data.length - offset);
             byte[] chunk = Arrays.copyOfRange(data, offset, offset + len);
-            sendFramedAndBuffer(dest, sessionId, outSeq.getAndIncrement(), (byte) 0, chunk, retransmitBuffer);
+            long seq = outSeq.getAndIncrement();
+            sendFramedAndBuffer(dest, sessionId, seq, (byte) 0, chunk, retransmitBuffer);
+            tail.sent(seq);
             offset += len;
             if (SEND_PACING_MILLIS > 0 && offset < data.length) {
                 try {
@@ -1770,6 +1774,110 @@ public class P2PBridge {
 
     private void sendNack(PeerAddress dest, long sessionId, long missingSeq) {
         sendEncoded(dest, FramedPacket.encodeNack(sessionId, missingSeq));
+    }
+
+    // ---- timer-driven loss recovery ----------------------------------------------------
+    // Incoming datagrams alone can't recover every loss: a lost NACK, a lost seq=0 or the
+    // last datagram before a pause leave nothing that would trigger the next request. This
+    // timer repeats NACKs for open gaps, asks for a missing seq=0 and resends burst tails.
+    private static final long RECOVERY_TICK_MILLIS = 100L;
+    private static final int MAX_PENDING_STARTS = 16;
+    private static final int MAX_EARLY_FRAMES = 256;
+    private final Map<Long, PendingStart> pendingStarts = new LinkedHashMap<>();
+    // Session ids the host has closed; late datagrams for them must not reopen a connection.
+    private final Set<Long> recentlyClosedSessions = java.util.Collections.newSetFromMap(new LinkedHashMap<Long, Boolean>(16, 0.75f, false) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, Boolean> eldest) {
+            return size() > 256;
+        }
+    });
+    private final AtomicBoolean recoveryTimerStarted = new AtomicBoolean(false);
+
+    private void ensureRecoveryTimer() {
+        if (!recoveryTimerStarted.compareAndSet(false, true)) return;
+        java.util.concurrent.ScheduledExecutorService timer = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "PeerCraft-P2P-Recovery");
+            t.setDaemon(true);
+            return t;
+        });
+        timer.scheduleWithFixedDelay(this::recoveryTick, RECOVERY_TICK_MILLIS, RECOVERY_TICK_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    private synchronized void recoveryTick() {
+        try {
+            for (HostConnection conn : new java.util.ArrayList<HostConnection>(hostConnectionsBySessionId.values())) {
+                if (!conn.active) continue;
+                try {
+                    ReorderBuffer.Result result = conn.inBuf.poll();
+                    if (result.requestSeq != null) sendNack(conn.peerAddress, conn.sessionId, result.requestSeq);
+                } catch (ReorderBuffer.SessionBrokenException e) {
+                    LOGGER.error("[P2PBridge] Сессия {} повреждена: {} — закрываем соединение с MC", conn.sessionId, e.getMessage());
+                    closeHostConnection(conn);
+                    continue;
+                }
+                resendTail(conn.peerAddress, conn.sessionId, conn.tail, conn.sentPackets);
+            }
+            ClientSession session = this.currentClientSession;
+            PeerAddress host = this.clientTargetPeer;
+            if (session != null && host != null) {
+                try {
+                    ReorderBuffer.Result result = session.inBuf.poll();
+                    if (result.requestSeq != null) sendNack(host, session.sessionId, result.requestSeq);
+                    resendTail(host, session.sessionId, session.tail, session.sentPackets);
+                } catch (ReorderBuffer.SessionBrokenException e) {
+                    breakClientSession(session, e.getMessage());
+                }
+            }
+            long now = System.nanoTime();
+            java.util.Iterator<Map.Entry<Long, PendingStart>> it = pendingStarts.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<Long, PendingStart> entry = it.next();
+                if (now - entry.getValue().since > ReorderBuffer.GAP_TIMEOUT_MILLIS * 1_000_000L) {
+                    LOGGER.debug("[P2PBridge] Сессия {} так и не прислала seq=0 — забываем её", entry.getKey());
+                    it.remove();
+                } else {
+                    nackStartIfDue(entry.getKey(), entry.getValue(), now);
+                }
+            }
+        } catch (RuntimeException e) {
+            LOGGER.warn("[P2PBridge] Ошибка таймера восстановления потерь: {}", e.toString());
+        }
+    }
+
+    private void resendTail(PeerAddress dest, long sessionId, TailProbe tail, Map<Long, byte[]> retransmitBuffer) {
+        long seq = tail.due();
+        if (seq < 0) return;
+        byte[] framed;
+        synchronized (retransmitBuffer) {
+            framed = retransmitBuffer.get(seq);
+        }
+        if (framed != null) {
+            LOGGER.debug("[P2PBridge] Повторяем последний пакет seq={} сессии {} после паузы", seq, sessionId);
+            sendEncoded(dest, framed);
+        }
+    }
+
+    // A datagram with seq > 0 for a session we don't know, from a peer allowed to open one:
+    // its seq=0 was lost or is late. Keep it and ask the sender for seq=0.
+    private void notePendingStart(FramedPacket frame, PeerAddress sender) {
+        PendingStart pending = pendingStarts.get(frame.sessionId());
+        if (pending == null) {
+            if (pendingStarts.size() >= MAX_PENDING_STARTS) return;
+            pending = new PendingStart(sender);
+            pendingStarts.put(frame.sessionId(), pending);
+            LOGGER.debug("[P2PBridge] Сессия {} началась без seq=0 (пришёл seq={}) — запрашиваем seq=0", frame.sessionId(), frame.seq());
+            ensureRecoveryTimer();
+        } else if (!pending.peer.equals(sender)) {
+            return;
+        }
+        if (pending.early.size() < MAX_EARLY_FRAMES) pending.early.putIfAbsent(frame.seq(), frame);
+        nackStartIfDue(frame.sessionId(), pending, System.nanoTime());
+    }
+
+    private void nackStartIfDue(long sessionId, PendingStart pending, long now) {
+        if (pending.lastNackAt != Long.MIN_VALUE && now - pending.lastNackAt <= ReorderBuffer.NACK_RETRY_MILLIS * 1_000_000L) return;
+        pending.lastNackAt = now;
+        sendNack(pending.peer, sessionId, 0);
     }
 
     private void resendIfBuffered(PeerAddress dest, long sessionId, long seq, Map<Long, byte[]> retransmitBuffer) {
@@ -2037,8 +2145,20 @@ public class P2PBridge {
             return;
         }
 
+        if (recentlyClosedSessions.contains(frame.sessionId())) {
+            // Late datagram of a session we already closed — never reopen it.
+            LOGGER.debug("[P2PBridge] Отброшен пакет закрытой сессии {} (seq={})", frame.sessionId(), frame.seq());
+            return;
+        }
+
         if (frame.seq() != 0) {
-            // Not the start of a new session — don't pick up in the middle of someone else's/a stale stream.
+            // Not the start of a new session — don't pick up in the middle of someone else's/a stale
+            // stream. From a peer allowed to connect it is most likely a new session whose seq=0 was
+            // lost: hold it and ask for seq=0 rather than letting the join stall.
+            if (authorizedPeers.contains(sender) && !handoffAdmissionClosed) {
+                notePendingStart(frame, sender);
+                return;
+            }
             LOGGER.debug("[P2PBridge] Отброшен пакет чужой/устаревшей сессии {} (seq={})", frame.sessionId(), frame.seq());
             return;
         }
@@ -2058,11 +2178,18 @@ public class P2PBridge {
             closeHostConnection(existingForAddress);
         }
 
+        PendingStart early = pendingStarts.remove(frame.sessionId());
         HostConnection newConn = startNewHostConnection(frame.sessionId(), sender);
         if (newConn == null) {
             return;
         }
         deliverToHost(newConn, frame);
+        if (early != null && early.peer.equals(sender)) {
+            for (FramedPacket held : early.early.values()) {
+                if (!newConn.active) break;
+                deliverToHost(newConn, held);
+            }
+        }
     }
 
     private HostConnection startNewHostConnection(long sessionId, PeerAddress peerAddress) {
@@ -2156,12 +2283,16 @@ public class P2PBridge {
                 }
             }
         } catch (ReorderBuffer.SessionBrokenException e) {
-            LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, e.getMessage());
-            session.endReason = "broken_session";
-            if (this.currentClientSession == session) endClientSession(session.sessionId);
-            if (this.proxy != null) {
-                this.proxy.disconnectClient();
-            }
+            breakClientSession(session, e.getMessage());
+        }
+    }
+
+    private synchronized void breakClientSession(ClientSession session, String reason) {
+        LOGGER.error("[P2PBridge] Клиентская сессия {} повреждена: {} — закрываем соединение с локальным MC-клиентом", session.sessionId, reason);
+        session.endReason = "broken_session";
+        if (this.currentClientSession == session) endClientSession(session.sessionId);
+        if (this.proxy != null) {
+            this.proxy.disconnectClient();
         }
     }
 
@@ -2175,7 +2306,7 @@ public class P2PBridge {
                 System.arraycopy(buffer, 0, payload, 0, bytesRead);
 
                 LOGGER.debug("[P2PBridge] Получен ответ от Minecraft-сервера ({} байт, сессия {}). Отправляем по UDP...", bytesRead, conn.sessionId);
-                sendChunked(conn.peerAddress, conn.sessionId, conn.outSeq, payload, conn.sentPackets);
+                sendChunked(conn.peerAddress, conn.sessionId, conn.outSeq, payload, conn.sentPackets, conn.tail);
             }
         } catch (Exception e) {
             LOGGER.warn("[P2PBridge] Чтение из Minecraft-сервера остановлено (сессия {}): {}", conn.sessionId, e.toString());
@@ -2191,6 +2322,8 @@ public class P2PBridge {
     // we check for "map entry -> this exact conn" equality rather than just removing by key.
     private synchronized void closeHostConnection(HostConnection conn) {
         conn.active = false;
+        recentlyClosedSessions.add(conn.sessionId);
+        pendingStarts.remove(conn.sessionId);
         closeQuietly(conn.mcSocket);
         // The joinerAccountIdByAddress entry itself stays (see its field comment — needed for
         // a fast reconnect without a fresh punch), but THIS specific local-port mapping is
@@ -2285,6 +2418,7 @@ public class P2PBridge {
         final ReorderBuffer inBuf = new ReorderBuffer();
         final AtomicLong outSeq = new AtomicLong(0);
         final Map<Long, byte[]> sentPackets = newRetransmitBuffer();
+        final TailProbe tail = new TailProbe();
         volatile boolean active = true;
 
         HostConnection(long sessionId, PeerAddress peerAddress, Socket mcSocket) throws IOException {
@@ -2297,11 +2431,26 @@ public class P2PBridge {
         }
     }
 
+    // Datagrams of a session whose seq=0 hasn't arrived yet (lost or reordered), from a peer
+    // that is allowed to open one. Held so the host can ask for seq=0 and then replay these
+    // instead of dropping them and stalling the join.
+    private static final class PendingStart {
+        final PeerAddress peer;
+        final long since = System.nanoTime();
+        long lastNackAt = Long.MIN_VALUE;
+        final java.util.TreeMap<Long, FramedPacket> early = new java.util.TreeMap<>();
+
+        PendingStart(PeerAddress peer) {
+            this.peer = peer;
+        }
+    }
+
     private static final class ClientSession {
         final long sessionId;
         final ReorderBuffer inBuf = new ReorderBuffer();
         final AtomicLong outSeq = new AtomicLong(0);
         final Map<Long, byte[]> sentPackets = newRetransmitBuffer();
+        final TailProbe tail = new TailProbe();
 
         final ClientJoinAttempt joinAttempt;
         volatile String endReason = "socket_closed";
