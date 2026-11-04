@@ -216,7 +216,7 @@ public class PeerCraftAccountScreen extends Screen {
         String accessToken = user.getAccessToken();
         Thread profileLogin = new Thread(() -> {
             try {
-                AccountClient.INSTANCE.loginLicensed(mc.getGameProfile(), accessToken, sessionService, callback);
+                net.peercraft.client.account.MojangLogin.start(mc.getGameProfile(), accessToken, sessionService, callback);
             } catch (RuntimeException failure) {
                 callback.onFailed(Component.translatable("peercraft.gui.account.profile_lookup_error").getString());
             }

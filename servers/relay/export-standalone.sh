@@ -8,6 +8,6 @@ mkdir -p "$target"
 (cd "$here" && tar --exclude=./build --exclude=./.gradle --exclude=./data --exclude=./relay.properties \
     --exclude=./export-standalone.sh -cf - .) | (cd "$target" && tar -xf -)
 mkdir -p "$target/src/main/java/net/peercraft/network/ownrelay"
-cp "$here/../../mod/src/main/java/net/peercraft/network/ownrelay/OwnRelayProtocol.java" \
+cp "$here/../../mod/src/core/java/net/peercraft/network/ownrelay/OwnRelayProtocol.java" \
     "$target/src/main/java/net/peercraft/network/ownrelay/"
 echo "Exported to $target"

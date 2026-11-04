@@ -53,9 +53,9 @@ jar {
 // Compile the production client codec in contract tests; never copy its wire logic.
 // The telemetry wire format is shared in production as well: Java 8 clients and
 // the collector must reject and interpret exactly the same bounded fields.
-sourceSets.main.java.srcDir('../../mod/src/main/java')
+sourceSets.main.java.srcDir('../../mod/src/core/java')
 sourceSets.main.java.include('net/peercraft/rendezvous/**', 'net/peercraft/network/control/**', 'net/peercraft/network/telemetry/TelemetryProtocol.java', 'net/peercraft/network/admission/AdmissionProtocol.java', 'net/peercraft/network/privacy/NetworkPrivacy.java')
-sourceSets.test.java.srcDir('../../mod/src/main/java')
+sourceSets.test.java.srcDir('../../mod/src/core/java')
 sourceSets.test.java.include('net/peercraft/rendezvous/**', 'net/peercraft/network/control/**', 'net/peercraft/network/telemetry/**', 'net/peercraft/network/privacy/PrivateNetworkLogger.java', 'net/peercraft/config/PeerCraftConfig.java', 'net/peercraft/config/ModSyncMode.java', 'net/peercraft/config/ModSyncRemoveMode.java', 'net/peercraft/network/handoff/HandoffAuthorityProtocol.java',
     'net/peercraft/network/handoff/HandoffSourceFlow.java', 'net/peercraft/network/handoff/HandoffSuccessorFlow.java',
     'net/peercraft/network/handoff/HandoffObserverFlow.java', 'net/peercraft/network/handoff/HandoffOperation.java',

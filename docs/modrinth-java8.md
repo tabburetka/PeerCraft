@@ -1,7 +1,7 @@
 # Modrinth downloads on Java 8
 
 Minecraft 1.7.10, 1.12.2 and 1.16.5 share `ModrinthCatalogClient` and
-`ModrinthDownloader` from `mod/src/modsync-java8`. Their client adapters
+`ModrinthDownloader` from `mod/src/core`. Their client adapters
 resolve an exact SHA-512 match to an HTTPS URL on `cdn.modrinth.com`.
 Only listed versions receive the existing public catalog label. That label is
 not a security verdict, and SHA-512 verifies byte identity, not mod safety.

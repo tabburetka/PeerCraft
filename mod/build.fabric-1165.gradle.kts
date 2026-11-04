@@ -5,7 +5,7 @@ plugins {
 	// build.fabric.gradle.kts (1.21.1-1.21.11). What differs here: the toolchain is pinned to
 	// Java 8 (1.16.5's runtime), the mixin compatibilityLevel is rewritten down to JAVA_8, and
 	// the language-incompatible / MC-coupled source is swapped for backport source roots
-	// (src/main-java8, src/client-1165) instead of src/main's modern-API originals.
+	// (src/client-1165) instead of src/main's modern-API originals.
 	id("net.fabricmc.fabric-loom-remap")
 }
 
@@ -20,7 +20,7 @@ version = project.property("mod_version") as String
 // gradle.properties). We cross-compile: a modern JDK toolchain (same 21 as the 1.21.x nodes,
 // so no extra JDK 8 has to be provisioned) with `options.release = 8`, which pins both the
 // bytecode level and the language/API surface to Java 8 — records/var/switch-expressions are
-// rejected at compile time, which is exactly the guard the src/main-java8 fork relies on.
+// rejected at compile time, which is exactly the guard src/core and src/common rely on.
 val targetRelease = (project.findProperty("java_version") as String).toInt()
 
 java {
@@ -32,43 +32,29 @@ base {
 	archivesName = "$modId-fabric-$mcVersion"
 }
 
-// Files that are MC-agnostic but use Java 9+ language features (records, switch expressions)
-// or the modern GUI/mixin API — dropped from Stonecutter's generated output for this node and
-// replaced by hand-written Java 8 / 1.16.5-API twins under src/main-java8 and src/client-1165.
+// Minecraft-coupled files whose modern-API originals in src/main can't compile against 1.16.5 —
+// dropped from Stonecutter's generated output for this node and replaced by hand-written
+// 1.16.5-API twins under src/client-1165. The Minecraft-agnostic code needs no twins: it lives in
+// src/core + src/common, which are Java 8 source for every target.
 val backportReplaced = listOf(
-	"**/net/peercraft/network/rendezvous/RendezvousProtocol.java",
-	"**/net/peercraft/network/rendezvous/AccountProtocol.java",
-	"**/net/peercraft/network/account/AccountClient.java",
-	"**/net/peercraft/network/p2p/PeerAddress.java",
-	"**/net/peercraft/client/account/AccountState.java",
-	"**/net/peercraft/platform/Services.java",
-	// record — the Java 8 twin in src/main-java8 provides it (mod-sync pulled this type into
-	// PeercraftPlatform; only surfaced here once network/modsync stopped shadowing it).
-	"**/net/peercraft/platform/services/PlatformMod.java",
 	"**/net/peercraft/PeerCraftCommon.java",
 	"**/net/peercraft/client/gui/**",
 	"**/net/peercraft/client/mixin/**",
 	"**/net/peercraft/client/skin/**",
 	// client/handoff: WorldArchiver (MinecraftServerAccessor + LevelResource) and
 	// SuccessorLauncher (IntegratedServer/CompoundTag/GameType, modern GUI screens) need a
-	// 1.16.5-API twin (see src/client-1165/.../client/handoff). PeercraftWorldMeta and
-	// HostHandoffTransfer are loader-agnostic (only pass MinecraftServer through opaquely) and
-	// compile as-is — no twin, not excluded.
+	// 1.16.5-API twin (see src/client-1165/.../client/handoff).
 	"**/net/peercraft/client/handoff/WorldArchiver.java",
 	"**/net/peercraft/client/handoff/SuccessorLauncher.java",
-    "**/net/peercraft/client/handoff/SafeHandoffPlatform.java",
+	"**/net/peercraft/client/handoff/SafeHandoffPlatform.java",
 	"**/net/peercraft/mixin/**",
-	// Mod sync: the loader-agnostic core is records / switch-expressions (compiled from
-	// src/modsync-java8 instead), and the client layer twins use HttpsURLConnection
-	// for the Modrinth fast-path and target the 1.16.5 GUI API — see src/client-1165/.../modsync
-	// and the four ModSync*Screen twins (already covered by the client/gui/** entry above).
-	"**/net/peercraft/network/modsync/**",
+	// Mod sync client layer: twins use HttpsURLConnection for the Modrinth fast-path and target
+	// the 1.16.5 GUI API — see src/client-1165/.../modsync.
 	"**/net/peercraft/client/modsync/**",
 )
-
 // Stonecutter emits preprocessed sources into build/generated/stonecutter/main/java; the twin
 // files above (records / modern GUI API) can't compile at --release 8 or against the 1.16.5
-// API, so strip them from the generated tree before compileJava and let the src/main-java8 +
+// API, so strip them from the generated tree before compileJava and let the
 // src/client-1165 srcDirs provide the replacements. (stonecutter.filters didn't reliably drop
 // them from generation, so this deletes them post-generate instead.)
 val stripBackportTwins by tasks.registering(Delete::class) {
@@ -88,12 +74,9 @@ tasks.named("sourcesJar") { dependsOn(stripBackportTwins) }
 
 sourceSets {
 	main {
-		java.srcDir(rootProject.file("src/main-java8/java"))
+		java.srcDir(rootProject.file("src/core/java"))
+		java.srcDir(rootProject.file("src/common/java"))
 		java.srcDir(rootProject.file("src/client-1165/java"))
-		// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
-		// arrow-switch -> colon-switch); shared verbatim with the 1.12.2 / 1.7.10 backports.
-		// network/modsync/** is stripped from the generated tree above.
-		java.srcDir(rootProject.file("src/modsync-java8/java"))
 		java.srcDir(rootProject.file("src/fabric/java"))
 		resources.srcDir(rootProject.file("src/fabric/resources"))
 	}

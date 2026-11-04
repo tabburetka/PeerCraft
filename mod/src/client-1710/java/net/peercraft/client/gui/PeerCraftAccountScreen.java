@@ -151,7 +151,8 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
         this.statusMessage = PeerCraftLang.tr("peercraft.gui.account.confirming_license");
         this.statusColor = PeerCraftUi.TEXT_MUTED;
         MinecraftSessionService sessionService = mc.func_152347_ac();
-        AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e(), mc.getSession().getToken(), sessionService, new AccountClient.AuthCallback() {
+        AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e().getName(),
+                serverId -> sessionService.joinServer(mc.getSession().func_148256_e(), mc.getSession().getToken(), serverId), new AccountClient.AuthCallback() {
             @Override
             public void onSuccess(AccountClient.AccountSession session) {
                 runOnClientThread(() -> {

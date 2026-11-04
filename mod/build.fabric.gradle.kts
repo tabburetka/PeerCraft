@@ -22,6 +22,10 @@ base {
 
 sourceSets {
 	main {
+		// Minecraft-agnostic code shared verbatim with every other target, the legacy backports and
+		// the servers: src/core is pure logic, src/common is client glue (see src/README.md).
+		java.srcDir(rootProject.file("src/core/java"))
+		java.srcDir(rootProject.file("src/common/java"))
 		java.srcDir(rootProject.file("src/fabric/java"))
 		resources.srcDir(rootProject.file("src/fabric/resources"))
 	}

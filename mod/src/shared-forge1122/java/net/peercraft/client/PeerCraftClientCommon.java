@@ -118,8 +118,8 @@ public final class PeerCraftClientCommon {
                 return;
             }
             try {
-                AccountClient.INSTANCE.loginLicensed(mc.getSession().getProfile(), token,
-                        mc.getSessionService(), licensedLoginCallback());
+                AccountClient.INSTANCE.loginLicensed(mc.getSession().getProfile().getName(),
+                        serverId -> mc.getSessionService().joinServer(mc.getSession().getProfile(), token, serverId), licensedLoginCallback());
             } catch (RuntimeException failure) {
                 net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 LOGGER.warn("[PeerCraft] Licensed auto-login failed: {}", failure.getClass().getSimpleName());

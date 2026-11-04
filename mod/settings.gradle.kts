@@ -48,7 +48,7 @@ stonecutter {
 		mc("1.21.11")
 		// Backport era. Minecraft 1.16.5 is the last version on official Fabric before the
 		// "Great Repackage" (1.17) — its own buildscript pins the Java 8 toolchain and swaps in
-		// the src/main-java8 + src/client-1165 source roots (see build.fabric-1165.gradle.kts).
+		// the src/client-1165 source root (see build.fabric-1165.gradle.kts).
 		mc("1.16.5", listOf("fabric"), fabricBuildscript = "build.fabric-1165.gradle.kts")
 		// Calendar-versioned, unobfuscated era. NeoForge only published -beta builds for 26.1
 		// and 26.1.1 (same situation as 1.21.6/1.21.7/1.21.9) — still real, working releases.

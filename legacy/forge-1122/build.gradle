@@ -20,59 +20,15 @@ java {
 }
 
 // ---------------------------------------------------------------------------------------
-// Shared code from ../../mod. Three roots layered onto this project's own src/main/java
-// (which holds only the Forge entrypoint + mixins):
-//   1. ../../mod/src/main/java        — version-agnostic transport/config, minus:
-//        - client/gui, client/mixin, mixin  (replaced by src/client-1122, added in step 3+)
-//        - the 7 files twinned in src/main-java8 (records / modern language features)
-//        - the 4 files twinned in src/shared-forge1122 (//? if <1.17 gates, hand-resolved)
-//   2. ../../mod/src/main-java8/java   — the Java 8 record/lang twins (reused verbatim)
-//   3. ../../mod/src/shared-forge1122/java — the 4 gate-resolved twins
+// Shared code from ../../mod, layered onto this project's own src/main/java (the Forge
+// entrypoint, coremod and mixins):
+//   - src/core/java          Minecraft-agnostic logic (network, protocols, config, accounts),
+//                            Java 8 source shared verbatim with every target and the servers
+//   - src/common/java        Minecraft-agnostic client glue that calls into the platform layer
+//   - src/shared-forge1122/java  PeerCraftCommon / PeerCraftClientCommon for the 1.12.2 API
+//   - src/client-1122/java       GUI, client mixins, mod sync and handoff for the 1.12.2 API
 def peercraftDir = rootProject.file("../../mod")
-def java8Twins = [
-	"net/peercraft/client/account/AccountState.java",
-	"net/peercraft/network/account/AccountClient.java",
-	"net/peercraft/network/p2p/PeerAddress.java",
-	"net/peercraft/network/rendezvous/AccountProtocol.java",
-	"net/peercraft/network/rendezvous/RendezvousProtocol.java",
-	"net/peercraft/PeerCraftCommon.java",
-	"net/peercraft/platform/Services.java",
-	"net/peercraft/platform/services/PlatformMod.java",
-]
-def sharedForgeTwins = [
-	"net/peercraft/network/rendezvous/RendezvousClient.java",
-	"net/peercraft/network/p2p/P2PBridge.java",
-	"net/peercraft/client/PeerCraftClientCommon.java",
-	"net/peercraft/config/PeerCraftConfig.java",
-]
-// Gradle applies a SourceDirectorySet's include/exclude filters across ALL its srcDirs, so
-// "exclude the src/main copy but keep the src/main-java8 copy of the same path" is impossible
-// in one java{} block. Mirror what build.fabric-1165.gradle.kts does (strip-then-replace):
-// sync ../../mod/src/main/java into a filtered tree, dropping the paths the twins own.
-def filteredSharedMain = layout.buildDirectory.dir("shared-main/java")
-def syncSharedMain = tasks.register("syncSharedMain", Sync) {
-	from(new File(peercraftDir, "src/main/java"))
-	into(filteredSharedMain)
-	exclude "net/peercraft/client/gui/**"
-	exclude "net/peercraft/client/mixin/**"
-	exclude "net/peercraft/client/skin/**"
-	exclude "net/peercraft/mixin/**"
-	exclude "net/peercraft/network/modsync/**"
-	exclude "net/peercraft/client/modsync/**"
-	// Host handoff: network/handoff/** is loader-agnostic and Java-8-safe (reused as-is, same
-	// as on the 1.16.5 backport). client/handoff/PeercraftWorldMeta.java and
-	// HostHandoffTransfer.java are also loader-agnostic (only pass MinecraftServer through
-	// opaquely) and compile as-is; WorldArchiver.java and SuccessorLauncher.java need a 1.12.2
-	// twin (modern net.minecraft.* API, modern GUI screens) — see src/client-1122/.../handoff.
-	exclude "net/peercraft/client/handoff/WorldArchiver.java"
-	exclude "net/peercraft/client/handoff/SuccessorLauncher.java"
-	exclude "net/peercraft/client/handoff/HandoffCommandOwner.java"
-        exclude "net/peercraft/client/handoff/SafeHandoffPlatform.java"
-	(java8Twins + sharedForgeTwins).each { exclude it }
-}
 
-// src/main-java8 also needs one file filtered out — PeerCraftCommon imports the 1.16.5
-// ResourceLocation package; its 1.12.2 form lives in src/shared-forge1122.
 // 1.12.2 localization is key=value .lang, not JSON (that arrived in 1.13). Generate both
 // files from the shared JSON so translations stay single-sourced.
 def generatedLangDir = layout.buildDirectory.dir("generated/lang")
@@ -106,13 +62,6 @@ def generateLang = tasks.register("generateLang") {
 	}
 }
 
-def filteredSharedJava8 = layout.buildDirectory.dir("shared-java8/java")
-def syncSharedJava8 = tasks.register("syncSharedJava8", Sync) {
-	from(new File(peercraftDir, "src/main-java8/java"))
-	into(filteredSharedJava8)
-	exclude "net/peercraft/PeerCraftCommon.java"
-}
-
 sourceSets {
 	main {
 		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
@@ -120,17 +69,13 @@ sourceSets {
 		// .lang / mcmod.info wouldn't be found. Emit resources alongside the classes.
 		output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
 		java {
-			srcDir(syncSharedMain)
-			srcDir(syncSharedJava8)
+			srcDir(new File(peercraftDir, "src/core/java"))
+			srcDir(new File(peercraftDir, "src/common/java"))
 			srcDir(new File(peercraftDir, "src/shared-forge1122/java"))
 			// GUI + client-mixin twins rewritten against the 1.12.2 MCP API. Also holds the
 			// client/modsync twins (Screen -> GuiScreen, Component -> PeerCraftLang, no
-			// java.net.http) — the whole client/modsync package is excluded from syncSharedMain.
+			// java.net.http).
 			srcDir(new File(peercraftDir, "src/client-1122/java"))
-			// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
-			// arrow-switch -> colon-switch); network/modsync/** is excluded from syncSharedMain.
-			// Shared verbatim with the 1.7.10 backport.
-			srcDir(new File(peercraftDir, "src/modsync-java8/java"))
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))

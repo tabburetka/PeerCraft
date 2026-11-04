@@ -138,7 +138,7 @@ public final class PeerCraftClientCommon {
             // Profile resolution may wait for Mojang HTTP; never join it on the render thread.
             Thread profileLogin = new Thread(() -> {
                 try {
-                    AccountClient.INSTANCE.loginLicensed(mc.getGameProfile(), token, service, licensedLoginCallback());
+                    net.peercraft.client.account.MojangLogin.start(mc.getGameProfile(), token, service, licensedLoginCallback());
                 } catch (RuntimeException failure) {
                     net.peercraft.client.account.AccountWelcome.authenticationFinished();
                     LOGGER.warn("[PeerCraft] Не удалось получить профиль для автоматического входа: {}",
@@ -148,7 +148,7 @@ public final class PeerCraftClientCommon {
             profileLogin.setDaemon(true);
             profileLogin.start();
             //?} else {
-            /*AccountClient.INSTANCE.loginLicensed(mc.getUser().getGameProfile(), token, service, licensedLoginCallback());*/
+            /*net.peercraft.client.account.MojangLogin.start(mc.getUser().getGameProfile(), token, service, licensedLoginCallback());*/
             //?}
         });
     }

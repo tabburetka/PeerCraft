@@ -156,7 +156,7 @@ public class PeerCraftAccountScreen extends PeerCraftDialogScreen {
         this.statusColor = PeerCraftUi.TEXT_MUTED;
         // Minecraft.getMinecraftSessionService() was replaced by services().sessionService() in 1.21.9.
         com.mojang.authlib.minecraft.MinecraftSessionService sessionService = mc.getMinecraftSessionService();
-        AccountClient.INSTANCE.loginLicensed(mc.getUser().getGameProfile(), user.getAccessToken(), sessionService, new AccountClient.AuthCallback() {
+        net.peercraft.client.account.MojangLogin.start(mc.getUser().getGameProfile(), user.getAccessToken(), sessionService, new AccountClient.AuthCallback() {
             @Override
             public void onSuccess(AccountClient.AccountSession session) {
                 runOnClientThread(() -> {

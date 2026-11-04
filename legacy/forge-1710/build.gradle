@@ -21,60 +21,15 @@ java {
 }
 
 // ---------------------------------------------------------------------------------------
-// Shared code from ../../mod. Three roots layered onto this project's own src/main/java
-// (which holds only the Forge entrypoint + coremod + mixins). Mirrors peercraft-forge-1122
-// one-for-one; the only twin roots that differ are the 1.7.10 ones:
-//   1. ../../mod/src/main/java        — version-agnostic transport/config, minus:
-//        - client/gui, client/mixin, mixin  (replaced by src/client-1710)
-//        - the 7 files twinned in src/main-java8 (records / modern language features)
-//        - the 4 files twinned in src/shared-forge1710 (//? if <1.17 gates, hand-resolved)
-//   2. ../../mod/src/main-java8/java   — the Java 8 record/lang twins (reused verbatim)
-//   3. ../../mod/src/shared-forge1710/java — the 4 gate-resolved twins
+// Shared code from ../../mod, layered onto this project's own src/main/java (the Forge
+// entrypoint, coremod and mixins):
+//   - src/core/java          Minecraft-agnostic logic (network, protocols, config, accounts),
+//                            Java 8 source shared verbatim with every target and the servers
+//   - src/common/java        Minecraft-agnostic client glue that calls into the platform layer
+//   - src/shared-forge1710/java  PeerCraftCommon / PeerCraftClientCommon for the 1.7.10 API
+//   - src/client-1710/java       GUI, client mixins, mod sync and handoff for the 1.7.10 API
 def peercraftDir = rootProject.file("../../mod")
-def java8Twins = [
-	"net/peercraft/client/account/AccountState.java",
-	"net/peercraft/network/account/AccountClient.java",
-	"net/peercraft/network/p2p/PeerAddress.java",
-	"net/peercraft/network/rendezvous/AccountProtocol.java",
-	"net/peercraft/network/rendezvous/RendezvousProtocol.java",
-	"net/peercraft/PeerCraftCommon.java",
-	"net/peercraft/platform/Services.java",
-	"net/peercraft/platform/services/PlatformMod.java",
-]
-def sharedForgeTwins = [
-	"net/peercraft/network/rendezvous/RendezvousClient.java",
-	"net/peercraft/network/p2p/P2PBridge.java",
-	"net/peercraft/client/PeerCraftClientCommon.java",
-	"net/peercraft/config/PeerCraftConfig.java",
-]
-// Gradle applies a SourceDirectorySet's include/exclude filters across ALL its srcDirs, so
-// "exclude the src/main copy but keep the src/main-java8 copy of the same path" is impossible
-// in one java{} block. Sync ../../mod/src/main/java into a filtered tree, dropping the
-// paths the twins own.
-def filteredSharedMain = layout.buildDirectory.dir("shared-main/java")
-def syncSharedMain = tasks.register("syncSharedMain", Sync) {
-	from(new File(peercraftDir, "src/main/java"))
-	into(filteredSharedMain)
-	exclude "net/peercraft/client/gui/**"
-	exclude "net/peercraft/client/mixin/**"
-	exclude "net/peercraft/client/skin/**"
-	exclude "net/peercraft/mixin/**"
-	exclude "net/peercraft/network/modsync/**"
-	exclude "net/peercraft/client/modsync/**"
-	// Host handoff: network/handoff/** is loader-agnostic and Java-8-safe (reused as-is, same
-	// as on the 1.16.5 backport). client/handoff/PeercraftWorldMeta.java and
-	// HostHandoffTransfer.java are also loader-agnostic (only pass MinecraftServer through
-	// opaquely) and compile as-is; WorldArchiver.java and SuccessorLauncher.java need a 1.7.10
-	// twin (modern net.minecraft.* API, modern GUI screens) — see src/client-1710/.../handoff.
-	exclude "net/peercraft/client/handoff/WorldArchiver.java"
-	exclude "net/peercraft/client/handoff/SuccessorLauncher.java"
-	exclude "net/peercraft/client/handoff/HandoffCommandOwner.java"
-        exclude "net/peercraft/client/handoff/SafeHandoffPlatform.java"
-	(java8Twins + sharedForgeTwins).each { exclude it }
-}
 
-// src/main-java8 also needs one file filtered out — PeerCraftCommon imports a package path that
-// differs per era; its 1.7.10 form lives in src/shared-forge1710.
 // 1.7.10 localization is key=value .lang, not JSON (that arrived in 1.13). Generate both files
 // from the shared JSON so translations stay single-sourced. NOTE: 1.7.10 language codes carry
 // an upper-case region ("en_US"), unlike 1.11+ ("en_us") — emit the file names to match, and
@@ -110,13 +65,6 @@ def generateLang = tasks.register("generateLang") {
 	}
 }
 
-def filteredSharedJava8 = layout.buildDirectory.dir("shared-java8/java")
-def syncSharedJava8 = tasks.register("syncSharedJava8", Sync) {
-	from(new File(peercraftDir, "src/main-java8/java"))
-	into(filteredSharedJava8)
-	exclude "net/peercraft/PeerCraftCommon.java"
-}
-
 sourceSets {
 	main {
 		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
@@ -124,18 +72,14 @@ sourceSets {
 		// .lang / mcmod.info wouldn't be found. Emit resources alongside the classes.
 		output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
 		java {
-			srcDir(syncSharedMain)
-			srcDir(syncSharedJava8)
+			srcDir(new File(peercraftDir, "src/core/java"))
+			srcDir(new File(peercraftDir, "src/common/java"))
 			srcDir(new File(peercraftDir, "src/shared-forge1710/java"))
 			// GUI + client-mixin twins rewritten against the 1.7.10 MCP API. Also holds the
 			// client/modsync twins (Screen -> GuiScreen, Component -> PeerCraftLang, no
 			// java.net.http; mcmod.info instead of fabric.mod.json) and the four ModSync*Screen
-			// twins — the whole client/modsync package is excluded from syncSharedMain.
+			// twins.
 			srcDir(new File(peercraftDir, "src/client-1710/java"))
-			// Loader-agnostic mod-sync core hand-lowered to Java 8 (records -> classes,
-			// arrow-switch -> colon-switch); network/modsync/** is excluded from syncSharedMain.
-			// Shared verbatim with the 1.12.2 backport.
-			srcDir(new File(peercraftDir, "src/modsync-java8/java"))
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))
@@ -210,7 +154,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 // ---------------------------------------------------------------------------------------
-// Lightweight mod-sync test suite — proves the loader-agnostic core (src/modsync-java8, as
+// Lightweight mod-sync test suite — proves the loader-agnostic core (mod/src/core, as
 // compiled into this project's main output) works end to end WITHOUT a Minecraft runtime:
 // ModSyncLoopbackIntegrationTest cross-wires a joiner + host ModSyncCoordinator in one JVM
 // and runs the real handshake + chunked transfer + SHA-512 verify. `./gradlew

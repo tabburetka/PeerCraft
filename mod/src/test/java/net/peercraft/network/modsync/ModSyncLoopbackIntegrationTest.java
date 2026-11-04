@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * without a runtime" path — it
  * exercises the real {@code T_HELLO}/{@code T_MANIFEST}/{@code T_FILE_*} state machine,
  * chunking, selective-ACK repair and SHA-512 verification the Forge 1.7.10 / 1.12.2 backports
- * reuse verbatim from {@code src/modsync-java8}.
+ * reuse verbatim from {@code src/core}.
  */
 class ModSyncLoopbackIntegrationTest {
 

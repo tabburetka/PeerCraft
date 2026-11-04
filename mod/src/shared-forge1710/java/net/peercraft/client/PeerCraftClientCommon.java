@@ -118,8 +118,8 @@ public final class PeerCraftClientCommon {
                 return;
             }
             try {
-                AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e(), token,
-                        mc.func_152347_ac(), licensedLoginCallback());
+                AccountClient.INSTANCE.loginLicensed(mc.getSession().func_148256_e().getName(),
+                        serverId -> mc.func_152347_ac().joinServer(mc.getSession().func_148256_e(), token, serverId), licensedLoginCallback());
             } catch (RuntimeException failure) {
                 net.peercraft.client.account.AccountWelcome.authenticationFinished();
                 LOGGER.warn("[PeerCraft] Licensed auto-login failed: {}", failure.getClass().getSimpleName());
