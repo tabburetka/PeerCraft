@@ -18,6 +18,11 @@ public final class ModSyncInstaller {
             this.id = id; this.version = version; this.fileName = name; this.sha512 = hash;
             this.oldFileName = oldName; this.oldVersion = oldVersion; this.oldSha512 = oldHash; this.source = source;
         }
+        /** Removes {@code oldFileName} without installing anything in its place. */
+        public static Entry removal(String id, String oldName, String oldVersion, String oldHash) {
+            return new Entry(id, "", "", "", oldName, oldVersion, oldHash, "remove");
+        }
+        public boolean isRemoval() { return fileName.isEmpty(); }
     }
 
     public static Path prepare(Path operations, Path mods, List<Entry> entries, List<Path> verified, String room, String language) throws IOException {
@@ -34,14 +39,20 @@ public final class ModSyncInstaller {
 
     public static Path prepare(Path operations, Path mods, List<Entry> entries, List<Path> verified, String room, String language,
                                Map<String, String> expectedInventory) throws IOException {
-        if (entries.isEmpty() || entries.size() != verified.size()) throw new IOException("Empty or incomplete install plan");
+        int installs = 0; boolean removals = false;
+        for (Entry e : entries) {
+            if (!e.isRemoval()) installs++;
+            else if (e.oldFileName.isEmpty()) throw new IOException("Removal without a source jar: " + e.id);
+            else removals = true;
+        }
+        if (entries.isEmpty() || installs != verified.size()) throw new IOException("Empty or incomplete install plan");
         Files.createDirectories(operations);
         operations = operations.toRealPath();
         Path transaction = Files.createDirectory(operations.resolve(UUID.randomUUID().toString()));
         Files.createDirectory(transaction.resolve("staged"));
         Files.createDirectory(transaction.resolve("backups"));
         Properties plan = new Properties();
-        plan.setProperty("format", "1"); plan.setProperty("state", "PREPARED");
+        plan.setProperty("format", removals ? "2" : "1"); plan.setProperty("state", "PREPARED");
         plan.setProperty("mods", mods.toRealPath().toString());
         plan.setProperty("count", Integer.toString(entries.size()));
         plan.setProperty("room", room == null ? "" : room);
@@ -53,15 +64,18 @@ public final class ModSyncInstaller {
             plan.setProperty("inventory." + inventoryIndex + ".file", name(file.getKey()));
             plan.setProperty("inventory." + inventoryIndex + ".sha512", file.getValue()); inventoryIndex++;
         }
+        int next = 0;
         for (int i = 0; i < entries.size(); i++) {
             Entry e = entries.get(i); String p = i + ".";
             plan.setProperty(p + "id", e.id); plan.setProperty(p + "version", e.version);
             plan.setProperty(p + "file", e.fileName); plan.setProperty(p + "sha512", e.sha512);
             plan.setProperty(p + "oldFile", e.oldFileName); plan.setProperty(p + "oldVersion", e.oldVersion);
             plan.setProperty(p + "oldSha512", e.oldSha512); plan.setProperty(p + "source", e.source);
-            plan.setProperty(p + "sizeBytes", Long.toString(Files.size(verified.get(i))));
-            if (!e.sha512.equals(hash(verified.get(i)))) throw new IOException("Downloaded file changed: " + e.id);
-            Files.copy(verified.get(i), transaction.resolve("staged").resolve(i + ".jar"));
+            if (e.isRemoval()) { plan.setProperty(p + "sizeBytes", "0"); continue; }
+            Path file = verified.get(next++);
+            plan.setProperty(p + "sizeBytes", Long.toString(Files.size(file)));
+            if (!e.sha512.equals(hash(file))) throw new IOException("Downloaded file changed: " + e.id);
+            Files.copy(file, transaction.resolve("staged").resolve(i + ".jar"));
             force(transaction.resolve("staged").resolve(i + ".jar"));
         }
         save(transaction.resolve(PLAN), plan);
@@ -69,6 +83,10 @@ public final class ModSyncInstaller {
         StringBuilder restore = new StringBuilder("PeerCraft Mod Sync\n\nClose Minecraft before restoring files. / Закройте Minecraft перед восстановлением.\n");
         restore.append("mods: ").append(mods.toRealPath()).append("\n\n");
         for (Entry e : entries) {
+            if (e.isRemoval()) {
+                restore.append("Removed / Удалён: backups/").append(e.oldFileName).append(" SHA-512 ").append(e.oldSha512).append('\n');
+                continue;
+            }
             restore.append("Installed / Установлен: ").append(e.fileName).append(" SHA-512 ").append(e.sha512).append('\n');
             if (!e.oldFileName.isEmpty()) restore.append("Original / Исходный: backups/").append(e.oldFileName).append(" SHA-512 ").append(e.oldSha512).append('\n');
         }
@@ -121,7 +139,8 @@ public final class ModSyncInstaller {
         return root;
     }
     private static int count(Properties plan) throws IOException {
-        if (!"1".equals(plan.getProperty("format"))) throw new IOException("Unknown transaction format");
+        String format = plan.getProperty("format");
+        if (!"1".equals(format) && !"2".equals(format)) throw new IOException("Unknown transaction format");
         try {
             int n = Integer.parseInt(plan.getProperty("count", "0"));
             if (n < 1 || n > 4096) throw new IOException("Invalid transaction size");
@@ -129,6 +148,8 @@ public final class ModSyncInstaller {
         } catch (NumberFormatException e) { throw new IOException(e); }
     }
     private static String prop(Properties p, int i, String key) { return p.getProperty(i + "." + key, ""); }
+    /** Format 2 entry with no target: the old jar is removed and nothing is installed. */
+    private static boolean removal(Properties p, int i) { return "2".equals(p.getProperty("format")) && prop(p, i, "file").isEmpty(); }
     private static void digest(String hash) throws IOException {
         if (!hash.matches("[0-9a-f]{128}")) throw new IOException("Invalid SHA-512");
     }
@@ -150,7 +171,14 @@ public final class ModSyncInstaller {
         if (!expected.equals(inventory(root))) throw new IOException("The mods folder changed after confirmation; review synchronization again");
         Set<String> targets = new HashSet<String>(), oldNames = new HashSet<String>(), ids = new HashSet<String>();
         for (int i = 0; i < n; i++) {
-            String target = name(prop(plan, i, "file")), old = prop(plan, i, "oldFile");
+            String old = prop(plan, i, "oldFile");
+            if (removal(plan, i)) {
+                name(old); digest(prop(plan, i, "oldSha512"));
+                if (!ids.add(prop(plan, i, "id")) || !oldNames.add(old.toLowerCase(Locale.ROOT))) throw new IOException("Duplicate mod or source jar");
+                if (!prop(plan, i, "oldSha512").equals(hash(root.resolve(old)))) throw new IOException("Installed file changed: " + old);
+                continue;
+            }
+            String target = name(prop(plan, i, "file"));
             String sha = prop(plan, i, "sha512"); digest(sha);
             if (!ids.add(prop(plan, i, "id")) || !targets.add(target.toLowerCase(Locale.ROOT))) throw new IOException("Duplicate mod or target");
             if (!sha.equals(hash(transaction.resolve("staged").resolve(i + ".jar")))) throw new IOException("Staged file changed: " + target);
@@ -163,7 +191,7 @@ public final class ModSyncInstaller {
             if (Files.exists(dst, LinkOption.NOFOLLOW_LINKS) && !target.equals(old)) throw new IOException("Target already exists: " + target);
         }
         // No transaction may install over a different operation's original file.
-        for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) if (i != j
+        for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) if (i != j && !removal(plan, i)
                 && prop(plan, i, "file").equalsIgnoreCase(prop(plan, j, "oldFile"))) throw new IOException("Overlapping operations");
     }
 
@@ -194,6 +222,7 @@ public final class ModSyncInstaller {
                 Files.delete(root.resolve(old));
             }
             for (int i = 0; i < n; i++) {
+                if (removal(p, i)) continue;
                 String target = name(prop(p, i, "file"));
                 p.setProperty(i + ".install", "intent"); save(transaction.resolve(PLAN), p);
                 Path tmp = root.resolve(".peercraft-" + transaction.getFileName() + "-" + i + ".tmp");
@@ -221,8 +250,8 @@ public final class ModSyncInstaller {
         IOException failure = null;
         for (int i = n - 1; i >= 0; i--) {
             try {
-                Path dst = root.resolve(name(prop(p, i, "file")));
-                if (p.containsKey(i + ".install") && Files.exists(dst, LinkOption.NOFOLLOW_LINKS)) {
+                Path dst = removal(p, i) ? null : root.resolve(name(prop(p, i, "file")));
+                if (dst != null && p.containsKey(i + ".install") && Files.exists(dst, LinkOption.NOFOLLOW_LINKS)) {
                     String actual = hash(dst);
                     if (actual.equals(prop(p, i, "sha512"))) Files.delete(dst);
                     else if (!prop(p, i, "file").equals(prop(p, i, "oldFile")) || !actual.equals(prop(p, i, "oldSha512")))

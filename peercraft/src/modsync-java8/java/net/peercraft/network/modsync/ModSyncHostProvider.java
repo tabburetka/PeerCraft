@@ -30,6 +30,13 @@ public interface ModSyncHostProvider {
     List<ModEntry> hostMods();
 
     /**
+     * Every mod id in the host's {@code mods/} folder, including ones withheld from
+     * {@link #hostMods()} (client-only mods in "required" mode). Empty means "unknown": the
+     * coordinator then reports no extras, so a joiner never removes anything on a guess.
+     */
+    default java.util.Set<String> allHostModIds() { return java.util.Collections.emptySet(); }
+
+    /**
      * A fresh stream of the jar for {@code modId} (one of {@link #hostMods()}), or throws if
      * it can't be opened. The caller closes it.
      */

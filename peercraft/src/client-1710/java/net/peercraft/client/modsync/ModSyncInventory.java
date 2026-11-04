@@ -57,6 +57,23 @@ public final class ModSyncInventory {
         }
         return out;
     }
+    /**
+     * The local jars behind {@code extraIds} (mods the host reported it doesn't have). Only a
+     * single, cleanly identified jar per id is ever removed; anything else becomes an issue.
+     * Env is the jar's own metadata — the caller may refine it before applying the mode.
+     */
+    public List<ModSyncPlan.Removal> removals(List<String> extraIds) {
+        List<ModSyncPlan.Removal> out = new ArrayList<ModSyncPlan.Removal>();
+        for (String id : extraIds) {
+            List<ModJarScanner.ScannedJar> local = byId.get(id);
+            if (local == null || ModSyncFilter.isExcluded(id, "both", false, local.get(0).fileName())) continue;
+            if (local.size() != 1 || !local.get(0).replaceable()) { issues.add(new Issue(id, "remove_ambiguous")); continue; }
+            ModJarScanner.ScannedJar jar = local.get(0);
+            out.add(new ModSyncPlan.Removal(id, jar.fileName(), jar.version(), hashes.get(jar.fileName()), jar.env()));
+        }
+        return out;
+    }
+
     public ModSyncPlan annotate(ModSyncPlan plan) {
         List<ModSyncPlan.PlannedMod> out = new ArrayList<ModSyncPlan.PlannedMod>();
         for (ModSyncPlan.PlannedMod mod : plan.mods()) {

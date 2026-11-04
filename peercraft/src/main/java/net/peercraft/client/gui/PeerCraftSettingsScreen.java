@@ -50,9 +50,11 @@ public class PeerCraftSettingsScreen extends Screen {
     private static final int KIND_STRING = 2;
     private static final int KIND_MODE = 3;         // auto/client/host/disabled
     private static final int KIND_MODSYNC = 4;      // off/required/all
+    private static final int KIND_REMOVE = 5;       // off/keep_client/all
 
     private static final List<String> MODE_VALUES = Arrays.asList("auto", "client", "host", "disabled");
     private static final List<String> MODSYNC_VALUES = Arrays.asList("off", "required", "all");
+    private static final List<String> REMOVE_VALUES = Arrays.asList("off", "keep_client", "all");
 
     private final Screen lastScreen;
     private PeerCraftSettings settings;
@@ -134,6 +136,7 @@ public class PeerCraftSettingsScreen extends Screen {
             case "maxPlayers": return "4";
             case "modSync.host": return "all";
             case "modSync.client": return "all";
+            case "modSync.removeExtra": return "off";
             case "modSync.autoAccept": return "false";
             case "handoff": return "true";
             case "handoff.declineSuccessor": return "false";
@@ -196,6 +199,7 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("updateCheck.enabled", KIND_BOOL, false, false, 0, 0, "update_check");
         addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
         addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
+        addRow("modSync.removeExtra", KIND_REMOVE, false, false, 0, 0, "modsync_remove");
         addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");
         addRow("modSync.maxTotalMb", KIND_INT, false, false, 1, 4096, "max_total_mb");
         addRow("modSync.maxModMb", KIND_INT, false, false, 1, 2048, "max_mod_mb");
@@ -384,6 +388,9 @@ public class PeerCraftSettingsScreen extends Screen {
             case KIND_MODSYNC:
                 return new SteampunkSettingsTheme.Choice(x, y, this.controlWidth, 24, MODSYNC_VALUES, current,
                         value -> Component.translatable("peercraft.gui.settings.modsync_mode." + value));
+            case KIND_REMOVE:
+                return new SteampunkSettingsTheme.Choice(x, y, this.controlWidth, 24, REMOVE_VALUES, current,
+                        value -> Component.translatable("peercraft.gui.settings.modsync_remove_mode." + value));
             default:
                 boolean stepper = "maxPlayers".equals(row.key);
                 EditBox box = new SteampunkSettingsTheme.Field(this.font, x + (stepper ? 24 : 0), y,
@@ -403,6 +410,8 @@ public class PeerCraftSettingsScreen extends Screen {
                 return makeCycle(MODE_VALUES, current, x, y, v -> Component.translatable("peercraft.gui.settings.mode." + v));
             case KIND_MODSYNC:
                 return makeCycle(MODSYNC_VALUES, current, x, y, v -> Component.translatable("peercraft.gui.settings.modsync_mode." + v));
+            case KIND_REMOVE:
+                return makeCycle(REMOVE_VALUES, current, x, y, v -> Component.translatable("peercraft.gui.settings.modsync_remove_mode." + v));
             case KIND_INT:
             case KIND_STRING:
             default:

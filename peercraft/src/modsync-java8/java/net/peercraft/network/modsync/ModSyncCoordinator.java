@@ -97,6 +97,15 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
 
     public boolean replacementsAllowed() { return replacementsAllowed; }
 
+    private volatile boolean joinerWantsExtras;
+    private volatile List<String> extraIds = java.util.Collections.<String>emptyList();
+
+    /** Joiner: ask the host which of our mods it doesn't have. Call before {@link #startJoiner}. */
+    public void requestExtras() { joinerWantsExtras = true; }
+
+    /** Joiner: our mods the host has no jar for — only when replacements are allowed (same loader + Minecraft). */
+    public List<String> extraIds() { return extraIds; }
+
     private final Sender sender;
     private final boolean isHost;
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -323,7 +332,7 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
 
     private void runHelloLoop() {
         byte[] hello = joinerMinecraft.isEmpty() ? ModSyncProtocol.encodeHello(joinerLoader, joinerMods)
-                : ModSyncProtocol.encodeHello(joinerLoader, joinerMods, joinerMinecraft);
+                : ModSyncProtocol.encodeHello(joinerLoader, joinerMods, joinerMinecraft, joinerWantsExtras);
         long started = System.currentTimeMillis();
         long deadline = started + HANDSHAKE_TIMEOUT_MILLIS;
         long hardDeadline = started + MAX_HOST_PREPARATION_MILLIS;
@@ -408,6 +417,8 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
         replacementsAllowed = (manifest.flags() & ModSyncProtocol.MANIFEST_FLAG_REPLACEMENTS) != 0
                 && joinerLoader != ModSyncProtocol.Loader.UNKNOWN && joinerLoader == manifest.loader()
                 && !joinerMinecraft.isEmpty() && joinerMinecraft.equals(manifest.minecraftVersion());
+        // Mod ids are only comparable on the same loader + Minecraft version (see ModDiff.extras).
+        extraIds = replacementsAllowed && joinerWantsExtras ? manifest.extraIds() : java.util.Collections.<String>emptyList();
     }
 
     private void settleManifest(List<ModEntry> mods) {
@@ -415,8 +426,9 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
             return;
         }
         List<ModEntry> missing = ModDiff.sanitize(mods);
-        LOGGER.info("[ModSync] Манифест хоста: {} записей, после фильтра к скачиванию {}.", mods.size(), missing.size());
-        if (missing.isEmpty()) {
+        LOGGER.info("[ModSync] Манифест хоста: {} записей, после фильтра к скачиванию {}, лишних у нас {}.",
+                mods.size(), missing.size(), extraIds.size());
+        if (missing.isEmpty() && extraIds.isEmpty()) {
             handler.onNothingMissing();
         } else {
             StringBuilder sb = new StringBuilder();
@@ -576,8 +588,16 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
         for (ModEntry e : missing) {
             offeredById.put(e.id(), e);
         }
+        List<String> extras = java.util.Collections.<String>emptyList();
+        if (canReplace && hello.extras()) {
+            List<String> joinerIds = new ArrayList<String>();
+            for (ModSyncProtocol.ModRef m : hello.mods()) joinerIds.add(m.id());
+            java.util.Set<String> hostIds = provider.allHostModIds();
+            if (!hostIds.isEmpty()) extras = ModDiff.extras(joinerIds, hostIds);
+            if (!extras.isEmpty()) LOGGER.info("[ModSync] У заходящего есть моды, которых нет у хоста: {}", extras);
+        }
 
-        if (missing.isEmpty()) {
+        if (missing.isEmpty() && extras.isEmpty()) {
             // Nothing to sync — the loader doesn't matter, let the join proceed normally.
             cachedHelloResponse = ModSyncProtocol.encodeManifestNone();
             sender.send(cachedHelloResponse);
@@ -598,7 +618,7 @@ public final class ModSyncCoordinator implements RawPacketListener, net.peercraf
         }
 
         byte[] inline = canReplace
-                ? ModSyncProtocol.encodeManifest(0, missing, hostLoader, provider.minecraftVersion())
+                ? ModSyncProtocol.encodeManifest(0, missing, hostLoader, provider.minecraftVersion(), extras)
                 : ModSyncProtocol.encodeManifest(0, missing);
         if (inline.length <= MANIFEST_INLINE_LIMIT) {
             cachedHelloResponse = inline;

@@ -37,6 +37,10 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
     private final ModSyncMode mode;
     private final CountDownLatch hashed = new CountDownLatch(1);
     private volatile List<ModEntry> cached = List.of();
+    /** Every scanned id, withheld/excluded ones included — what ModDiff.extras compares against. */
+    private final java.util.Set<String> allIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Set once the whole folder was scanned; a partial id set must never drive removals. */
+    private volatile boolean allIdsComplete;
     private final Map<String, Path> jarById = new LinkedHashMap<>();
 
     private HostModSyncProviderImpl(Path modsDir, ModSyncMode mode) {
@@ -64,6 +68,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
         List<ModEntry> out = new ArrayList<>();
         int skipped = 0;
         for (ModJarScanner.ScannedJar sj : ModJarScanner.scan(modsDir, InstalledModScanner.allInstalled())) {
+            allIds.add(sj.id());
             String envStr = switch (sj.env()) {
                 case CLIENT -> "client";
                 case SERVER -> "server";
@@ -82,6 +87,10 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 LOGGER.warn("[ModSync] Не удалось захешировать {}: {}", sj.fileName(), e.toString());
             }
         }
+        // Also every id the loader has loaded (jar-in-jar libraries included), so a joiner is never
+        // told to remove a library the host only carries nested inside another mod.
+        for (PlatformMod pm : InstalledModScanner.allInstalled()) allIds.add(pm.id());
+        allIdsComplete = true;
 
         // "Только обязательные моды": share only what a joiner needs to enter the world. The jar's
         // own fabric.mod.json "environment" is a weak signal — many client-only mods (AppleSkin, …)
@@ -141,6 +150,13 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
             Thread.currentThread().interrupt();
         }
         return cached;
+    }
+
+    @Override
+    public java.util.Set<String> allHostModIds() {
+        hostMods(); // same bounded wait for the scan to finish
+        if (!allIdsComplete) return java.util.Collections.emptySet();
+        return java.util.Collections.unmodifiableSet(new java.util.HashSet<String>(allIds));
     }
 
     @Override

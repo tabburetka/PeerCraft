@@ -232,6 +232,15 @@ public final class PeerCraftConfig {
         return ModSyncMode.fromKey(stringValue("modSync.client", null), modSync() ? ModSyncMode.ALL : ModSyncMode.OFF);
     }
 
+    // Client/joiner side: what to do with mods this player has but the host doesn't.
+    //   off         — leave them alone (default)
+    //   keep_client — offer to remove them, except purely client-side mods
+    //   all         — offer to remove all of them, client-side mods included
+    // Only applies when loader and Minecraft version match the host's; always confirmed per mod.
+    public static ModSyncRemoveMode modSyncRemoveExtra() {
+        return ModSyncRemoveMode.fromKey(stringValue("modSync.removeExtra", null), ModSyncRemoveMode.OFF);
+    }
+
     private static String stringValue(String key, String defaultValue) {
         String property = System.getProperty(PROPERTY_PREFIX + key);
         //? if >=1.17

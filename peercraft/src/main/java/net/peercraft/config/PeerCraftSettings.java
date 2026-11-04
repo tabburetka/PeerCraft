@@ -44,6 +44,8 @@ public final class PeerCraftSettings {
     public String modSyncClient;
     @SerializedName("modSync.host")
     public String modSyncHost;
+    @SerializedName("modSync.removeExtra")
+    public String modSyncRemoveExtra;
     @SerializedName("modSync.reofferDeclined")
     public String modSyncReofferDeclined;
     @SerializedName("modSync.maxTotalMb")
@@ -97,7 +99,7 @@ public final class PeerCraftSettings {
 
     /** Config-key ↔ field, in screen order. Used by both {@link #toOverrideMap()} and the screen. */
     public static final String[] FLAG_KEYS = {
-            "privacy.approveStrangers", "telemetry.enabled", "updateCheck.enabled", "modSync.client", "modSync.host", "modSync.reofferDeclined",
+            "privacy.approveStrangers", "telemetry.enabled", "updateCheck.enabled", "modSync.client", "modSync.host", "modSync.removeExtra", "modSync.reofferDeclined",
             "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
             "handoff", "handoff.declineSuccessor", "handoff.confirmBeforeOffer", "handoff.chatNotify",
             "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
@@ -110,6 +112,7 @@ public final class PeerCraftSettings {
             case "updateCheck.enabled": return updateCheckEnabled;
             case "modSync.client": return modSyncClient;
             case "modSync.host": return modSyncHost;
+            case "modSync.removeExtra": return modSyncRemoveExtra;
             case "modSync.reofferDeclined": return modSyncReofferDeclined;
             case "modSync.maxTotalMb": return modSyncMaxTotalMb;
             case "modSync.maxModMb": return modSyncMaxModMb;
@@ -140,6 +143,7 @@ public final class PeerCraftSettings {
             case "updateCheck.enabled": updateCheckEnabled = v; break;
             case "modSync.client": modSyncClient = v; break;
             case "modSync.host": modSyncHost = v; break;
+            case "modSync.removeExtra": modSyncRemoveExtra = v; break;
             case "modSync.reofferDeclined": modSyncReofferDeclined = v; break;
             case "modSync.maxTotalMb": modSyncMaxTotalMb = v; break;
             case "modSync.maxModMb": modSyncMaxModMb = v; break;

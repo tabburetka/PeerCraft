@@ -44,6 +44,11 @@ public final class ModSyncProtocol {
     /** MANIFEST flag: the mod list didn't fit one datagram and is being streamed as a file under {@link #MANIFEST_STREAM_ID}. */
     public static final int MANIFEST_FLAG_STREAMED = 0x1;
     public static final int MANIFEST_FLAG_REPLACEMENTS = 0x2;
+    /** MANIFEST flag: the replacement extension is followed by the ids the joiner has and the host doesn't. */
+    public static final int MANIFEST_FLAG_EXTRAS = 0x4;
+    /** HELLO extension flag bits: 1 = replacements supported, 2 = joiner asks for {@code Manifest.extraIds}. */
+    private static final int HELLO_FLAG_REPLACEMENTS = 0x1;
+    private static final int HELLO_FLAG_EXTRAS = 0x2;
     private static final int EXTENSION_VERSION = 1;
 
     /** Reserved {@code modId} the MANIFEST body uses when it has to travel through the file mechanism. */
@@ -62,15 +67,21 @@ public final class ModSyncProtocol {
         }
     }
 
-    public record Hello(int protoVersion, Loader loader, List<ModRef> mods, boolean replacements, String minecraftVersion) {
+    public record Hello(int protoVersion, Loader loader, List<ModRef> mods, boolean replacements, String minecraftVersion, boolean extras) {
         public Hello(int protoVersion, Loader loader, List<ModRef> mods) { this(protoVersion, loader, mods, false, ""); }
+        public Hello(int protoVersion, Loader loader, List<ModRef> mods, boolean replacements, String minecraftVersion) {
+            this(protoVersion, loader, mods, replacements, minecraftVersion, false);
+        }
     }
 
     public record ModRef(String id, String version) {
     }
 
-    public record Manifest(int protoVersion, int flags, List<ModEntry> mods, Loader loader, String minecraftVersion) {
+    public record Manifest(int protoVersion, int flags, List<ModEntry> mods, Loader loader, String minecraftVersion, List<String> extraIds) {
         public Manifest(int protoVersion, int flags, List<ModEntry> mods) { this(protoVersion, flags, mods, Loader.UNKNOWN, ""); }
+        public Manifest(int protoVersion, int flags, List<ModEntry> mods, Loader loader, String minecraftVersion) {
+            this(protoVersion, flags, mods, loader, minecraftVersion, List.of());
+        }
         public boolean streamed() {
             return (flags & MANIFEST_FLAG_STREAMED) != 0;
         }
@@ -90,6 +101,8 @@ public final class ModSyncProtocol {
 
     public record Abort(String reasonKey) {
     }
+
+    private static final List<String> EMPTY_IDS = List.of();
 
     private ModSyncProtocol() {
     }
@@ -119,9 +132,14 @@ public final class ModSyncProtocol {
 
     /** Append-only extension: the original overload deliberately keeps its exact v1 bytes. */
     public static byte[] encodeHello(Loader loader, List<ModRef> mods, String minecraftVersion) {
+        return encodeHello(loader, mods, minecraftVersion, false);
+    }
+
+    /** {@code wantsExtras}: ask the host to list the joiner's mods it doesn't have (for removal). */
+    public static byte[] encodeHello(Loader loader, List<ModRef> mods, String minecraftVersion, boolean wantsExtras) {
         byte[] original = encodeHello(loader, mods);
         ByteBuffer buf = ByteBuffer.allocate(original.length + 4 + utf8(minecraftVersion).length);
-        buf.put(original).put((byte) EXTENSION_VERSION).put((byte) 1);
+        buf.put(original).put((byte) EXTENSION_VERSION).put((byte) (HELLO_FLAG_REPLACEMENTS | (wantsExtras ? HELLO_FLAG_EXTRAS : 0)));
         putStr(buf, minecraftVersion);
         return trim(buf);
     }
@@ -137,13 +155,15 @@ public final class ModSyncProtocol {
             String version = getStr(buf);
             mods.add(new ModRef(id, version));
         }
-        boolean replacements = false;
+        boolean replacements = false, extras = false;
         String minecraft = "";
         if (buf.remaining() >= 4 && u8(buf) == EXTENSION_VERSION) {
-            replacements = (u8(buf) & 1) != 0;
+            int helloFlags = u8(buf);
+            replacements = (helloFlags & HELLO_FLAG_REPLACEMENTS) != 0;
+            extras = (helloFlags & HELLO_FLAG_EXTRAS) != 0;
             minecraft = getStr(buf);
         }
-        return new Hello(proto, loader, mods, replacements, minecraft);
+        return new Hello(proto, loader, mods, replacements, minecraft, extras);
     }
 
     // ---- MANIFEST: host -> joiner ----
@@ -172,10 +192,22 @@ public final class ModSyncProtocol {
     }
 
     public static byte[] encodeManifest(int flags, List<ModEntry> mods, Loader loader, String minecraftVersion) {
-        byte[] original = encodeManifest(flags | MANIFEST_FLAG_REPLACEMENTS, mods);
-        ByteBuffer buf = ByteBuffer.allocate(original.length + 4 + utf8(minecraftVersion).length);
+        return encodeManifest(flags, mods, loader, minecraftVersion, EMPTY_IDS);
+    }
+
+    /** Appends {@code extraIds} (only when non-empty) after the replacement extension. */
+    public static byte[] encodeManifest(int flags, List<ModEntry> mods, Loader loader, String minecraftVersion, List<String> extraIds) {
+        boolean extras = !extraIds.isEmpty();
+        byte[] original = encodeManifest(flags | MANIFEST_FLAG_REPLACEMENTS | (extras ? MANIFEST_FLAG_EXTRAS : 0), mods);
+        int size = original.length + 4 + utf8(minecraftVersion).length + 2;
+        for (String id : extraIds) size += 2 + utf8(id).length;
+        ByteBuffer buf = ByteBuffer.allocate(size);
         buf.put(original).put((byte) EXTENSION_VERSION).put(loader.wire());
         putStr(buf, minecraftVersion);
+        if (extras) {
+            buf.putShort((short) extraIds.size());
+            for (String id : extraIds) putStr(buf, id);
+        }
         return trim(buf);
     }
 
@@ -198,11 +230,16 @@ public final class ModSyncProtocol {
         }
         Loader loader = Loader.UNKNOWN;
         String minecraft = "";
+        List<String> extraIds = new ArrayList<>();
         if ((flags & MANIFEST_FLAG_REPLACEMENTS) != 0 && buf.remaining() >= 4 && u8(buf) == EXTENSION_VERSION) {
             loader = Loader.fromWire(u8(buf));
             minecraft = getStr(buf);
+            if ((flags & MANIFEST_FLAG_EXTRAS) != 0 && buf.remaining() >= 2) {
+                int extras = u16(buf);
+                for (int i = 0; i < extras && buf.remaining() > 0; i++) extraIds.add(getStr(buf));
+            }
         }
-        return new Manifest(proto, flags, mods, loader, minecraft);
+        return new Manifest(proto, flags, mods, loader, minecraft, extraIds);
     }
 
     public static byte[] encodeManifestNone() {

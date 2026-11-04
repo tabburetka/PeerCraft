@@ -54,6 +54,7 @@ public final class ModSyncPendingInstaller {
         initialize();
         if (hasPending() || gameLock == null) throw new IOException("Another Mod Sync transaction is pending");
         List<ModSyncInstaller.Entry> entries = new ArrayList<ModSyncInstaller.Entry>();
+        if (!plan.removals().isEmpty()) throw new IOException("Removal requires closing Minecraft");
         for (ModSyncPlan.PlannedMod pm : plan.mods()) {
             if (pm.replacement() != null) throw new IOException("Replacement requires closing Minecraft");
             entries.add(new ModSyncInstaller.Entry(pm.entry().id(), pm.entry().version(), pm.entry().fileName(), pm.entry().sha512Hex(), "", "", "", pm.source().name().toLowerCase(Locale.ROOT)));
@@ -73,6 +74,7 @@ public final class ModSyncPendingInstaller {
             entries.add(new ModSyncInstaller.Entry(pm.entry().id(), pm.entry().version(), pm.entry().fileName(), pm.entry().sha512Hex(),
                     r == null ? "" : r.fileName(), r == null ? "" : r.version(), r == null ? "" : r.sha512(), pm.source().name().toLowerCase(Locale.ROOT)));
         }
+        for (ModSyncPlan.Removal r : plan.removals()) entries.add(ModSyncInstaller.Entry.removal(r.id(), r.fileName(), r.version(), r.sha512()));
         Path dir = ModSyncInstaller.prepare(operations(), Services.PLATFORM.getModsDir(), entries, files, room, Locale.getDefault().getLanguage(), inventory);
         Properties p = ModSyncInstaller.read(dir.resolve(ModSyncInstaller.PLAN));
         synchronized (ModSyncPendingInstaller.class) {
@@ -126,11 +128,12 @@ public final class ModSyncPendingInstaller {
         int n = "APPLIED".equals(operation.result) ? Integer.parseInt(p.getProperty("count")) : 0;
         for (int i = 0; i < n; i++) {
             String prefix = i + ".";
+            boolean removed = p.getProperty(prefix + "file", "").isEmpty();
             ModSyncManifest.Install rec = new ModSyncManifest.Install();
             rec.modId = p.getProperty(prefix + "id"); rec.modVersion = p.getProperty(prefix + "version");
             rec.fileName = p.getProperty(prefix + "file"); rec.sha512 = p.getProperty(prefix + "sha512");
             rec.source = p.getProperty(prefix + "source"); rec.sizeBytes = Long.parseLong(p.getProperty(prefix + "sizeBytes", "0")); rec.installedAt = Long.parseLong(p.getProperty("completedAt", "0"));
-            rec.hostRoomCode = p.getProperty("room"); rec.transactionId = dir.getFileName().toString(); rec.result = "APPLIED";
+            rec.hostRoomCode = p.getProperty("room"); rec.transactionId = dir.getFileName().toString(); rec.result = removed ? "REMOVED" : "APPLIED";
             rec.oldVersion = p.getProperty(prefix + "oldVersion");
             String old = p.getProperty(prefix + "oldFile", "");
             rec.supersededPath = old.isEmpty() ? "" : dir.resolve("backups").resolve(ModSyncInstaller.name(old)).toString();
