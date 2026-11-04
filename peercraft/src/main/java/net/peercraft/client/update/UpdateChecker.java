@@ -44,12 +44,15 @@ public final class UpdateChecker {
         public final String url;
         /** When the result became known, for the notice's fade-in. */
         public final long foundAtMillis;
+        /** This build's jar from a signature-verified manifest; null means link-only. */
+        public final UpdateManifest.File file;
 
-        UpdateInfo(String current, String latest, String url, long foundAtMillis) {
+        UpdateInfo(String current, String latest, String url, long foundAtMillis, UpdateManifest.File file) {
             this.current = current;
             this.latest = latest;
             this.url = url;
             this.foundAtMillis = foundAtMillis;
+            this.file = file;
         }
     }
 
@@ -74,6 +77,11 @@ public final class UpdateChecker {
         return info;
     }
 
+    /** The last check's result even when the notice was dismissed; null before it finishes. */
+    public static UpdateInfo latestResult() {
+        return result;
+    }
+
     /** Hides the notice until a version newer than the one shown is published. */
     public static void dismiss() {
         UpdateInfo info = result;
@@ -89,6 +97,7 @@ public final class UpdateChecker {
     }
 
     private static void run() {
+        SelfUpdateInstaller.cleanupLeftovers();
         String self = selfVersion();
         ModVersion current = ModVersion.parse(self);
         if (current == null) {
@@ -97,14 +106,19 @@ public final class UpdateChecker {
         }
         String url = PeerCraftConfig.updateCheckUrl();
         try {
-            String body = fetch(url, self);
-            JsonElement root = new JsonParser().parse(body);
+            byte[] body = fetch(url, self);
+            JsonElement root = new JsonParser().parse(new String(body, StandardCharsets.UTF_8));
             if (!root.isJsonObject()) return;
             JsonObject json = root.getAsJsonObject();
             ModVersion latest = pick(current, ModVersion.parse(string(json, "stable")), ModVersion.parse(string(json, "beta")));
             if (latest == null) return;
+            UpdateManifest.File file = null;
+            String buildKey = buildKey();
+            if (buildKey != null && verified(url, body, self)) {
+                file = UpdateManifest.fileFor(json, latest.toString(), buildKey);
+            }
             result = new UpdateInfo(current.toString(), latest.toString(), safePage(string(json, "url")),
-                    System.currentTimeMillis());
+                    System.currentTimeMillis(), file);
             LOGGER.info("[PeerCraft] Доступна новая версия {} (установлена {})", latest, current);
         } catch (Exception e) {
             LOGGER.debug("[PeerCraft] Update check failed: {}", e.toString());
@@ -131,7 +145,35 @@ public final class UpdateChecker {
         return DEFAULT_PAGE;
     }
 
-    private static String fetch(String url, String self) throws Exception {
+    /** A missing or bad signature only disables the download, never the notice itself. */
+    private static boolean verified(String url, byte[] body, String self) {
+        try {
+            String signature = new String(fetch(url + ".sig", self), StandardCharsets.US_ASCII);
+            String testKey = System.getProperty("peercraft.updateCheck.publicKey");
+            boolean custom = !PeerCraftConfig.DEFAULT_UPDATE_CHECK_URL.equals(url);
+            boolean ok = custom && testKey != null && !testKey.trim().isEmpty()
+                    ? UpdateSignature.verify(body, signature, new String[] {testKey.trim()})
+                    : UpdateSignature.verify(body, signature);
+            if (!ok) LOGGER.warn("[PeerCraft] update.json signature rejected; self-update disabled");
+            return ok;
+        } catch (Exception e) {
+            LOGGER.debug("[PeerCraft] update.json signature unavailable: {}", e.toString());
+            return false;
+        }
+    }
+
+    private static String buildKey() {
+        try {
+            String loader = net.peercraft.client.modsync.LoaderTag.current().name();
+            for (PlatformMod mod : InstalledModScanner.allInstalled()) {
+                if ("minecraft".equals(mod.id())) return UpdateManifest.buildKey(loader, mod.version());
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return null;
+    }
+
+    private static byte[] fetch(String url, String self) throws Exception {
         boolean custom = !PeerCraftConfig.DEFAULT_UPDATE_CHECK_URL.equals(url);
         if (!url.startsWith("https://") && !(custom && url.startsWith("http://"))) {
             throw new IllegalArgumentException("unsupported update URL");
@@ -154,7 +196,7 @@ public final class UpdateChecker {
                     if (bytes.size() + count > MAX_RESPONSE_BYTES) throw new IllegalStateException("response too large");
                     bytes.write(chunk, 0, count);
                 }
-                return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
+                return bytes.toByteArray();
             }
         } finally {
             connection.disconnect();

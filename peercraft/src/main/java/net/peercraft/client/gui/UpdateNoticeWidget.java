@@ -5,11 +5,11 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.peercraft.client.theme.SteampunkPalette;
+import net.peercraft.client.update.SelfUpdateInstaller;
 import net.peercraft.client.update.UpdateChecker;
 //? if <26.1
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,6 +37,7 @@ public final class UpdateNoticeWidget extends Button {
     private List<FormattedCharSequence> lines = java.util.Collections.emptyList();
     private int titleLines;
     private UpdateChecker.UpdateInfo shown;
+    private boolean closable;
 
     public UpdateNoticeWidget(Screen parent) {
         super(0, 0, 0, 0, Component.empty(), button -> ((UpdateNoticeWidget) button).press(), DEFAULT_NARRATION);
@@ -47,21 +48,28 @@ public final class UpdateNoticeWidget extends Button {
     private void press() {
         UpdateChecker.UpdateInfo info = this.shown;
         if (info == null) return;
-        if (this.closeHit) {
+        if (this.closeHit && this.closable) {
             UpdateChecker.dismiss();
             this.active = false;
             return;
         }
-        ConfirmLinkScreen.confirmLink(this.parent, info.url).onPress(this);
+        PeerCraftUi.setScreen(Minecraft.getInstance(), new UpdateConfirmScreen(this.parent, info));
     }
 
     /** Recomputes bounds and text; false when the plate should stay hidden this frame. */
     private boolean layout(Font font) {
-        UpdateChecker.UpdateInfo info = UpdateChecker.available();
+        // A prepared install stays on screen (without the close cross) until the game restarts.
+        boolean ready = SelfUpdateInstaller.state() == SelfUpdateInstaller.State.READY_RESTART;
+        UpdateChecker.UpdateInfo info = ready ? UpdateChecker.latestResult() : UpdateChecker.available();
         this.shown = info;
+        this.closable = !ready;
         if (info == null) return false;
-        Component title = Component.translatable("peercraft.update.title");
-        Component versions = Component.translatable("peercraft.update.versions", info.current, info.latest);
+        Component title = ready
+                ? Component.translatable("peercraft.update.ready_title", SelfUpdateInstaller.readyVersion())
+                : Component.translatable("peercraft.update.title");
+        Component versions = ready
+                ? Component.translatable("peercraft.update.ready_hint")
+                : Component.translatable("peercraft.update.versions", info.current, info.latest);
         setMessage(Component.empty().append(title).append(". ").append(versions));
 
         int screenW = this.parent.width;
@@ -104,6 +112,7 @@ public final class UpdateNoticeWidget extends Button {
     }
 
     private boolean overClose(double mouseX, double mouseY) {
+        if (!this.closable) return false;
         int cx = getX() + getWidth() - CLOSE_SIZE - 3;
         int cy = getY() + 3;
         return mouseX >= cx && mouseX < cx + CLOSE_SIZE && mouseY >= cy && mouseY < cy + CLOSE_SIZE;
@@ -158,6 +167,7 @@ public final class UpdateNoticeWidget extends Button {
             /*graphics.text(font, this.lines.get(i), x + 8, textY, withAlpha(color, fade), false);*/
             textY += font.lineHeight + 1;
         }
+        if (!this.closable) return;
         int cx = x + w - CLOSE_SIZE - 3;
         int closeColor = withAlpha(closeHover ? SteampunkPalette.TEXT : SteampunkPalette.MUTED, fade);
         //? if <26.1

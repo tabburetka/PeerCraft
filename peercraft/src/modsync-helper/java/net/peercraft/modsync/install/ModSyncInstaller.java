@@ -301,6 +301,12 @@ public final class ModSyncInstaller {
         String message = ru
                 ? (ok ? "Моды обновлены. Запустите Minecraft через лаунчер." : "Синхронизация не применена. Проверьте журнал; при необходимости восстановите JAR из резервных копий.")
                 : (ok ? "Mods updated. Start Minecraft through your launcher." : "Mod Sync was not applied. Check the journal; restore JAR backups if needed.");
+        if ("1".equals(p.getProperty("count")) && "self-update".equals(p.getProperty("0.source"))) {
+            String version = p.getProperty("0.version", "");
+            message = ru
+                    ? (ok ? "PeerCraft обновлён до " + version + ". Запустите Minecraft через лаунчер." : "Обновление PeerCraft не применено, прежняя версия сохранена. Проверьте журнал.")
+                    : (ok ? "PeerCraft updated to " + version + ". Start Minecraft through your launcher." : "The PeerCraft update was not applied; the previous version is kept. Check the journal.");
+        }
         message += "\n\n" + (ru ? "Резервные копии и журнал: " : "Backups and journal: ") + transaction;
         System.out.println(message);
         if (!java.awt.GraphicsEnvironment.isHeadless()) {

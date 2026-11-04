@@ -655,5 +655,21 @@
   "peercraft.gui.relay.check.auth": "The relay answered, but the secret is wrong.",
   "peercraft.gui.relay.check.no_answer": "No answer. Check that the relay is running and the UDP port is open.",
   "peercraft.gui.settings.own_relay": "Own relay code",
-  "peercraft.gui.settings.own_relay_desc": "Code printed by peercraft-relay (pcrelay://…). Used only when a direct connection fails. Leave empty if you have no relay."
+  "peercraft.gui.settings.own_relay_desc": "Code printed by peercraft-relay (pcrelay://…). Used only when a direct connection fails. Leave empty if you have no relay.",
+  "peercraft.update.versions_plain": "Installed: %s. Available: %s.",
+  "peercraft.update.ready_title": "PeerCraft %s installs after a restart",
+  "peercraft.update.ready_hint": "Click to quit the game",
+  "peercraft.update.confirm.title": "Update PeerCraft to %s?",
+  "peercraft.update.confirm.body": "The file comes from CurseForge, about %s MB, and is checked against the release signature. It is installed after you quit the game; the current version is kept as a backup.",
+  "peercraft.update.confirm.install": "Update",
+  "peercraft.update.confirm.open_page": "Open download page",
+  "peercraft.update.confirm.cancel_download": "Cancel download",
+  "peercraft.update.confirm.downloading": "Downloading the update… %s%%",
+  "peercraft.update.confirm.ready": "PeerCraft %s is downloaded and verified. It will be installed once you quit Minecraft; then start the game again from your launcher.",
+  "peercraft.update.confirm.quit": "Quit game",
+  "peercraft.update.confirm.later": "Later",
+  "peercraft.update.confirm.failed": "The update failed: %s",
+  "peercraft.update.blocked.no_build": "Automatic update is not available for this Minecraft version and loader. Download the file from the mod page.",
+  "peercraft.update.blocked.not_in_mods": "PeerCraft is not installed as a regular file in the mods folder, so it cannot update itself. Download the file from the mod page.",
+  "peercraft.update.blocked.pending_operation": "Another Mod Sync operation is waiting to be installed. Restart the game first, then update PeerCraft."
 }

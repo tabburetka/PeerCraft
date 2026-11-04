@@ -1,5 +1,227 @@
 {
+  "format": 2,
   "stable": "3.4.3",
   "beta": "3.4.3",
-  "url": "https://www.curseforge.com/minecraft/mc-mods/peercraft/files/all"
+  "url": "https://www.curseforge.com/minecraft/mc-mods/peercraft/files/all",
+  "files": {
+    "3.4.3": {
+      "fabric-1.16.5": {
+        "file": "peercraft-fabric-1.16.5-3.4.3.jar",
+        "cf": 9424708,
+        "url": "https://mediafilez.forgecdn.net/files/9424/708/peercraft-fabric-1.16.5-3.4.3.jar",
+        "sha512": "a862cf3b814818d53674791c5cd0011077942ef44c6e316893881efa12e071ea8a59e999032aa600002d35c60ca7c7e96cfef32f5c9b673deff151f24e5ae799",
+        "size": 993640
+      },
+      "fabric-1.21.1": {
+        "file": "peercraft-fabric-1.21.1-3.4.3.jar",
+        "cf": 9424716,
+        "url": "https://mediafilez.forgecdn.net/files/9424/716/peercraft-fabric-1.21.1-3.4.3.jar",
+        "sha512": "e0e3381a54339354c6bd54a0ab972a341062afc8fb5209e283f61e251c21edf734fd8868f27729976438f2976f1a40ed25cc9ce98951d86031670721ebf512be",
+        "size": 977083
+      },
+      "fabric-1.21.10": {
+        "file": "peercraft-fabric-1.21.10-3.4.3.jar",
+        "cf": 9424723,
+        "url": "https://mediafilez.forgecdn.net/files/9424/723/peercraft-fabric-1.21.10-3.4.3.jar",
+        "sha512": "7e8436851d8b5aa003bacde1461c3a7becbd0aee0758446d4e9e999cbe72a9ca3c8c674be66305f5aa73f30670131688f8df2d4f06339ae85c00fcfac773d2f9",
+        "size": 977818
+      },
+      "fabric-1.21.11": {
+        "file": "peercraft-fabric-1.21.11-3.4.3.jar",
+        "cf": 9424732,
+        "url": "https://mediafilez.forgecdn.net/files/9424/732/peercraft-fabric-1.21.11-3.4.3.jar",
+        "sha512": "9da9c6063f5535cb3376fa799bd8af5802427440081200b9fccd3197eb82a7704650c8631985fa4fe480d894dc022e958f30cbba4e365c65a3cc34d258349ac8",
+        "size": 977789
+      },
+      "fabric-1.21.2": {
+        "file": "peercraft-fabric-1.21.2-3.4.3.jar",
+        "cf": 9424741,
+        "url": "https://mediafilez.forgecdn.net/files/9424/741/peercraft-fabric-1.21.2-3.4.3.jar",
+        "sha512": "2dbb7f9df6c26e2418c71790cc3b14a121077c71a44bb06dfcb636080eded5e2f3fd778179310971334f16de66dae0d688479bc812e0703e515834378219ba58",
+        "size": 977084
+      },
+      "fabric-1.21.3": {
+        "file": "peercraft-fabric-1.21.3-3.4.3.jar",
+        "cf": 9424743,
+        "url": "https://mediafilez.forgecdn.net/files/9424/743/peercraft-fabric-1.21.3-3.4.3.jar",
+        "sha512": "c6b06968169ee022e0dc6f6331cf42dd91562131d6510f8ab0b36d1943e7cfcc5e528c444689c9fedad1bb7ba29803b7a60223a7d8e6ac5effc1c7ce29ae4728",
+        "size": 977083
+      },
+      "fabric-1.21.4": {
+        "file": "peercraft-fabric-1.21.4-3.4.3.jar",
+        "cf": 9424780,
+        "url": "https://mediafilez.forgecdn.net/files/9424/780/peercraft-fabric-1.21.4-3.4.3.jar",
+        "sha512": "27646bbe84c002b45affb891020814aed2676eccb90af45dd49525179b6a6ce63073dd5dc81a36394c62eb55ee9f3f2279a1b13d320d39453ced92091570fda0",
+        "size": 977083
+      },
+      "fabric-1.21.5": {
+        "file": "peercraft-fabric-1.21.5-3.4.3.jar",
+        "cf": 9424800,
+        "url": "https://mediafilez.forgecdn.net/files/9424/800/peercraft-fabric-1.21.5-3.4.3.jar",
+        "sha512": "a3baaa51f2fe24dd0e0bc57b790394ce80e14616b81636de8d9418daeb61f307c5874adb973d1a7a24216687c2ebd4305fdd5c943e0d22eb29875377fb8e4ba2",
+        "size": 977020
+      },
+      "fabric-1.21.6": {
+        "file": "peercraft-fabric-1.21.6-3.4.3.jar",
+        "cf": 9424836,
+        "url": "https://mediafilez.forgecdn.net/files/9424/836/peercraft-fabric-1.21.6-3.4.3.jar",
+        "sha512": "ec965d7a7a3a47d803e5b5aa8bf9a4d7306f912c3658eec62731a96758285b6fe75c1d924a33afd0e94b2c9df341d08a3a83dc7c7f203b8c4a09312730b54b84",
+        "size": 976723
+      },
+      "fabric-1.21.8": {
+        "file": "peercraft-fabric-1.21.8-3.4.3.jar",
+        "cf": 9425171,
+        "url": "https://mediafilez.forgecdn.net/files/9425/171/peercraft-fabric-1.21.8-3.4.3.jar",
+        "sha512": "ea32deb674050279c6a4863934f47e768eb052699024d212d22b62ed2d8566c08e1e13a35db1efea852458998de8ef65cef9e7a4e55c2468bd96c82b599002a1",
+        "size": 976723
+      },
+      "fabric-1.21.9": {
+        "file": "peercraft-fabric-1.21.9-3.4.3.jar",
+        "cf": 9431367,
+        "url": "https://mediafilez.forgecdn.net/files/9431/367/peercraft-fabric-1.21.9-3.4.3.jar",
+        "sha512": "9689b37003dc879dae5c05db5a23b3f44b35ccb023afcbafe4dc96a1128fb63f38537d5691346b19b1ee1801e05539f0a26d2dbf043d582ea4dc09ad7f71114e",
+        "size": 977817
+      },
+      "fabric-26.1": {
+        "file": "peercraft-fabric-26.1-3.4.3.jar",
+        "cf": 9431355,
+        "url": "https://mediafilez.forgecdn.net/files/9431/355/peercraft-fabric-26.1-3.4.3.jar",
+        "sha512": "9e402c3f629a3c644c440b6eaf8342b6fe291205c595469024524da5103cdbb9fd6116f7ad99922fc543426e0496f59e0eb91f7ec7c3625b7f837e304881fced",
+        "size": 975624
+      },
+      "fabric-26.1.1": {
+        "file": "peercraft-fabric-26.1.1-3.4.3.jar",
+        "cf": 9431183,
+        "url": "https://mediafilez.forgecdn.net/files/9431/183/peercraft-fabric-26.1.1-3.4.3.jar",
+        "sha512": "c2f682b8b41439454a594794f8a23c10bc4a7bbc5120d11489a6d529005ab9ae277217400fc795f24f8b934de03eac5035ac3061076b815b99992ccd990eccca",
+        "size": 975625
+      },
+      "fabric-26.1.2": {
+        "file": "peercraft-fabric-26.1.2-3.4.3.jar",
+        "cf": 9431218,
+        "url": "https://mediafilez.forgecdn.net/files/9431/218/peercraft-fabric-26.1.2-3.4.3.jar",
+        "sha512": "0608f478ace6c4d6cf57a0e49b691cd38f9d5e7a294514f8e7da6ce14f6c95f9a832d9c2fc3ffdfff5aca876bc8c9244e9aaa2a04482827ccaadde33c6f58bbf",
+        "size": 975625
+      },
+      "fabric-26.2": {
+        "file": "peercraft-fabric-26.2-3.4.3.jar",
+        "cf": 9431238,
+        "url": "https://mediafilez.forgecdn.net/files/9431/238/peercraft-fabric-26.2-3.4.3.jar",
+        "sha512": "debdb00e584f9352f3ebf371d511e612c05c81c170577396471c3d2b7cdabc1677ac2f5308788a85c2b5d66021af3974f02530fe33954a59d6ebfbf02ffbb45a",
+        "size": 976332
+      },
+      "forge-1.12.2": {
+        "file": "peercraft-forge-1.12.2-3.4.3.jar",
+        "cf": 9431358,
+        "url": "https://mediafilez.forgecdn.net/files/9431/358/peercraft-forge-1.12.2-3.4.3.jar",
+        "sha512": "bc89c54dd995b2f12b57a1a1595b082faa98bc872fa6e0909f704d30854d45e6bbc17e457b6eb1f7241827443ba540959350a7fc58d9fb143b2fe8081bcf86d2",
+        "size": 933437
+      },
+      "forge-1.7.10": {
+        "file": "peercraft-forge-1.7.10-3.4.3.jar",
+        "cf": 9431120,
+        "url": "https://mediafilez.forgecdn.net/files/9431/120/peercraft-forge-1.7.10-3.4.3.jar",
+        "sha512": "a04a4457044c38c089314b1d9f8243a8de5a1941ef039d3a903ff43db0e87e0de451bd06b2e49029b84451fbeb1a89c193580c8206cad1b6b4c1aee0292d4d89",
+        "size": 932039
+      },
+      "neoforge-1.21.1": {
+        "file": "peercraft-neoforge-1.21.1-3.4.3.jar",
+        "cf": 9424720,
+        "url": "https://mediafilez.forgecdn.net/files/9424/720/peercraft-neoforge-1.21.1-3.4.3.jar",
+        "sha512": "cdeab858e349d5e0bba86d4e4b2937a2c4ed646e3fc1920d3f871238b619d8dcaea18942f8a8137aed441f9837ff304a1e8021b2a3d9768e6a56e0b3f3aca930",
+        "size": 963086
+      },
+      "neoforge-1.21.10": {
+        "file": "peercraft-neoforge-1.21.10-3.4.3.jar",
+        "cf": 9424728,
+        "url": "https://mediafilez.forgecdn.net/files/9424/728/peercraft-neoforge-1.21.10-3.4.3.jar",
+        "sha512": "4dc841bbdbddab289acc258720c6557f9f4ccbc8aaa0d05958f3a031f60a22f5d3b68778c5794417a5b5ee94cffabaa229986f272c27b4dddd13e6f343033c6e",
+        "size": 964017
+      },
+      "neoforge-1.21.11": {
+        "file": "peercraft-neoforge-1.21.11-3.4.3.jar",
+        "cf": 9424737,
+        "url": "https://mediafilez.forgecdn.net/files/9424/737/peercraft-neoforge-1.21.11-3.4.3.jar",
+        "sha512": "f497775be38938bcc8a7620b466f5737d54e57b6bbfb57568590179b466162ee5597e1e3530d6108402b77f67db615bbc244caac095dbdcfa3439ae315c413bd",
+        "size": 963982
+      },
+      "neoforge-1.21.3": {
+        "file": "peercraft-neoforge-1.21.3-3.4.3.jar",
+        "cf": 9424765,
+        "url": "https://mediafilez.forgecdn.net/files/9424/765/peercraft-neoforge-1.21.3-3.4.3.jar",
+        "sha512": "4ebc80ce520c50de222d1b0d3790bc780449c5b030e3a47b80c2341f9a5fcac022757bd086a6e305145921983f50039e65fcc5066a3d5764b2d48509122c9ba6",
+        "size": 963085
+      },
+      "neoforge-1.21.4": {
+        "file": "peercraft-neoforge-1.21.4-3.4.3.jar",
+        "cf": 9424791,
+        "url": "https://mediafilez.forgecdn.net/files/9424/791/peercraft-neoforge-1.21.4-3.4.3.jar",
+        "sha512": "e05cf81b4556c765d81c61a4774c4fef2d917a29e8dd0c99e525d700eb05b8383889e3b6ae33e9cf2f581a01545881bc01633d2aaa0858fdd573a8a5d9a53c0a",
+        "size": 963086
+      },
+      "neoforge-1.21.5": {
+        "file": "peercraft-neoforge-1.21.5-3.4.3.jar",
+        "cf": 9424831,
+        "url": "https://mediafilez.forgecdn.net/files/9424/831/peercraft-neoforge-1.21.5-3.4.3.jar",
+        "sha512": "03fc277390149a946265e04a1706b108a8a7c2f90b1cb93910a2a889010c6d471b71eb1ff5e41a32f2210590487bf9da390292247034cc0dd8dd1a1eb17d30f3",
+        "size": 963032
+      },
+      "neoforge-1.21.6": {
+        "file": "peercraft-neoforge-1.21.6-3.4.3.jar",
+        "cf": 9424857,
+        "url": "https://mediafilez.forgecdn.net/files/9424/857/peercraft-neoforge-1.21.6-3.4.3.jar",
+        "sha512": "345ac60014900c30d1cb54fad62490e8e45a061b5e90cf8d1e9e1ec699deaaf7e28e214eea9723e235b8c56c635e6bf751504b6e9b1c299042f5c553554936af",
+        "size": 962773
+      },
+      "neoforge-1.21.7": {
+        "file": "peercraft-neoforge-1.21.7-3.4.3.jar",
+        "cf": 9425114,
+        "url": "https://mediafilez.forgecdn.net/files/9425/114/peercraft-neoforge-1.21.7-3.4.3.jar",
+        "sha512": "ce267847dc74e7ec85098ceb48068e7f28283154cdc70aa83c0b0c80a87b1ffe9eb0b2cc9b2d8a2af6942f8d4e9c54b094a4bf0242f2744236fbf2ac1951913b",
+        "size": 962774
+      },
+      "neoforge-1.21.8": {
+        "file": "peercraft-neoforge-1.21.8-3.4.3.jar",
+        "cf": 9431371,
+        "url": "https://mediafilez.forgecdn.net/files/9431/371/peercraft-neoforge-1.21.8-3.4.3.jar",
+        "sha512": "06f31d9a3b7a75ef0f27317639f80081661bdcc455e2df0e091a8432f87f29dca251ac08230339a898393141260e5b5723fdfb8fa47ddb4b9a49c42301be2c23",
+        "size": 962768
+      },
+      "neoforge-1.21.9": {
+        "file": "peercraft-neoforge-1.21.9-3.4.3.jar",
+        "cf": 9431065,
+        "url": "https://mediafilez.forgecdn.net/files/9431/65/peercraft-neoforge-1.21.9-3.4.3.jar",
+        "sha512": "7da98ba0f6cfc44171b4c002c805101891e10aad25671ca125fdf5721e7b52fd665c83b7723c180d53db9c32be0c36dd807dd5cc377ce2f2c24d3a4c7f9e025a",
+        "size": 964021
+      },
+      "neoforge-26.1": {
+        "file": "peercraft-neoforge-26.1-3.4.3.jar",
+        "cf": 9431162,
+        "url": "https://mediafilez.forgecdn.net/files/9431/162/peercraft-neoforge-26.1-3.4.3.jar",
+        "sha512": "ce6d9f07f8d07117e704938b17ef32cc68736352ce2d928b466e651b44b43ce66883e900212c5bd2eea7eff78d5a81918bac02e1611373ec46523992c866e395",
+        "size": 966847
+      },
+      "neoforge-26.1.1": {
+        "file": "peercraft-neoforge-26.1.1-3.4.3.jar",
+        "cf": 9431215,
+        "url": "https://mediafilez.forgecdn.net/files/9431/215/peercraft-neoforge-26.1.1-3.4.3.jar",
+        "sha512": "d9723183684e24fcb089d9fa40dab595de1ea03f4da3391a9336ba1d1a747069fb52b92ee566a6445640d1a660b34410240c6f3ad17cb08c84127c325bb77c46",
+        "size": 966845
+      },
+      "neoforge-26.1.2": {
+        "file": "peercraft-neoforge-26.1.2-3.4.3.jar",
+        "cf": 9431227,
+        "url": "https://mediafilez.forgecdn.net/files/9431/227/peercraft-neoforge-26.1.2-3.4.3.jar",
+        "sha512": "474f2c7f2de2a485803cb508f382f0c6bde5c0587a300395ea4dcadc412235948a014c75c4865a072d72b8c8de62a8e7b0816da9971788424cdf5ca536e4b641",
+        "size": 966844
+      },
+      "neoforge-26.2": {
+        "file": "peercraft-neoforge-26.2-3.4.3.jar",
+        "cf": 9431241,
+        "url": "https://mediafilez.forgecdn.net/files/9431/241/peercraft-neoforge-26.2-3.4.3.jar",
+        "sha512": "8409ceb10b2a5cb2bee44a436bbd800f4a74c6c4a6b0c0119d1952db7f18b0990b36c806c029cbebbf1ca6ee347eb8499e30aabb7bf7453560b83f4c04669a06",
+        "size": 967549
+      }
+    }
+  }
 }

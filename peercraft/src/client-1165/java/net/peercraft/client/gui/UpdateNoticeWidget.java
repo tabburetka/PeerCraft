@@ -1,18 +1,17 @@
 package net.peercraft.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.util.FormattedCharSequence;
 import net.peercraft.client.theme.SteampunkPalette;
+import net.peercraft.client.update.SelfUpdateInstaller;
 import net.peercraft.client.update.UpdateChecker;
 
 import java.util.ArrayList;
@@ -36,6 +35,7 @@ public final class UpdateNoticeWidget extends Button {
     private List<FormattedCharSequence> lines = Collections.emptyList();
     private int titleLines;
     private UpdateChecker.UpdateInfo shown;
+    private boolean closable;
 
     public UpdateNoticeWidget(Screen parent) {
         super(0, 0, 0, 0, TextComponent.EMPTY, button -> ((UpdateNoticeWidget) button).press());
@@ -46,25 +46,27 @@ public final class UpdateNoticeWidget extends Button {
     private void press() {
         UpdateChecker.UpdateInfo info = this.shown;
         if (info == null) return;
-        if (this.closeHit) {
+        if (this.closeHit && this.closable) {
             UpdateChecker.dismiss();
             this.active = false;
             return;
         }
-        Minecraft mc = Minecraft.getInstance();
-        String url = info.url;
-        mc.setScreen(new ConfirmLinkScreen(open -> {
-            if (open) Util.getPlatform().openUri(url);
-            mc.setScreen(this.parent);
-        }, url, true));
+        Minecraft.getInstance().setScreen(new UpdateConfirmScreen(this.parent, info));
     }
 
     private boolean layout(Font font) {
-        UpdateChecker.UpdateInfo info = UpdateChecker.available();
+        // A prepared install stays on screen (without the close cross) until the game restarts.
+        boolean ready = SelfUpdateInstaller.state() == SelfUpdateInstaller.State.READY_RESTART;
+        UpdateChecker.UpdateInfo info = ready ? UpdateChecker.latestResult() : UpdateChecker.available();
         this.shown = info;
+        this.closable = !ready;
         if (info == null) return false;
-        TranslatableComponent title = new TranslatableComponent("peercraft.update.title");
-        TranslatableComponent versions = new TranslatableComponent("peercraft.update.versions", info.current, info.latest);
+        TranslatableComponent title = ready
+                ? new TranslatableComponent("peercraft.update.ready_title", SelfUpdateInstaller.readyVersion())
+                : new TranslatableComponent("peercraft.update.title");
+        TranslatableComponent versions = ready
+                ? new TranslatableComponent("peercraft.update.ready_hint")
+                : new TranslatableComponent("peercraft.update.versions", info.current, info.latest);
         setMessage(new TextComponent("").append(title).append(". ").append(versions));
 
         int w = Math.min(MAX_WIDTH, this.parent.width - 2 * MARGIN);
@@ -105,6 +107,7 @@ public final class UpdateNoticeWidget extends Button {
     }
 
     private boolean overClose(double mouseX, double mouseY) {
+        if (!this.closable) return false;
         int cx = this.x + this.width - CLOSE_SIZE - 3;
         int cy = this.y + 3;
         return mouseX >= cx && mouseX < cx + CLOSE_SIZE && mouseY >= cy && mouseY < cy + CLOSE_SIZE;
@@ -142,6 +145,7 @@ public final class UpdateNoticeWidget extends Button {
             font.draw(pose, this.lines.get(i), x + 8, textY, withAlpha(color, fade));
             textY += font.lineHeight + 1;
         }
+        if (!this.closable) return;
         int cx = x + w - CLOSE_SIZE - 3;
         font.draw(pose, "×", cx + (CLOSE_SIZE - font.width("×")) / 2 + 1, y + 3,
                 withAlpha(closeHover ? SteampunkPalette.TEXT : SteampunkPalette.MUTED, fade));

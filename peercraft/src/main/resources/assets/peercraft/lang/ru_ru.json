@@ -655,5 +655,21 @@
   "peercraft.gui.relay.check.auth": "Реле ответило, но секрет неверный.",
   "peercraft.gui.relay.check.no_answer": "Нет ответа. Проверьте, что реле запущено и UDP-порт открыт.",
   "peercraft.gui.settings.own_relay": "Код своего реле",
-  "peercraft.gui.settings.own_relay_desc": "Код, который печатает peercraft-relay (pcrelay://…). Используется, только если прямое подключение не удалось. Оставьте пустым, если реле нет."
+  "peercraft.gui.settings.own_relay_desc": "Код, который печатает peercraft-relay (pcrelay://…). Используется, только если прямое подключение не удалось. Оставьте пустым, если реле нет.",
+  "peercraft.update.versions_plain": "Установлена %s. Доступна %s.",
+  "peercraft.update.ready_title": "PeerCraft %s установится после перезапуска",
+  "peercraft.update.ready_hint": "Нажмите, чтобы выйти из игры",
+  "peercraft.update.confirm.title": "Обновить PeerCraft до %s?",
+  "peercraft.update.confirm.body": "Файл с CurseForge, около %s МБ, проверяется по подписи релиза. Он установится после выхода из игры, а текущая версия сохранится в резервной копии.",
+  "peercraft.update.confirm.install": "Обновить",
+  "peercraft.update.confirm.open_page": "Открыть страницу загрузки",
+  "peercraft.update.confirm.cancel_download": "Отменить загрузку",
+  "peercraft.update.confirm.downloading": "Загрузка обновления… %s%%",
+  "peercraft.update.confirm.ready": "PeerCraft %s загружен и проверен. Он установится, когда вы выйдете из Minecraft; затем запустите игру снова через лаунчер.",
+  "peercraft.update.confirm.quit": "Выйти из игры",
+  "peercraft.update.confirm.later": "Позже",
+  "peercraft.update.confirm.failed": "Не удалось обновить: %s",
+  "peercraft.update.blocked.no_build": "Для этой версии Minecraft и загрузчика автоматическое обновление недоступно. Скачайте файл со страницы мода.",
+  "peercraft.update.blocked.not_in_mods": "PeerCraft установлен не как обычный файл в папке mods, поэтому не может обновить себя сам. Скачайте файл со страницы мода.",
+  "peercraft.update.blocked.pending_operation": "Уже ждёт установки другая операция Mod Sync. Сначала перезапустите игру, затем обновите PeerCraft."
 }

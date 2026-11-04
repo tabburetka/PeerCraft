@@ -6,10 +6,10 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.peercraft.client.theme.SteampunkPalette;
+import net.peercraft.client.update.SelfUpdateInstaller;
 import net.peercraft.client.update.UpdateChecker;
 import org.lwjgl.opengl.GL11;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +33,7 @@ class UpdateNoticeButton extends GuiButton {
     private List<String> lines = Collections.emptyList();
     private int titleLines;
     private UpdateChecker.UpdateInfo shown;
+    private boolean closable;
 
     UpdateNoticeButton(GuiScreen parent, List<GuiButton> siblings) {
         super(9890, 0, 0, 0, 0, "");
@@ -44,28 +45,27 @@ class UpdateNoticeButton extends GuiButton {
     void press() {
         UpdateChecker.UpdateInfo info = this.shown;
         if (info == null) return;
-        if (this.closeHit) {
+        if (this.closeHit && this.closable) {
             UpdateChecker.dismiss();
             this.enabled = false;
             return;
         }
-        // Same as the Feedback/Donate links in PeerCraftMultiplayerScreen: straight to the OS.
-        try {
-            org.lwjgl.Sys.openURL(info.url);
-        } catch (Throwable t) {
-            try {
-                java.awt.Desktop.getDesktop().browse(new URI(info.url));
-            } catch (Throwable ignored) {
-            }
-        }
+        Minecraft.getMinecraft().displayGuiScreen(new UpdateConfirmScreen(this.parent, info));
     }
 
     private boolean layout(FontRenderer font) {
-        UpdateChecker.UpdateInfo info = UpdateChecker.available();
+        // A prepared install stays on screen (without the close cross) until the game restarts.
+        boolean ready = SelfUpdateInstaller.state() == SelfUpdateInstaller.State.READY_RESTART;
+        UpdateChecker.UpdateInfo info = ready ? UpdateChecker.latestResult() : UpdateChecker.available();
         this.shown = info;
+        this.closable = !ready;
         if (info == null) return false;
-        String title = PeerCraftLang.tr("peercraft.update.title");
-        String versions = PeerCraftLang.tr("peercraft.update.versions", info.current, info.latest);
+        String title = ready
+                ? PeerCraftLang.tr("peercraft.update.ready_title", SelfUpdateInstaller.readyVersion())
+                : PeerCraftLang.tr("peercraft.update.title");
+        String versions = ready
+                ? PeerCraftLang.tr("peercraft.update.ready_hint")
+                : PeerCraftLang.tr("peercraft.update.versions", info.current, info.latest);
         this.displayString = title + ". " + versions;
 
         int w = Math.min(MAX_WIDTH, this.parent.width - 2 * MARGIN);
@@ -103,6 +103,7 @@ class UpdateNoticeButton extends GuiButton {
     }
 
     private boolean overClose(int mouseX, int mouseY) {
+        if (!this.closable) return false;
         int cx = this.xPosition + this.width - CLOSE_SIZE - 3;
         int cy = this.yPosition + 3;
         return mouseX >= cx && mouseX < cx + CLOSE_SIZE && mouseY >= cy && mouseY < cy + CLOSE_SIZE;
@@ -143,6 +144,7 @@ class UpdateNoticeButton extends GuiButton {
             font.drawString(this.lines.get(i), x + 8, textY, withAlpha(color, fade));
             textY += font.FONT_HEIGHT + 1;
         }
+        if (!this.closable) return;
         int cx = x + w - CLOSE_SIZE - 3;
         font.drawString("×", cx + (CLOSE_SIZE - font.getStringWidth("×")) / 2 + 1, y + 3,
                 withAlpha(closeHover ? SteampunkPalette.TEXT : SteampunkPalette.MUTED, fade));

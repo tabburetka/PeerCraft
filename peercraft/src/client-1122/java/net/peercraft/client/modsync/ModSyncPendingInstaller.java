@@ -75,6 +75,22 @@ public final class ModSyncPendingInstaller {
                     r == null ? "" : r.fileName(), r == null ? "" : r.version(), r == null ? "" : r.sha512(), pm.source().name().toLowerCase(Locale.ROOT)));
         }
         for (ModSyncPlan.Removal r : plan.removals()) entries.add(ModSyncInstaller.Entry.removal(r.id(), r.fileName(), r.version(), r.sha512()));
+        return armEntries(entries, files, room, inventory, cancelled);
+    }
+
+    /**
+     * PeerCraft replacing its own jar: one entry, applied by the helper after the game exits,
+     * with the same backup and rollback as any Mod Sync replacement.
+     */
+    public static Path armSelfUpdate(ModSyncInstaller.Entry entry, Path verifiedJar, BooleanSupplier cancelled) throws IOException {
+        initialize();
+        if (hasPending() || gameLock == null) throw new IOException("Pending Mod Sync operation: " + startupIssue);
+        return armEntries(java.util.Collections.singletonList(entry), java.util.Collections.singletonList(verifiedJar),
+                "", ModSyncInstaller.inventory(Services.PLATFORM.getModsDir()), cancelled);
+    }
+
+    private static Path armEntries(List<ModSyncInstaller.Entry> entries, List<Path> files, String room,
+                                   Map<String, String> inventory, BooleanSupplier cancelled) throws IOException {
         Path dir = ModSyncInstaller.prepare(operations(), Services.PLATFORM.getModsDir(), entries, files, room, Locale.getDefault().getLanguage(), inventory);
         Properties p = ModSyncInstaller.read(dir.resolve(ModSyncInstaller.PLAN));
         synchronized (ModSyncPendingInstaller.class) {
