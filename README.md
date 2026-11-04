@@ -70,6 +70,8 @@ A Fabric-only **1.16.5** experimental backport is included in the 3.4.2 beta.
 
 Minecraft 26.1 was the first release with unobfuscated code; the Fabric 26.x jars are built without mappings against Minecraft as shipped.
 
+Some jars serve several Minecraft versions — their compiled code is identical on all of them: the 1.21.1 jar also covers 1.21.2–1.21.3, 1.21.6 covers 1.21.7–1.21.8, 1.21.9 covers 1.21.10, and 26.1 covers 26.1.1–26.1.2. The jar's metadata declares the full range, so the loader accepts it on each of those versions.
+
 ## Installation
 
 1. Install the loader for your Minecraft version: [Fabric Loader](https://fabricmc.net/use/), [NeoForge](https://neoforged.net/), or [Forge](https://files.minecraftforge.net/) (1.12.2 / 1.7.10).

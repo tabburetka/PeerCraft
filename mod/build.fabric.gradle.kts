@@ -82,6 +82,9 @@ tasks.processResources {
 	val expandProps = mapOf(
 		"version" to version,
 		"minecraft_version_range" to project.property("minecraft_version_range"),
+		// Fabric spells "[1.21.1,1.21.4)" as ">=1.21.1 <1.21.4".
+		"fabric_minecraft_range" to (project.property("minecraft_version_range") as String)
+			.removePrefix("[").removeSuffix(")").split(",").let { (lo, hi) -> ">=$lo <$hi" },
 		"neoforge_version" to (project.findProperty("neoforge_version") ?: ""),
 		"neoforge_loader_version_range" to (project.findProperty("neoforge_loader_version_range") ?: ""),
 	)

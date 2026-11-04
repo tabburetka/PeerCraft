@@ -138,6 +138,9 @@ tasks.processResources {
 	val expandProps = mapOf(
 		"version" to version,
 		"minecraft_version_range" to project.property("minecraft_version_range"),
+		// Fabric spells "[1.21.1,1.21.4)" as ">=1.21.1 <1.21.4".
+		"fabric_minecraft_range" to (project.property("minecraft_version_range") as String)
+			.removePrefix("[").removeSuffix(")").split(",").let { (lo, hi) -> ">=$lo <$hi" },
 		"neoforge_version" to (project.findProperty("neoforge_version") ?: ""),
 		"neoforge_loader_version_range" to (project.findProperty("neoforge_loader_version_range") ?: ""),
 	)
@@ -145,13 +148,12 @@ tasks.processResources {
 	filesMatching(listOf("fabric.mod.json", "META-INF/neoforge.mods.toml")) {
 		expand(expandProps)
 	}
-	// The shared fabric.mod.json pins the 1.21.x line (minecraft >=1.21.1, java >=21, a very
-	// recent loader). Rewrite those three predicates for 1.16.5 here so the shared file stays
+	// The shared fabric.mod.json pins the 1.21.x line (java >=21, a very recent loader). Rewrite
+	// those predicates for 1.16.5 here so the shared file stays
 	// untouched for the other targets — same line-filter approach as the mixin rewrite below.
 	filesMatching("fabric.mod.json") {
 		filter { line ->
-			line.replace("\">=1.21.1\"", "\">=1.16.5\"")
-				.replace("\"java\": \">=21\"", "\"java\": \">=8\"")
+			line.replace("\"java\": \">=21\"", "\"java\": \">=8\"")
 				.replace("\"fabricloader\": \">=0.19.3\"", "\"fabricloader\": \">=0.15.0\"")
 				// Fabric API only renamed its aggregator mod id from "fabric" to "fabric-api"
 				// in 1.19.2 — on 1.16.5 the dependency has to be declared against "fabric".

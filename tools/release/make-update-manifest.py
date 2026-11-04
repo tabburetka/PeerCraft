@@ -64,6 +64,16 @@ def head_ok(url, size):
         return False
 
 
+def covered_versions(loader, minecraft):
+    """The Minecraft versions one Stonecutter node's jar is released for (its minecraft_versions)."""
+    props = ROOT / "mod" / "versions" / f"{minecraft}-{loader}" / "gradle.properties"
+    if props.is_file():
+        for line in props.read_text().splitlines():
+            if line.startswith("minecraft_versions="):
+                return [v.strip() for v in line.split("=", 1)[1].split(",") if v.strip()]
+    return [minecraft]
+
+
 def cmd_keygen(args):
     path = Path(os.path.expanduser(args.key))
     if path.exists():
@@ -107,10 +117,13 @@ def cmd_build(args):
         url = cdn_url(int(upload["id"]), name)
         if not args.skip_cdn_check and not head_ok(url, len(data)):
             raise SystemExit(f"{url} is not live yet (still in CurseForge moderation?)")
-        files[f"{loader}-{minecraft}"] = {
+        entry = {
             "file": name, "cf": int(upload["id"]), "url": url,
             "sha512": hashlib.sha512(data).hexdigest(), "size": len(data),
         }
+        # One jar can serve a run of Minecraft versions; clients look it up by their own.
+        for covered in covered_versions(loader, minecraft):
+            files[f"{loader}-{covered}"] = entry
         versions.add(version)
         channels.add(item.get("metadata", {}).get("releaseType", "release"))
     if len(versions) != 1:
