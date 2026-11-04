@@ -4,14 +4,14 @@ import java.io.IOException;
 import java.util.concurrent.locks.LockSupport;
 
 /** Only file protocols consume this budget; Minecraft and route control retain priority. */
-final class BulkPacer {
+public final class BulkPacer {
     private long nextNanos;
     private volatile int bytesPerSecond = 2 * 1024 * 1024;
     void setRate(int rate) {
         if (rate < 65536 || rate > 2 * 1024 * 1024) throw new IllegalArgumentException("Invalid file transfer rate");
         bytesPerSecond = rate;
     }
-    void await(byte[] bytes) throws IOException {
+    public void await(byte[] bytes) throws IOException {
         if (bytes.length == 0 || (bytes[0] != (byte) 0xE2 && bytes[0] != (byte) 0xE4)) return;
         long now = System.nanoTime();
         long target;

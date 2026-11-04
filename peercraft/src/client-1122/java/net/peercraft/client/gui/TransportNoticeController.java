@@ -8,7 +8,7 @@ import net.peercraft.network.p2p.P2PBridge;
 
 /** Records network-thread events; presents them only after vanilla finishes disconnecting. */
 public final class TransportNoticeController {
-    private static volatile String pendingMode, pendingFailure;
+    private static volatile String pendingMode, pendingFailure, pendingHostNotice;
     private static volatile long modeExpires, failureExpires;
     private static P2PBridge.ClientJoinAttempt joinAttempt;
     private static GuiScreen joinScreen, returnScreen;
@@ -61,6 +61,7 @@ public final class TransportNoticeController {
             if (key != null) pendingFailure = null;
             pendingMode = key; modeExpires = System.currentTimeMillis() + 45 * 60_000L;
         });
+        P2PBridge.INSTANCE.setOnHostNotice(key -> pendingHostNotice = key);
         P2PBridge.INSTANCE.setOnTransportFailure(key -> {
             pendingMode = null; pendingFailure = key; failureExpires = System.currentTimeMillis() + 120_000;
         });
@@ -75,6 +76,10 @@ public final class TransportNoticeController {
         if (pendingFailure != null && now > failureExpires) pendingFailure = null;
         if (pendingMode != null && mc.player != null && P2PBridge.INSTANCE.isClientSessionActive()) {
             mc.player.sendMessage(new net.minecraft.util.text.TextComponentString(PeerCraftLang.tr(pendingMode))); pendingMode = null;
+        }
+        if (pendingHostNotice != null && mc.player != null) {
+            String notice = pendingHostNotice; pendingHostNotice = null;
+            mc.player.sendMessage(new net.minecraft.util.text.TextComponentString(PeerCraftLang.tr(notice)));
         }
         GuiScreen current = mc.currentScreen;
         if (TelemetryNoticeController.maybeShow(current)) return;

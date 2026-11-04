@@ -145,9 +145,14 @@ class P2PBridgeJoinRetryTest {
     }
 
     @Test void negotiatedNatFailureAlsoAllowsImmediateRetry() throws Exception {
-        Listener first = start(null);
-        directChecks().onFailure("direct_checks_timeout");
-        assertEquals("peercraft.p2p.fail.hole_punching", first.failure);
+        long previousWait = P2PBridge.ownRelayTicketWaitMillis;
+        P2PBridge.ownRelayTicketWaitMillis = 0; // No relay on either side: fail without waiting for a ticket.
+        Listener first;
+        try {
+            first = start(null);
+            directChecks().onFailure("direct_checks_timeout");
+        } finally { P2PBridge.ownRelayTicketWaitMillis = previousWait; }
+        assertEquals("peercraft.p2p.fail.direct_failed", first.failure);
         assertFalse(first.attempt.isBusy());
         assertTrue(start(null).attempt.isBusy());
     }

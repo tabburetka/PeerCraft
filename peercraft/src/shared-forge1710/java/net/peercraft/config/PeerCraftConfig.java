@@ -136,6 +136,13 @@ public final class PeerCraftConfig {
     /** Trusted HTTPS endpoint. Never accept account-token destinations supplied only by UDP. */
     public static String relayBrokerUrl() { return stringValue("relay.brokerUrl", ""); }
 
+    /** The player's own peercraft-relay code ({@code pcrelay://host:port#secret}); empty when not configured. */
+    public static String ownRelayCode() { return stringValue("relay.ownCode", ""); }
+
+    /** Where "How to set up a relay" points. Overridable so the guide can move without a rebuild. */
+    public static String relayGuideUrl() { return stringValue("relay.guideUrl", DEFAULT_RELAY_GUIDE_URL); }
+    public static final String DEFAULT_RELAY_GUIDE_URL = "https://github.com/tabburetka/peercraft-relay#readme";
+
     public static int rendezvousPort() {
         return intValue("rendezvousPort", 51000);
     }

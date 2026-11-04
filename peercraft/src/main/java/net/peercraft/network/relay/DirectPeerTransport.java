@@ -23,7 +23,8 @@ public final class DirectPeerTransport implements PeerTransport {
         byte[] incoming = derive(key, host ? "joiner-to-host" : "host-to-joiner");
         channel = new SecureDatagramChannel(outgoing, incoming, attempt, attempt);
     }
-    private static byte[] derive(byte[] secret, String direction) {
+    /** Direction key from a match secret; also used by the self-hosted relay route. */
+    public static byte[] derive(byte[] secret, String direction) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(secret); digest.update(direction.getBytes(StandardCharsets.UTF_8));

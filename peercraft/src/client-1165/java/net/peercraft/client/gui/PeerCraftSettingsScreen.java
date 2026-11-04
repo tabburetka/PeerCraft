@@ -172,6 +172,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
         addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
         addRow("handoff.chatNotify", KIND_BOOL, false, false, 0, 0, "handoff_chat_notify");
+        addRow("relay.ownCode", KIND_STRING, false, false, 0, 0, "own_relay");
 
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
         addRow("modSync.autoAccept", KIND_BOOL, true, false, 0, 0, "autoaccept").warnOverride = "autoaccept_warning";
@@ -269,7 +270,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case KIND_STRING:
             default:
                 EditBox box = new SteampunkField(this.font, x, y, controlWidth, 18, TextComponent.EMPTY);
-                box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
+                box.setMaxLength(row.kind == KIND_INT ? 6 : "relay.ownCode".equals(row.key) ? 320 : 128);
                 box.setValue(current);
                 return box;
         }
@@ -370,6 +371,16 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             }
             if (parsed < row.min || parsed > row.max) {
                 failValidation(row);
+                return;
+            }
+        }
+
+        for (Row row : this.rows) {
+            if (!"relay.ownCode".equals(row.key) || !(row.widget instanceof EditBox)) continue;
+            String code = ((EditBox) row.widget).getValue().trim();
+            if (!code.isEmpty() && net.peercraft.network.ownrelay.OwnRelayProtocol.parseCode(code) == null) {
+                this.statusMessage = new TranslatableComponent("peercraft.gui.relay.check.invalid_code");
+                this.statusColor = PeerCraftUi.TEXT_ERROR;
                 return;
             }
         }

@@ -212,6 +212,7 @@ public class PeerCraftSettingsScreen extends Screen {
         addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
         addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
         addRow("handoff.chatNotify", KIND_BOOL, false, false, 0, 0, "handoff_chat_notify");
+        addRow("relay.ownCode", KIND_STRING, false, false, 0, 0, "own_relay");
 
         // developer section
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
@@ -395,7 +396,7 @@ public class PeerCraftSettingsScreen extends Screen {
                 boolean stepper = "maxPlayers".equals(row.key);
                 EditBox box = new SteampunkSettingsTheme.Field(this.font, x + (stepper ? 24 : 0), y,
                         this.controlWidth - (stepper ? 48 : 0), 24, label);
-                box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
+                box.setMaxLength(row.kind == KIND_INT ? 6 : "relay.ownCode".equals(row.key) ? 320 : 128);
                 box.setValue(current);
                 return box;
         }
@@ -416,7 +417,7 @@ public class PeerCraftSettingsScreen extends Screen {
             case KIND_STRING:
             default:
                 EditBox box = new EditBox(this.font, x, y, CONTROL_W, 18, Component.empty());
-                box.setMaxLength(row.kind == KIND_INT ? 6 : 128);
+                box.setMaxLength(row.kind == KIND_INT ? 6 : "relay.ownCode".equals(row.key) ? 320 : 128);
                 box.setValue(current);
                 return box;
         }*/
@@ -573,6 +574,16 @@ public class PeerCraftSettingsScreen extends Screen {
             }
             if (parsed < row.min || parsed > row.max) {
                 failValidation(row);
+                return;
+            }
+        }
+
+        for (Row row : this.rows) {
+            if (!"relay.ownCode".equals(row.key) || !(row.widget instanceof EditBox)) continue;
+            String code = ((EditBox) row.widget).getValue().trim();
+            if (!code.isEmpty() && net.peercraft.network.ownrelay.OwnRelayProtocol.parseCode(code) == null) {
+                this.statusMessage = Component.translatable("peercraft.gui.relay.check.invalid_code");
+                this.statusColor = PeerCraftUi.TEXT_ERROR;
                 return;
             }
         }

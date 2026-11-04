@@ -1,0 +1,13 @@
+services:
+  peercraft-relay:
+    build: .
+    container_name: peercraft-relay
+    restart: unless-stopped
+    ports:
+      - "52100:52100/udp"
+    volumes:
+      - ./data:/data
+    # Optional: set when the relay should be reached by a domain name, or when the
+    # automatically detected public IP is wrong.
+    # environment:
+    #   PEERCRAFT_RELAY_PUBLIC_HOST: relay.example.org

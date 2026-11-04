@@ -217,28 +217,60 @@ public final class RendezvousProtocol {
         return a != 0 && a < 224 && !(a == 100 && b >= 64 && b <= 127)
                 && !(a == 198 && (b == 18 || b == 19));
     }
+    /** A self-hosted relay session, advertised through the same signed, server-forwarded update. */
+    public static final class RelayTicket {
+        private final Address relay;
+        private final long sessionId;
+        public RelayTicket(Address relay, long sessionId) {
+            if (relay == null || sessionId == 0) throw new IllegalArgumentException("Invalid relay ticket");
+            this.relay = relay; this.sessionId = sessionId;
+        }
+        public Address relay() { return relay; }
+        public long sessionId() { return sessionId; }
+    }
     public static byte[] encodeDirectCandidate(NetworkOffer offer, boolean hostRole, Address candidate) {
+        return encodeCandidateUpdate(offer, hostRole, candidate, 0L);
+    }
+    /**
+     * The 8-byte field after the attempt id is always 0 for direct candidates; a relay ticket
+     * carries its session id there. The rendezvous server only checks the tag and address, so
+     * it forwards tickets unchanged, and older clients ignore them as an unreachable candidate.
+     */
+    public static byte[] encodeRelayTicket(NetworkOffer offer, boolean hostRole, RelayTicket ticket) {
+        return encodeCandidateUpdate(offer, hostRole, ticket.relay(), ticket.sessionId());
+    }
+    private static byte[] encodeCandidateUpdate(NetworkOffer offer, boolean hostRole, Address candidate, long reserved) {
         if (!isGlobalCandidate(candidate)) throw new IllegalArgumentException("Candidate must be global unicast");
         ByteBuffer b = ByteBuffer.allocate(DIRECT_CONTROL_HEADER + addressSize(candidate) + DIRECT_CONTROL_TAG);
         b.put(MAGIC).put((byte) TYPE_CONNECTIVITY_CHECK).put((byte) 1).put((byte) DIRECT_CANDIDATE_UPDATE);
         b.put((byte) (hostRole ? 1 : 0));
         b.putLong(offer.attemptId().getMostSignificantBits()).putLong(offer.attemptId().getLeastSignificantBits());
-        b.putLong(0); writeAddress(b, candidate);
+        b.putLong(reserved); writeAddress(b, candidate);
         byte[] bytes = b.array(); byte[] tag = directControlTag(java.util.Arrays.copyOf(bytes, bytes.length - DIRECT_CONTROL_TAG), offer.challengeKey());
         System.arraycopy(tag, 0, bytes, bytes.length - DIRECT_CONTROL_TAG, DIRECT_CONTROL_TAG); return bytes;
     }
     public static Optional<Address> decodeDirectCandidate(byte[] bytes, int length, NetworkOffer offer, boolean expectedHostRole) {
+        Address candidate = decodeCandidateUpdate(bytes, length, offer, expectedHostRole);
+        return candidate != null && candidateReserved(bytes) == 0 ? Optional.of(candidate) : Optional.<Address>empty();
+    }
+    public static Optional<RelayTicket> decodeRelayTicket(byte[] bytes, int length, NetworkOffer offer, boolean expectedHostRole) {
+        Address relay = decodeCandidateUpdate(bytes, length, offer, expectedHostRole);
+        if (relay == null || candidateReserved(bytes) == 0) return Optional.empty();
+        return Optional.of(new RelayTicket(relay, candidateReserved(bytes)));
+    }
+    private static long candidateReserved(byte[] bytes) { return ByteBuffer.wrap(bytes, 21, 8).getLong(); }
+    private static Address decodeCandidateUpdate(byte[] bytes, int length, NetworkOffer offer, boolean expectedHostRole) {
         Optional<UUID> attempt = directCandidateAttempt(bytes, length);
         if (!attempt.isPresent() || !attempt.get().equals(offer.attemptId())
-                || (bytes[4] & 255) != (expectedHostRole ? 1 : 0) || length > 64) return Optional.empty();
+                || (bytes[4] & 255) != (expectedHostRole ? 1 : 0) || length > 64) return null;
         byte[] expected = directControlTag(java.util.Arrays.copyOf(bytes, length - DIRECT_CONTROL_TAG), offer.challengeKey());
         if (!java.security.MessageDigest.isEqual(expected,
-                java.util.Arrays.copyOfRange(bytes, length - DIRECT_CONTROL_TAG, length))) return Optional.empty();
+                java.util.Arrays.copyOfRange(bytes, length - DIRECT_CONTROL_TAG, length))) return null;
         try {
             ByteBuffer b = ByteBuffer.wrap(bytes, DIRECT_CONTROL_HEADER, length - DIRECT_CONTROL_HEADER - DIRECT_CONTROL_TAG);
             Address candidate = readAddress(b);
-            return !b.hasRemaining() && isGlobalCandidate(candidate) ? Optional.of(candidate) : Optional.empty();
-        } catch (RuntimeException malformed) { return Optional.empty(); }
+            return !b.hasRemaining() && isGlobalCandidate(candidate) ? candidate : null;
+        } catch (RuntimeException malformed) { return null; }
     }
     private static byte[] directControlTag(byte[] bytes, byte[] key) {
         try {

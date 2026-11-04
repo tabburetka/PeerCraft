@@ -471,4 +471,31 @@ class RoomRegistryTest {
                 r.join(original.code(), addr("127.0.0.4", 2001), java.util.Optional.empty(), (a,b) -> false));
     }
 
+
+    @Test
+    void selfHostedRelayTicketIsForwardedLikeACandidate() throws Exception {
+        // A peercraft-relay ticket is a candidate update whose reserved field carries the relay
+        // session id; the server must forward it unchanged so clients need no server upgrade.
+        RoomRegistry registry = new RoomRegistry();
+        RendezvousProtocol.Address host = addr("10.0.0.1", 1000);
+        RendezvousProtocol.Address joiner = addr("10.0.0.2", 2000);
+        var noCandidates = java.util.List.<RendezvousProtocol.Address>of();
+        RoomRegistry.Registered registered = (RoomRegistry.Registered) registry.register(host, 4, 0, java.util.Optional.empty(), false);
+        registry.connectivity(registered.code(), host,
+                java.util.Optional.of(new RendezvousProtocol.ConnectivityAdvertisement(false, false, noCandidates)));
+        RoomRegistry.Matched matched = (RoomRegistry.Matched) registry.join(registered.code(), joiner, java.util.Optional.empty(), (a, b) -> false);
+        var offers = registry.networkOffers(registered.code(), matched, java.util.Optional.empty(),
+                java.util.Optional.of(new RendezvousProtocol.ConnectivityAdvertisement(false, false, noCandidates)), "").orElseThrow();
+
+        byte[] candidate = RendezvousProtocol.encodeDirectCandidate(offers.host(), true, addr("8.8.8.8", 52100));
+        byte[] ticket = candidate.clone();
+        java.nio.ByteBuffer.wrap(ticket, 21, 8).putLong(0x1234_5678_9abcL);
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(offers.host().challengeKey(), "HmacSHA256"));
+        System.arraycopy(mac.doFinal(java.util.Arrays.copyOf(ticket, ticket.length - 16)), 0, ticket, ticket.length - 16, 16);
+
+        assertEquals(java.util.Optional.of(joiner), registry.forwardCandidate(ticket, host));
+        ticket[22] ^= 1;
+        assertTrue(registry.forwardCandidate(ticket, host).isEmpty(), "tampered tickets are dropped");
+    }
 }

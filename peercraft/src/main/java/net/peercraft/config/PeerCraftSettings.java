@@ -85,6 +85,13 @@ public final class PeerCraftSettings {
     @SerializedName("peerPort")
     public String peerPort;
 
+    /**
+     * Code of the player's own peercraft-relay ({@code pcrelay://host:port#secret}). It holds a
+     * secret, so it is never a launch flag and stays out of {@link #FLAG_KEYS}.
+     */
+    @SerializedName("relay.ownCode")
+    public String ownRelayCode;
+
     // ---- UI state (not a flag) --------------------------------------------------------
     @SerializedName("_showDeveloper")
     public boolean showDeveloperSection;
@@ -132,6 +139,7 @@ public final class PeerCraftSettings {
             case "hostUdpPort": return hostUdpPort;
             case "peerHost": return peerHost;
             case "peerPort": return peerPort;
+            case "relay.ownCode": return ownRelayCode;
             default: return null;
         }
     }
@@ -163,6 +171,7 @@ public final class PeerCraftSettings {
             case "hostUdpPort": hostUdpPort = v; break;
             case "peerHost": peerHost = v; break;
             case "peerPort": peerPort = v; break;
+            case "relay.ownCode": ownRelayCode = v; break;
             default: break;
         }
     }
@@ -176,6 +185,7 @@ public final class PeerCraftSettings {
                 out.put(key, v.trim());
             }
         }
+        if (ownRelayCode != null && !ownRelayCode.trim().isEmpty()) out.put("relay.ownCode", ownRelayCode.trim());
         return out;
     }
 }

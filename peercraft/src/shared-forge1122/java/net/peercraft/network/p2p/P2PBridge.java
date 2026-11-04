@@ -16,6 +16,9 @@ import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.network.proxy.LocalProxy;
 import net.peercraft.network.connectivity.DirectCandidates;
 import net.peercraft.network.connectivity.DirectConnectivityCoordinator;
+import net.peercraft.network.ownrelay.OwnRelayClient;
+import net.peercraft.network.ownrelay.OwnRelayPeerTransport;
+import net.peercraft.network.ownrelay.OwnRelayProtocol;
 import net.peercraft.network.relay.DirectPeerTransport;
 import net.peercraft.network.relay.RelayBrokerClient;
 import net.peercraft.network.relay.RelayPeerTransport;
@@ -162,10 +165,15 @@ public class P2PBridge {
     private final Map<UUID, DirectBinding> directBindings = new ConcurrentHashMap<>();
     private final Map<PeerAddress, PeerTransport> retainedPeerRoutes = new ConcurrentHashMap<>();
     private final Set<PeerAddress> securedPeers = ConcurrentHashMap.newKeySet();
+    // Own relay routes share the P2P socket; incoming 0xEB datagrams are offered to each.
+    private final java.util.List<OwnRelayPeerTransport> ownRelayRoutes = new java.util.concurrent.CopyOnWriteArrayList<>();
     private volatile Consumer<String> onTransportFailure;
+    private volatile Consumer<String> onHostNotice;
     private volatile Consumer<String> onTransportSelected;
     public void setOnTransportFailure(Consumer<String> hook) { onTransportFailure = hook; }
     public void setOnTransportSelected(Consumer<String> hook) { onTransportSelected = hook; }
+    /** HOST: translation keys for chat notices about a joiner's route (direct failed, own relay used). */
+    public void setOnHostNotice(Consumer<String> hook) { onHostNotice = hook; }
     private volatile String lastJoinedRoomCode = "";
     public String lastJoinedRoomCode() { return lastJoinedRoomCode; }
     public boolean isClientSessionActive() { return currentClientSession != null; }
@@ -825,6 +833,12 @@ public class P2PBridge {
         final AtomicBoolean selected = new AtomicBoolean(), relayStarted = new AtomicBoolean();
         volatile boolean cancelled;
         volatile RelayPeerTransport relay;
+        final AtomicBoolean ownRelayOpening = new AtomicBoolean();
+        volatile OwnRelayPeerTransport ownRelay;
+        volatile RendezvousProtocol.RelayTicket peerTicket;
+        volatile boolean directFailed;
+        volatile InetAddress rendezvousAddress;
+        volatile int rendezvousPort;
         NetworkAttempt(PeerAddress peer, RendezvousProtocol.NetworkOffer offer, boolean host,
                 ConnectListener listener, ModSyncAgent modSync) {
             this.peer = peer; this.offer = offer; this.host = host; this.listener = listener; this.modSync = modSync;
@@ -850,6 +864,8 @@ public class P2PBridge {
         if (existing != null) cancelAttempt(existing);
         if (hostRole && info.joinerAccountId().isPresent()) joinerAccountIdByAddress.put(peer, info.joinerAccountId().get());
         NetworkAttempt attempt = new NetworkAttempt(peer, info.networkOffer().get(), hostRole, listener, modSync);
+        attempt.rendezvousAddress = rendezvousAddress;
+        attempt.rendezvousPort = rendezvousPort;
         networkAttempts.put(peer, attempt);
         if (!hostRole) clientTargetPeer = peer;
         listener.onStatus("peercraft.p2p.status.checking_direct");
@@ -865,6 +881,7 @@ public class P2PBridge {
                                     directBindings.put(attempt.offer.attemptId(), new DirectBinding(peer, route));
                                     RelayPeerTransport pending = attempt.relay;
                                     if (pending != null) pending.close();
+                                    closeOwnRelay(attempt);
                                     finishConnection(attempt, route);
                                 }
                             } catch (UnknownHostException error) { failAttempt(attempt, "peercraft.p2p.fail.hole_punching"); }
@@ -874,9 +891,9 @@ public class P2PBridge {
                         DirectConnectivityCoordinator checks = activeDirectChecks.get(attempt.peer);
                         LOGGER.info("[P2PBridge] {}: {}; candidates={}", attempt.offer.attemptId(), reason,
                                 checks == null ? java.util.Collections.emptyMap() : checks.diagnostics());
-                        // Relay rollout postponed; retain implementation for a future release.
+                        // Broker relay rollout postponed; retain implementation for a future release.
                         // beginRelay(attempt, info.token(), room, sessionToken);
-                        failAttempt(attempt, "peercraft.p2p.fail.hole_punching");
+                        beginOwnRelay(attempt);
                     }
                 });
         DirectConnectivityCoordinator previous = activeDirectChecks.put(peer, checks);
@@ -926,6 +943,157 @@ public class P2PBridge {
         } catch (IOException error) { failAttempt(attempt, "peercraft.p2p.fail.relay_not_configured"); }
     }
 
+    // ---- Self-hosted relay (peercraft-relay) -------------------------------------------------
+    // Either player may configure a relay code. After direct checks fail, the player with a code
+    // opens a session and announces it through the rendezvous server as a signed relay ticket;
+    // the other player joins it. If both have one, the host's relay is used.
+    // How long a player without a relay waits for the peer's ticket; tests shorten it.
+    static volatile long ownRelayTicketWaitMillis = 10_000;
+
+    private static OwnRelayProtocol.Code configuredOwnRelay() {
+        String code = PeerCraftConfig.ownRelayCode();
+        if (code == null || code.trim().isEmpty()) return null;
+        OwnRelayProtocol.Code parsed = OwnRelayProtocol.parseCode(code);
+        if (parsed == null) LOGGER.warn("[P2PBridge] Ignoring malformed own relay code");
+        return parsed;
+    }
+
+    private void beginOwnRelay(NetworkAttempt attempt) {
+        if (attempt.cancelled || attempt.selected.get()) return;
+        attempt.directFailed = true;
+        OwnRelayProtocol.Code own = configuredOwnRelay();
+        RendezvousProtocol.RelayTicket ticket = attempt.peerTicket;
+        if (ticket != null && (!attempt.host || own == null)) { joinOwnRelay(attempt, ticket); return; }
+        if (own != null) { openOwnRelay(attempt, own); return; }
+        long waitMillis = ownRelayTicketWaitMillis;
+        if (waitMillis <= 0) { failAttempt(attempt, "peercraft.p2p.fail.direct_failed"); return; }
+        Thread wait = new Thread(() -> {
+            try { Thread.sleep(waitMillis); } catch (InterruptedException stopped) { return; }
+            if (attempt.ownRelay == null) failAttempt(attempt, "peercraft.p2p.fail.direct_failed");
+        }, "PeerCraft-OwnRelay-Wait");
+        wait.setDaemon(true);
+        wait.start();
+    }
+
+    private void openOwnRelay(NetworkAttempt attempt, OwnRelayProtocol.Code code) {
+        if (!attempt.ownRelayOpening.compareAndSet(false, true)) return;
+        attempt.listener.onStatus("peercraft.p2p.status.own_relay_connecting");
+        Thread open = new Thread(() -> {
+            InetSocketAddress relay;
+            try { relay = OwnRelayClient.resolve(code); }
+            catch (IOException unresolved) { failAttempt(attempt, "peercraft.p2p.fail.own_relay_unreachable"); return; }
+            if (!RendezvousProtocol.isGlobalCandidate(new RendezvousProtocol.Address(relay.getAddress(), relay.getPort()))) {
+                failAttempt(attempt, "peercraft.p2p.fail.own_relay_private"); return;
+            }
+            OwnRelayHandler handler = new OwnRelayHandler(attempt);
+            OwnRelayPeerTransport route = OwnRelayPeerTransport.owner(this::sendOwnRelay, relay, code.secret(),
+                    attempt.offer.challengeKey(), attempt.offer.attemptId(), attempt.host, handler);
+            synchronized (attempt) {
+                // The peer's (host's) ticket may have arrived while resolving: that session wins.
+                if (attempt.cancelled || attempt.selected.get() || attempt.ownRelay != null) return;
+                handler.route = route;
+                attempt.ownRelay = route;
+                addOwnRelayRoute(route);
+            }
+            route.start();
+        }, "PeerCraft-OwnRelay-Open");
+        open.setDaemon(true);
+        open.start();
+    }
+
+    private void joinOwnRelay(NetworkAttempt attempt, RendezvousProtocol.RelayTicket ticket) {
+        OwnRelayPeerTransport route;
+        synchronized (attempt) {
+            OwnRelayPeerTransport current = attempt.ownRelay;
+            if (attempt.cancelled || attempt.selected.get() || (current != null && !current.isOwner())) return;
+            if (current != null) { ownRelayRoutes.remove(current); current.close(); }
+            OwnRelayHandler handler = new OwnRelayHandler(attempt);
+            route = OwnRelayPeerTransport.joiner(this::sendOwnRelay,
+                    new InetSocketAddress(ticket.relay().host(), ticket.relay().port()), ticket.sessionId(),
+                    attempt.offer.challengeKey(), attempt.offer.attemptId(), attempt.host, handler);
+            handler.route = route;
+            attempt.ownRelay = route;
+            attempt.ownRelayOpening.set(true);
+            addOwnRelayRoute(route);
+        }
+        attempt.listener.onStatus("peercraft.p2p.status.own_relay_connecting");
+        route.start();
+    }
+
+    private void addOwnRelayRoute(OwnRelayPeerTransport route) {
+        ownRelayRoutes.removeIf(OwnRelayPeerTransport::isClosed);
+        ownRelayRoutes.add(route);
+    }
+
+    private void closeOwnRelay(NetworkAttempt attempt) {
+        OwnRelayPeerTransport route = attempt.ownRelay;
+        if (route == null || retainedPeerRoutes.get(attempt.peer) == route || peerRoutes.get(attempt.peer) == route) return;
+        ownRelayRoutes.remove(route);
+        route.close();
+    }
+
+    private void sendOwnRelay(byte[] datagram, InetSocketAddress to) {
+        P2PSender out = sender;
+        if (out != null) out.sendData(datagram, to.getAddress().getHostAddress(), to.getPort());
+    }
+
+    /** Relay tickets arrive as connectivity-check updates whose reserved field is non-zero. */
+    private boolean acceptRelayTicket(byte[] packet, int length) {
+        for (NetworkAttempt attempt : networkAttempts.values()) {
+            java.util.Optional<RendezvousProtocol.RelayTicket> ticket =
+                    RendezvousProtocol.decodeRelayTicket(packet, length, attempt.offer, !attempt.host);
+            if (!ticket.isPresent()) continue;
+            if (attempt.cancelled || attempt.selected.get()) return true;
+            // A host with its own relay ignores the joiner's: both players then use the host's.
+            if (attempt.host && configuredOwnRelay() != null) return true;
+            if (attempt.peerTicket == null) LOGGER.info("[P2PBridge] {}: peer offered its own relay", attempt.offer.attemptId());
+            attempt.peerTicket = ticket.get();
+            joinOwnRelay(attempt, ticket.get());
+            return true;
+        }
+        return false;
+    }
+
+    private final class OwnRelayHandler implements OwnRelayPeerTransport.Listener {
+        private final NetworkAttempt attempt;
+        volatile OwnRelayPeerTransport route;
+        OwnRelayHandler(NetworkAttempt attempt) { this.attempt = attempt; }
+
+        @Override public void onTicket(InetSocketAddress relay, long sessionId) {
+            InetAddress rendezvous = attempt.rendezvousAddress;
+            if (rendezvous == null || attempt.cancelled || attempt.selected.get()) return;
+            try {
+                byte[] ticket = RendezvousProtocol.encodeRelayTicket(attempt.offer, attempt.host, new RendezvousProtocol.RelayTicket(
+                        new RendezvousProtocol.Address(relay.getAddress(), relay.getPort()), sessionId));
+                P2PSender out = sender;
+                if (out != null) out.sendData(ticket, rendezvous.getHostAddress(), attempt.rendezvousPort);
+            } catch (IllegalArgumentException invalid) {
+                LOGGER.warn("[P2PBridge] Own relay address cannot be announced: {}", invalid.getMessage());
+            }
+        }
+        @Override public void onConnected(OwnRelayPeerTransport connected) {
+            if (!selectRoute(attempt, connected)) return;
+            DirectConnectivityCoordinator checks = activeDirectChecks.remove(attempt.peer);
+            if (checks != null) checks.cancel();
+            finishConnection(attempt, connected);
+        }
+        @Override public void onData(byte[] bytes) {
+            PeerTransport current = route;
+            if ((!attempt.cancelled || retainedPeerRoutes.get(attempt.peer) == current) && (peerRoutes.get(attempt.peer) == current
+                    || retainedPeerRoutes.get(attempt.peer) == current))
+                dispatchDecoded(bytes, bytes.length, attempt.peer.host(), attempt.peer.port());
+        }
+        @Override public void onFailure(String reason) {
+            OwnRelayPeerTransport current = route;
+            ownRelayRoutes.remove(current);
+            if (!attempt.selected.get()) {
+                if (attempt.ownRelay == current) failAttempt(attempt, reason);
+            } else if (peerRoutes.get(attempt.peer) == current || retainedPeerRoutes.get(attempt.peer) == current) {
+                transportFailed(attempt.peer, current, reason, attempt.host);
+            }
+        }
+    }
+
     private synchronized boolean selectRoute(NetworkAttempt attempt, PeerTransport route) {
         if (attempt.cancelled || (!attempt.host && !attempt.listener.isCurrentAttempt()) || networkAttempts.get(attempt.peer) != attempt
                 || !attempt.selected.compareAndSet(false, true)) { route.close(); return false; }
@@ -941,7 +1109,11 @@ public class P2PBridge {
         attempt.listener.onStatus("peercraft.p2p.status." + route.mode() + "_connected");
         Consumer<String> modeHook = onTransportSelected;
         if (modeHook != null && !attempt.host) modeHook.accept("peercraft.p2p.mode." + route.mode());
-        if (attempt.host) return;
+        if (attempt.host) {
+            Consumer<String> notice = onHostNotice;
+            if (notice != null && route instanceof OwnRelayPeerTransport) notice.accept("peercraft.chat.p2p.host_own_relay");
+            return;
+        }
         markClientTransportReady(attempt.listener);
         clearRendezvousListener();
         if (attempt.modSync == null || PeerCraftConfig.modSyncClientMode() == ModSyncMode.OFF) attempt.listener.onConnected();
@@ -952,6 +1124,8 @@ public class P2PBridge {
         cancelAttempt(attempt);
         networkAttempts.remove(attempt.peer, attempt);
         if (!attempt.host) clearRendezvousListener();
+        Consumer<String> notice = onHostNotice;
+        if (attempt.host && notice != null && attempt.directFailed) notice.accept("peercraft.chat.p2p.host_direct_failed");
         attempt.listener.onFailed(reason);
     }
     private void cancelAttempt(NetworkAttempt attempt) {
@@ -959,9 +1133,12 @@ public class P2PBridge {
         DirectConnectivityCoordinator checks = activeDirectChecks.remove(attempt.peer);
         if (checks != null) checks.cancel();
         if (attempt.relay != null && retainedPeerRoutes.get(attempt.peer) != attempt.relay) attempt.relay.close();
+        OwnRelayPeerTransport own = attempt.ownRelay;
+        if (own != null && retainedPeerRoutes.get(attempt.peer) != own) { ownRelayRoutes.remove(own); own.close(); }
     }
     private void closeRoute(PeerTransport route) {
         route.close();
+        if (route instanceof OwnRelayPeerTransport) ownRelayRoutes.remove(route);
         for (Map.Entry<UUID, DirectBinding> binding : directBindings.entrySet())
             if (binding.getValue().route == route) directBindings.remove(binding.getKey(), binding.getValue());
     }
@@ -1628,6 +1805,11 @@ public class P2PBridge {
             sessionMonitor.receiveMesh(new PeerAddress(senderAddress, senderPort), data, length); return;
         }
         byte[] packet = Arrays.copyOf(data, length);
+        if (data[0] == OwnRelayProtocol.MAGIC) {
+            InetSocketAddress source = new InetSocketAddress(senderAddress, senderPort);
+            for (OwnRelayPeerTransport route : ownRelayRoutes) if (route.accept(packet, length, source)) return;
+            return;
+        }
         if (SecureDatagramChannel.isPacket(packet)) {
             DirectBinding binding = directBindings.get(SecureDatagramChannel.peekLinkId(packet));
             if (binding == null) return;
@@ -1640,6 +1822,7 @@ public class P2PBridge {
         }
         if (length >= 2 && data[0] == RendezvousProtocol.MAGIC
                 && (data[1] & 0xFF) == DirectConnectivityCoordinator.MESSAGE_TYPE) {
+            if (acceptRelayTicket(packet, length)) return;
             for (DirectConnectivityCoordinator checks : activeDirectChecks.values()) checks.onPacket(packet, length, senderAddress, senderPort);
             return;
         }

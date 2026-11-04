@@ -121,6 +121,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         addRow("handoff.declineSuccessor", KIND_BOOL, false, false, 0, 0, "handoff_decline_successor");
         addRow("handoff.confirmBeforeOffer", KIND_BOOL, false, false, 0, 0, "handoff_confirm_before_offer");
         addRow("handoff.chatNotify", KIND_BOOL, false, false, 0, 0, "handoff_chat_notify");
+        addRow("relay.ownCode", KIND_STRING, false, false, 0, 0, "own_relay");
 
         addRow("mode", KIND_MODE, true, true, 0, 0, "mode");
         addRow("modSync.autoAccept", KIND_BOOL, true, false, 0, 0, "autoaccept").warnOverride = "autoaccept_warning";
@@ -162,7 +163,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         String current=seed(row.key);
         if(row.kind==KIND_INT || row.kind==KIND_STRING) {
             SteampunkField box=new SteampunkField(this.fontRendererObj,controlX(),rowsTop,controlWidth,dialog.buttonHeight());
-            box.setMaxStringLength(row.kind==KIND_INT?6:128);box.setText(current);box.setEnabled(row.enabled);return box;
+            box.setMaxStringLength(row.kind==KIND_INT?6:"relay.ownCode".equals(row.key)?320:128);box.setText(current);box.setEnabled(row.enabled);return box;
         }
         GuiButton button;
         if(row.kind==KIND_BOOL) {
@@ -221,6 +222,12 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             String value=readWidget(row).trim();if(value.isEmpty())continue;
             try { int n=Integer.parseInt(value);if(n<row.min || n>row.max){failValidation(row);return;} }
             catch(NumberFormatException invalid){failValidation(row);return;}
+        }
+        for(Row row:rows) if("relay.ownCode".equals(row.key)) {
+            String code=readWidget(row).trim();
+            if(!code.isEmpty() && net.peercraft.network.ownrelay.OwnRelayProtocol.parseCode(code)==null) {
+                statusMessage=PeerCraftLang.tr("peercraft.gui.relay.check.invalid_code");statusColor=PeerCraftUi.TEXT_ERROR;return;
+            }
         }
         for(Row row:rows) {
             String value=readWidget(row).trim();

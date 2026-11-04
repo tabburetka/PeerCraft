@@ -136,6 +136,12 @@ public class PeerCraftJoinScreen extends PeerCraftDialogScreen {
         }
         this.statusMessage = new TranslatableComponent(reason);
         this.connectButton.active = true;
+        if (PeerCraftP2PFailScreen.handles(reason)) PeerCraftUi.setScreen(this.minecraft, new PeerCraftP2PFailScreen(this, reason));
+    }
+
+    void retryFromDialog() {
+        PeerCraftUi.setScreen(this.minecraft, this);
+        if (this.connectButton != null && this.connectButton.active) onConnect();
     }
 
     private void handleConnected() {

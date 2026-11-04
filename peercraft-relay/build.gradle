@@ -1,0 +1,44 @@
+plugins {
+	id 'application'
+}
+
+version = '1.0.0'
+group = 'net.peercraft'
+
+repositories {
+	mavenCentral()
+}
+
+application {
+	mainClass = 'net.peercraft.relay.RelayMain'
+}
+
+dependencies {
+	testImplementation platform('org.junit:junit-bom:5.10.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+// Inside the PeerCraft monorepo the wire format is compiled straight from the mod's own
+// codec, never copied. The standalone public repository carries that file in src/main/java.
+def sharedProtocol = file('../peercraft/src/main/java/net/peercraft/network/ownrelay/OwnRelayProtocol.java')
+if (sharedProtocol.exists()) {
+	sourceSets.main.java.srcDir('../peercraft/src/main/java')
+	sourceSets.main.java.include('net/peercraft/relay/**', 'net/peercraft/network/ownrelay/OwnRelayProtocol.java')
+}
+
+jar {
+	archiveBaseName = 'peercraft-relay'
+	manifest {
+		attributes 'Main-Class': application.mainClass, 'Implementation-Version': project.version
+	}
+}

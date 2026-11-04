@@ -161,6 +161,12 @@ public class PeerCraftJoinScreen extends GuiScreen {
         }
         this.statusMessage = PeerCraftLang.tr(reason);
         this.connectButton.enabled = true;
+        if (PeerCraftP2PFailScreen.handles(reason)) PeerCraftUi.setScreen(this.mc, new PeerCraftP2PFailScreen(this, reason));
+    }
+
+    void retryFromDialog() {
+        PeerCraftUi.setScreen(this.mc, this);
+        if (this.connectButton != null && this.connectButton.enabled) onConnect();
     }
 
     private void handleConnected() {

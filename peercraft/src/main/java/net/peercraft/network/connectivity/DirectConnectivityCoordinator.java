@@ -29,6 +29,7 @@ public final class DirectConnectivityCoordinator implements RawPacketListener {
     public static final long CHECK_WINDOW_MILLIS = 20_000;
     public static final long FALLBACK_RACE_MILLIS = 30_000;
     private static final long RETRY_MILLIS = 300;
+    private static final long CANDIDATE_UPDATE_INTERVAL_NANOS = 1_500_000_000L;
     private static final int HEADER_SIZE = 2 + 1 + 1 + 1 + 16 + 8;
     private static final int TAG_SIZE = 16;
     private static final int MAX_CANDIDATES = 16;
@@ -57,6 +58,7 @@ public final class DirectConnectivityCoordinator implements RawPacketListener {
     private volatile long initialDeadline;
     private volatile boolean started;
     private PeerAddress candidateRelay;
+    private long nextCandidateUpdate = Long.MIN_VALUE;
     private PeerAddress nominated;
     private PeerAddress selected;
 
@@ -152,7 +154,10 @@ public final class DirectConnectivityCoordinator implements RawPacketListener {
             try { sender.send(StunCodec.bindingRequest(discovery.getValue()), discovery.getKey().host(), discovery.getKey().port()); }
             catch (IOException ignored) { /* STUN is diagnostic; probe peer candidates anyway. */ }
         }
-        if (candidateRelay != null) {
+        // Throttled and limited to the initial phase: the rendezvous server allows 120 forwarded
+        // updates per minute per IP, and a relay ticket must still fit after a failed check.
+        if (candidateRelay != null && !initialPhaseExpired.get() && clock.getAsLong() >= nextCandidateUpdate) {
+            nextCandidateUpdate = clock.getAsLong() + CANDIDATE_UPDATE_INTERVAL_NANOS;
             for (InetSocketAddress mapped : discoveredMappings.values()) {
                 byte[] update = RendezvousProtocol.encodeDirectCandidate(offer, hostRole,
                         new RendezvousProtocol.Address(mapped.getAddress(), mapped.getPort()));
