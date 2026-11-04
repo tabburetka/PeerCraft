@@ -75,7 +75,16 @@ dependencies {
 	// what this Minecraft version itself bundles.
 	testImplementation("org.slf4j:slf4j-api:2.0.16")
 	testImplementation("com.google.code.gson:gson:2.10.1")
-	testImplementation("com.mojang:authlib:6.0.54")
+	// authlib 7 (1.21.9+) replaced GameProfile.getProperties() with properties(); match the game's own.
+	val authlibVersion = when {
+		stonecutter.eval(mcVersion, ">=26.2") -> "9.0.75"
+		stonecutter.eval(mcVersion, ">=26.1") -> "7.0.63"
+		stonecutter.eval(mcVersion, ">=1.21.9") -> "7.0.61"
+		else -> "6.0.54"
+	}
+	testImplementation("com.mojang:authlib:$authlibVersion")
+	testImplementation("org.apache.logging.log4j:log4j-api:2.22.1")
+	testImplementation("com.google.guava:guava:32.1.2-jre")
 	testImplementation(platform("org.junit:junit-bom:5.10.2"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
