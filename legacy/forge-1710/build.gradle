@@ -26,8 +26,9 @@ java {
 //   - src/core/java          Minecraft-agnostic logic (network, protocols, config, accounts),
 //                            Java 8 source shared verbatim with every target and the servers
 //   - src/common/java        Minecraft-agnostic client glue that calls into the platform layer
-//   - src/shared-forge1710/java  PeerCraftCommon / PeerCraftClientCommon for the 1.7.10 API
-//   - src/client-1710/java       GUI, client mixins, mod sync and handoff for the 1.7.10 API
+//   - src/legacy-forge/java  the Forge client layer (GUI, mixins, mod sync, handoff) for every
+//                            RetroFuturaGradle backport, version-gated — resolved for 1.7.10
+//                            by legacy-preprocess.gradle
 def peercraftDir = rootProject.file("../../mod")
 
 // 1.7.10 localization is key=value .lang, not JSON (that arrived in 1.13). Generate both files
@@ -74,12 +75,6 @@ sourceSets {
 		java {
 			srcDir(new File(peercraftDir, "src/core/java"))
 			srcDir(new File(peercraftDir, "src/common/java"))
-			srcDir(new File(peercraftDir, "src/shared-forge1710/java"))
-			// GUI + client-mixin twins rewritten against the 1.7.10 MCP API. Also holds the
-			// client/modsync twins (Screen -> GuiScreen, Component -> PeerCraftLang, no
-			// java.net.http; mcmod.info instead of fabric.mod.json) and the four ModSync*Screen
-			// twins.
-			srcDir(new File(peercraftDir, "src/client-1710/java"))
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))
@@ -221,3 +216,4 @@ processResources {
 }
 
 apply from: new File(rootProject.projectDir, '../../mod/gradle/modsync-helper.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-preprocess.gradle')

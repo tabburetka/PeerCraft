@@ -1,0 +1,100 @@
+// Resolves the version gates in mod/src/legacy-forge/java for this project's minecraft_version and
+// adds the result to the main source set. One source tree serves every RetroFuturaGradle backport.
+//
+// Syntax (a line-based subset of Stonecutter's, which only runs on the Fabric/NeoForge build):
+//   //? if >=1.12 {            a branch; conditions are <, <=, >, >=, ==, != joined by && and ||
+//   //?} else if >=1.8 {
+//   //?} else {
+//   //?}
+//   //? file <1.12             on the first line: the whole file exists only for these versions
+// Lines of an inactive branch are stored behind "//~ " (a lone "//~" for a blank line). The stored
+// form may have any branch active; the output always has the right one active, keeps every
+// marker line (so line numbers match the source) and comments out the rest.
+def legacySourceDir = new File(rootProject.projectDir, '../../mod/src/legacy-forge/java')
+def legacyOutputDir = layout.buildDirectory.dir('generated/legacy-forge/java')
+def legacyVersion = project.minecraft_version as String
+
+def preprocessLegacy = tasks.register('preprocessLegacySources') {
+	description = "Resolves the //? gates in mod/src/legacy-forge for Minecraft ${legacyVersion}."
+	inputs.dir(legacySourceDir)
+	inputs.property('minecraftVersion', legacyVersion)
+	outputs.dir(legacyOutputDir)
+	doLast {
+		def out = legacyOutputDir.get().asFile
+		project.delete(out)
+		def key = { String v -> v.tokenize('.').collect { it as int } }
+		def compare = { String v, String ref ->
+			def a = key(v), b = key(ref)
+			int n = Math.max(a.size(), b.size())
+			for (int i = 0; i < n; i++) {
+				int x = i < a.size() ? a[i] : 0, y = i < b.size() ? b[i] : 0
+				if (x != y) return x <=> y
+			}
+			return 0
+		}
+		def evaluate = { String cond ->
+			cond.split(/\|\|/).any { part ->
+				part.split('&&').every { atom ->
+					def m = atom.trim() =~ /^(>=|<=|==|!=|>|<)\s*([\d.]+)$/
+					if (!m.matches()) throw new GradleException("Bad legacy gate condition: '${atom.trim()}' in '${cond}'")
+					int c = compare(legacyVersion, m.group(2))
+					switch (m.group(1)) {
+						case '>=': return c >= 0
+						case '<=': return c <= 0
+						case '>': return c > 0
+						case '<': return c < 0
+						case '==': return c == 0
+						default: return c != 0
+					}
+				}
+			}
+		}
+		def open = ~/^[ \t]*\/\/\? if (.+?) \{\s*$/
+		def elseIf = ~/^[ \t]*\/\/\?\} else if (.+?) \{\s*$/
+		def elseBranch = ~/^[ \t]*\/\/\?\} else \{\s*$/
+		def close = ~/^[ \t]*\/\/\?\}\s*$/
+		def fileGate = ~/^[ \t]*\/\/\? file (.+?)\s*$/
+		def comment = { String l -> l.isEmpty() ? '//~' : '//~ ' + l }
+		def uncomment = { String l -> l == '//~' ? '' : (l.startsWith('//~ ') ? l.substring(4) : l) }
+
+		legacySourceDir.eachFileRecurse(groovy.io.FileType.FILES) { File src ->
+			def rel = legacySourceDir.toPath().relativize(src.toPath()).toString()
+			def lines = src.getText('UTF-8').split('\n', -1) as List<String>
+			def fm = lines ? (lines[0] =~ fileGate) : null
+			if (fm && fm.matches() && !evaluate(fm.group(1))) return
+			def result = []
+			def stack = []   // [active, anyTaken, parentActive]
+			lines.eachWithIndex { String line, int i ->
+				def m
+				if ((m = line =~ open).matches()) {
+					boolean parent = stack.every { it[0] }
+					boolean act = parent && evaluate(m.group(1))
+					stack << [act, act, parent]
+					result << line
+				} else if ((m = line =~ elseIf).matches() || (line =~ elseBranch).matches()) {
+					if (!stack) throw new GradleException("${rel}:${i + 1}: else without if")
+					def top = stack[-1]
+					boolean ok = m.matches() ? evaluate(m.group(1)) : true
+					boolean act = top[2] && !top[1] && ok
+					top[0] = act
+					top[1] = top[1] || act
+					result << line
+				} else if ((line =~ close).matches()) {
+					if (!stack) throw new GradleException("${rel}:${i + 1}: unmatched //?}")
+					stack.remove(stack.size() - 1)
+					result << line
+				} else if (stack.every { it[0] }) {
+					result << uncomment(line)
+				} else {
+					result << (line.startsWith('//~') ? line : comment(line))
+				}
+			}
+			if (stack) throw new GradleException("${rel}: unclosed //? if")
+			def dst = new File(out, rel)
+			dst.parentFile.mkdirs()
+			dst.setText(result.join('\n'), 'UTF-8')
+		}
+	}
+}
+
+sourceSets.main.java.srcDir(preprocessLegacy)
