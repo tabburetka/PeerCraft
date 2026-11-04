@@ -115,11 +115,13 @@ public class JoinRequestsScreen extends net.minecraft.client.gui.screens.Screen 
     @Override public boolean isPauseScreen(){return false;}
     @Override public void onClose(){PeerCraftUi.setScreen(minecraft,parent!=null?parent:new net.minecraft.client.gui.screens.PauseScreen(true));}
     //? if <26.1 {
-    @Override public void render(GuiGraphics g,int mx,int my,float delta){drawContent(g);super.render(g,mx,my,delta);}
+    // The panel is part of the background: Screen.render() draws the (blurred) background first,
+    // so anything drawn before super.render() would end up under the blur.
+    @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){super.renderBackground(g,mx,my,delta);drawContent(g);}
     private void frame(GuiGraphics g,int x,int y,int w,int h){SteampunkSettingsTheme.frame(g,x,y,w,h,net.peercraft.client.theme.SteampunkPalette.PANEL,net.peercraft.client.theme.SteampunkPalette.BORDER);}
     private void text(GuiGraphics g,String value,int dy,int color){int line=0;for(String text:PeerCraftUi.wrap(font,value,panelWidth()-36))g.drawString(font,text,left()+18,top()+dy+12*line++,color);}
     //?} else {
-    /*@Override public void extractRenderState(GuiGraphicsExtractor g,int mx,int my,float delta){drawContent(g);super.extractRenderState(g,mx,my,delta);}
+    /*@Override public void extractBackground(GuiGraphicsExtractor g,int mx,int my,float delta){super.extractBackground(g,mx,my,delta);drawContent(g);}
     private void frame(GuiGraphicsExtractor g,int x,int y,int w,int h){SteampunkSettingsTheme.frame(g,x,y,w,h,net.peercraft.client.theme.SteampunkPalette.PANEL,net.peercraft.client.theme.SteampunkPalette.BORDER);}
     private void text(GuiGraphicsExtractor g,String value,int dy,int color){int line=0;for(String text:PeerCraftUi.wrap(font,value,panelWidth()-36))g.text(font,text,left()+18,top()+dy+12*line++,color);}
     */

@@ -1,0 +1,76 @@
+// Gradle init script: injects FeatureMatrixProbe into one Fabric target's runClient.
+// Driven by run_matrix.py; every knob arrives as a -Dpeercraft.fm.* system property.
+def target = System.getProperty('peercraft.fm.target', '26.2-fabric')
+def sources = [
+    '26.2-fabric'  : ['probe-src-262', 25],
+    '1.21.1-fabric': ['probe-src-1211', 21],
+]
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != target) return
+        def (srcDir, release) = sources[target]
+        def fixture = sourceSets.create('featureMatrix')
+        fixture.java.srcDir(rootProject.file("../docs/verification/feature-matrix-20261104/$srcDir"))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        tasks.named('compileFeatureMatrixJava').configure { dependsOn tasks.named('classes'); options.release.set(release) }
+        def resources = layout.buildDirectory.dir('feature-matrix-resources')
+        def metadata = tasks.register('featureMatrixMetadata') {
+            dependsOn tasks.named('processResources')
+            outputs.dir(resources)
+            outputs.upToDateWhen { false }
+            doLast {
+                def json = new groovy.json.JsonSlurper().parse(new File(sourceSets.main.output.resourcesDir, 'fabric.mod.json'))
+                json.entrypoints.client.add('net.peercraft.uitest.FeatureMatrixProbe')
+                def dest = new File(resources.get().asFile, 'fabric.mod.json')
+                dest.parentFile.mkdirs()
+                dest.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+            }
+        }
+        def bundle = tasks.register('featureMatrixBundle', Jar) {
+            dependsOn tasks.named('featureMatrixClasses'), metadata
+            // One jar per client: a later launch must never rewrite a jar an earlier client still
+            // has open (that corrupts its lazy class loading: "invalid LOC header").
+            archiveFileName = 'peercraft-feature-matrix-probe.jar'
+            destinationDirectory = layout.buildDirectory.dir('feature-matrix/' +
+                    System.getProperty('peercraft.fm.role', 'host') + '-' + System.getProperty('peercraft.fm.scenario', 'host'))
+            from(sourceSets.main.output) { exclude 'fabric.mod.json' }
+            from fixture.output
+            from resources
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def loose = sourceSets.main.output.files as Set
+            classpath = classpath.filter { !loose.contains(it) } + files(bundle.flatMap { it.archiveFile })
+            def gameDir = new File(System.getProperty('peercraft.fm.gameDir'))
+            workingDir = gameDir
+            doFirst {
+                gameDir.mkdirs()
+                def welcome = new File(gameDir, 'config/peercraft/welcome-seen')
+                welcome.parentFile.mkdirs(); welcome.createNewFile()
+                def options = new File(gameDir, 'options.txt')
+                if (!options.exists()) options.text = 'lang:ru_ru\nguiScale:2\nrenderDistance:2\nmaxFps:30\npauseOnLostFocus:false\nskipMultiplayerWarning:true\nonboardAccessibility:false\nnarrator:0\ntutorialStep:none\n'
+                systemProperty('fabric.classPathGroups', bundle.get().archiveFile.get().asFile.absolutePath)
+                def launchArgs = new ArrayList(getArgs())
+                int index = launchArgs.indexOf('--gameDir')
+                if (index >= 0) { launchArgs.remove(index); launchArgs.remove(index) }
+                launchArgs.addAll(['--gameDir', gameDir.absolutePath])
+                index = launchArgs.indexOf('--username')
+                if (index >= 0) { launchArgs.remove(index); launchArgs.remove(index) }
+                launchArgs.addAll(['--username', System.getProperty('peercraft.fm.name', 'Developer')])
+                setArgs(launchArgs)
+            }
+            args '--width', '1280', '--height', '800'
+            System.properties.each { k, v ->
+                if (k.startsWith('peercraft.')) systemProperty(k, v)
+            }
+            systemProperty('peercraft.mode', 'host')
+            systemProperty('peercraft.rendezvousHost', '127.0.0.1')
+            systemProperty('peercraft.rendezvousPort', System.getProperty('peercraft.fm.port'))
+            systemProperty('peercraft.hostUdpPort', '0')
+            systemProperty('peercraft.clientUdpPort', '0')
+            minHeapSize = '256m'; maxHeapSize = '1024m'
+            jvmArgs '-XX:ActiveProcessorCount=3', '-XX:MaxDirectMemorySize=512m'
+        }
+    }
+}

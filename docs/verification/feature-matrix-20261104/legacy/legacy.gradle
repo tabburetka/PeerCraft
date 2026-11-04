@@ -1,0 +1,82 @@
+// Init script for the legacy update/telemetry title probes. -Dlegacy.gameDir selects the game dir;
+// -Dpeercraft.updateCheck.url points at run_legacy.py's local update.json.
+def gameDir = new File(System.getProperty('legacy.gameDir', '/tmp/peercraft-legacy'))
+def updateUrl = System.getProperty('peercraft.updateCheck.url')
+def probeRoot = { p -> p.rootProject.file('../docs/verification/feature-matrix-20261104/legacy') }
+def prepare = {
+    gameDir.mkdirs()
+    def welcome = new File(gameDir, 'config/peercraft/welcome-seen')
+    welcome.parentFile.mkdirs(); welcome.createNewFile()
+    new File(gameDir, 'options.txt').text = 'lang:ru_ru\nguiScale:2\nrenderDistance:4\npauseOnLostFocus:false\ntutorialStep:none\n'
+}
+allprojects { project ->
+    afterEvaluate {
+        if (project.name == 'peercraft-forge-1122' || project.name == 'peercraft-forge-1710') {
+            def src = project.name.endsWith('1122') ? 'src-1122' : 'src-1710'
+            def fixture = sourceSets.create('legacyUpdate')
+            fixture.java.srcDir(new File(probeRoot(project), src))
+            fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+            tasks.named('compileLegacyUpdateJava').configure { dependsOn tasks.named('classes') }
+            tasks.named('runClient').configure {
+                dependsOn tasks.named('legacyUpdateClasses')
+                classpath += fixture.output
+                workingDir = gameDir
+                prepare()
+                extraArgs.addAll(['--width', '1280', '--height', '800'])
+                extraJvmArgs.addAll(['-Dpeercraft.mode=host', '-Dpeercraft.rendezvousHost=127.0.0.1', '-Dpeercraft.rendezvousPort=1',
+                                     '-Dpeercraft.updateCheck.url=' + updateUrl])
+                maxHeapSize = '768m'; minHeapSize = '128m'
+            }
+        }
+        if (project.name == '1.16.5-fabric') {
+            def fixture = sourceSets.create('legacyUpdate')
+            fixture.java.srcDir(new File(probeRoot(project), 'src-1165'))
+            fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            tasks.named('compileLegacyUpdateJava').configure { dependsOn tasks.named('classes'); options.release.set(8) }
+            def resources = layout.buildDirectory.dir('legacy-update-resources')
+            def metadata = tasks.register('legacyUpdateMetadata') {
+                dependsOn tasks.named('processResources')
+                outputs.dir(resources)
+                outputs.upToDateWhen { false }
+                doLast {
+                    def json = new groovy.json.JsonSlurper().parse(new File(sourceSets.main.output.resourcesDir, 'fabric.mod.json'))
+                    json.entrypoints.client.add('net.peercraft.uitest.LegacyUpdateProbe')
+                    def dest = new File(resources.get().asFile, 'fabric.mod.json')
+                    dest.parentFile.mkdirs()
+                    dest.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+                }
+            }
+            def bundle = tasks.register('legacyUpdateBundle', Jar) {
+                dependsOn tasks.named('legacyUpdateClasses'), metadata
+                archiveFileName = 'peercraft-legacy-update-probe.jar'
+                destinationDirectory = layout.buildDirectory.dir('legacy-update')
+                from(sourceSets.main.output) { exclude 'fabric.mod.json' }
+                from fixture.output
+                from resources
+                duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            }
+            tasks.named('runClient').configure {
+                dependsOn bundle
+                def loose = sourceSets.main.output.files as Set
+                classpath = classpath.filter { !loose.contains(it) } + files(bundle.flatMap { it.archiveFile })
+                workingDir = gameDir
+                doFirst {
+                    prepare()
+                    systemProperty('fabric.classPathGroups', bundle.get().archiveFile.get().asFile.absolutePath)
+                    def launchArgs = new ArrayList(getArgs())
+                    int index = launchArgs.indexOf('--gameDir')
+                    if (index >= 0) { launchArgs.remove(index); launchArgs.remove(index) }
+                    launchArgs.addAll(['--gameDir', gameDir.absolutePath])
+                    setArgs(launchArgs)
+                }
+                args '--username', 'Developer', '--width', '1280', '--height', '800'
+                systemProperty('peercraft.mode', 'host')
+                systemProperty('peercraft.rendezvousHost', '127.0.0.1')
+                systemProperty('peercraft.rendezvousPort', '1')
+                systemProperty('peercraft.updateCheck.url', updateUrl)
+                minHeapSize = '256m'; maxHeapSize = '1024m'
+            }
+        }
+    }
+}
