@@ -53,7 +53,7 @@ public class ModSyncConfirmScreen extends Screen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
-        super(Component.translatable("peercraft.modsync.confirm.title"));
+        super(Component.translatable(wordingKey(plan, "peercraft.modsync.confirm.title")));
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -75,6 +75,12 @@ public class ModSyncConfirmScreen extends Screen {
         }
     }
 
+    /** Downloads only, removals only, or both: the wording follows what will actually change. */
+    private static String wordingKey(ModSyncPlan plan, String key) {
+        if (plan.removals().isEmpty()) return key;
+        return key + (plan.mods().isEmpty() ? "_remove" : "_mixed");
+    }
+
     private static boolean isClient(ModSyncPlan.PlannedMod m) {
         return m.entry().env() == ModEntry.Env.CLIENT;
     }
@@ -94,14 +100,17 @@ public class ModSyncConfirmScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        filterY = 44 + this.font.split(Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth()).size() * 10 + 4;
-        LIST_TOP = filterY + 28;
+        int warningTop = 28 + this.font.split(intro(), contentWidth()).size() * 10 + 4;
+        filterY = warningTop + this.font.split(Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth()).size() * 10 + 6;
+        LIST_TOP = plan.mods().isEmpty() ? filterY : filterY + 28;
         this.filterButton = SteampunkSettingsTheme.action(contentLeft(), filterY, contentWidth(), 20, filterLabel(), b -> cycleFilter(), false);
+        // The client/required filter only sorts downloads; a removal-only plan has nothing to filter.
+        this.filterButton.visible = !plan.mods().isEmpty();
         this.addRenderableWidget(this.filterButton);
         rebuildRows();
 
         int y = this.height - 52;
-        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), y, (contentWidth() - 8) / 2, 20, Component.translatable("peercraft.modsync.confirm.accept"), b -> accept(), true));
+        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), y, (contentWidth() - 8) / 2, 20, Component.translatable(wordingKey(plan, "peercraft.modsync.confirm.accept")), b -> accept(), true));
         this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft() + (contentWidth() + 8) / 2, y, (contentWidth() - 8) / 2, 20, Component.translatable("peercraft.modsync.confirm.cancel"), b -> onCancel.run(), false));
     }
 
@@ -159,6 +168,11 @@ public class ModSyncConfirmScreen extends Screen {
     }
     private Component intro() {
         int unconfirmed = unconfirmedCount();
+        if (unconfirmed == 0 && !plan.removals().isEmpty()) {
+            return plan.mods().isEmpty()
+                    ? Component.translatable("peercraft.modsync.confirm.intro_remove", plan.removals().size())
+                    : Component.translatable("peercraft.modsync.confirm.intro_mixed", plan.count(), plan.removals().size());
+        }
         return unconfirmed == 0
                 ? Component.translatable("peercraft.modsync.confirm.intro2", plan.count())
                 : Component.translatable("peercraft.modsync.confirm.catalog_summary", unconfirmed, plan.count());
@@ -181,9 +195,7 @@ public class ModSyncConfirmScreen extends Screen {
     private String rowDetails(ModSyncPlan.PlannedMod mod) {
         if (isRemoval(mod)) {
             return Component.translatable("peercraft.modsync.operation.remove").getString() + " · "
-                    + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
-                    : "peercraft.modsync.confirm.tag_required").getString()
-                    + " · " + Component.translatable("peercraft.modsync.confirm.not_on_host").getString();
+                    + Component.translatable("peercraft.modsync.confirm.not_on_host").getString();
         }
         return Component.translatable(mod.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace").getString() + " · " + Component.translatable(catalogKey(mod)).getString() + " · "
                 + Component.translatable(isClient(mod) ? "peercraft.modsync.confirm.tag_client"
@@ -194,6 +206,8 @@ public class ModSyncConfirmScreen extends Screen {
     private Component countLine(ModSyncPlan sel) {
         Component downloads = Component.translatable("peercraft.modsync.confirm.count_selected", sel.count(), plan.count());
         if (plan.removals().isEmpty()) return downloads;
+        if (plan.mods().isEmpty()) return Component.translatable("peercraft.modsync.confirm.remove_selected",
+                sel.removals().size(), plan.removals().size());
         return Component.literal(downloads.getString() + " · " + Component.translatable("peercraft.modsync.confirm.remove_selected",
                 sel.removals().size(), plan.removals().size()).getString());
     }
@@ -329,10 +343,13 @@ public class ModSyncConfirmScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         graphics.drawCenteredString(this.font, this.font.plainSubstrByWidth(this.title.getString(), contentWidth()), centerX, 14, 0xFFE9DFCB);
-        graphics.drawCenteredString(this.font,
-                this.font.plainSubstrByWidth(intro().getString(), contentWidth()), centerX, 28,
-                unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
-        int warningY = 42;
+        int introColor = unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT;
+        int warningY = 28;
+        for (net.minecraft.util.FormattedCharSequence line : this.font.split(intro(), contentWidth())) {
+            graphics.drawString(this.font, line, centerX - this.font.width(line) / 2, warningY, introColor, true);
+            warningY += 10;
+        }
+        warningY += 4;
         for (net.minecraft.util.FormattedCharSequence line : this.font.split(
                 Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth())) {
             graphics.drawString(this.font, line, centerX - this.font.width(line) / 2, warningY, 0xFFE8AF50, false);
@@ -365,7 +382,7 @@ public class ModSyncConfirmScreen extends Screen {
         graphics.drawCenteredString(this.font,
                 countLine(sel),
                 centerX, this.height - 86, 0xFFFFFFFF);
-        graphics.drawCenteredString(this.font,
+        if (!plan.mods().isEmpty()) graphics.drawCenteredString(this.font,
                 Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
                 centerX, this.height - 72, 0xFFFFD966);
     }
@@ -410,10 +427,13 @@ public class ModSyncConfirmScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         graphics.centeredText(this.font, this.font.plainSubstrByWidth(this.title.getString(), contentWidth()), centerX, 14, 0xFFE9DFCB);
-        graphics.centeredText(this.font,
-                this.font.plainSubstrByWidth(intro().getString(), contentWidth()), centerX, 28,
-                unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
-        int warningY = 42;
+        int introColor = unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT;
+        int warningY = 28;
+        for (net.minecraft.util.FormattedCharSequence line : this.font.split(intro(), contentWidth())) {
+            graphics.text(this.font, line, centerX - this.font.width(line) / 2, warningY, introColor, true);
+            warningY += 10;
+        }
+        warningY += 4;
         for (net.minecraft.util.FormattedCharSequence line : this.font.split(
                 Component.translatable("peercraft.modsync.confirm.trust_reminder"), contentWidth())) {
             graphics.text(this.font, line, centerX - this.font.width(line) / 2, warningY, 0xFFE8AF50, false);
@@ -440,7 +460,7 @@ public class ModSyncConfirmScreen extends Screen {
         graphics.centeredText(this.font,
                 countLine(sel),
                 centerX, this.height - 86, 0xFFFFFFFF);
-        graphics.centeredText(this.font,
+        if (!plan.mods().isEmpty()) graphics.centeredText(this.font,
                 Component.translatable("peercraft.modsync.confirm.total", humanSize(sel.totalBytes())),
                 centerX, this.height - 72, 0xFFFFD966);
     }

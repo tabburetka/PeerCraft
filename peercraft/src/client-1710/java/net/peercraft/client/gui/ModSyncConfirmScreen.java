@@ -41,7 +41,6 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
     private enum ViewFilter {ALL, CLIENT_ONLY, REQUIRED}
 
-    private final String titleText = PeerCraftLang.tr("peercraft.modsync.confirm.title");
     private final ModSyncPlan plan;
     private final List<ModSyncPlan.PlannedMod> allMods;
     /** Ids of client-side downloads and of removals the player has unchecked. */
@@ -57,7 +56,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
-        super(PeerCraftLang.tr("peercraft.modsync.confirm.title"), 500, 440);
+        super(PeerCraftLang.tr(wordingKey(plan, "peercraft.modsync.confirm.title")), 500, 440);
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -99,13 +98,13 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     public void initGui() {
         super.initGui();
         this.buttonList.clear(); this.rowWidgets.clear();
-        int y = dialog.contentTop();
-        this.buttonList.add(CycleTextButton.create(dialog.contentX(), y, dialog.contentWidth(), dialog.buttonHeight(),
+        // The client/required filter only sorts downloads; a removal-only plan has nothing to filter.
+        if (!plan.mods().isEmpty()) this.buttonList.add(CycleTextButton.create(dialog.contentX(), dialog.contentTop(), dialog.contentWidth(), dialog.buttonHeight(),
                 Arrays.asList(ViewFilter.values()), filter, this::filterLabel, value -> {
                     filter = value; scroll = 0; rebuildRows();
                 }));
-        listTop = y + dialog.buttonPitch() + (summaryLines().size() + warningLines().size()) * 12 + 4;
-        dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.accept"), this::accept, true, 0, 2);
+        listTop = textTop() + (summaryLines().size() + warningLines().size()) * 12 + 4;
+        dialogAction(PeerCraftLang.tr(wordingKey(plan, "peercraft.modsync.confirm.accept")), this::accept, true, 0, 2);
         dialogAction(PeerCraftLang.tr("peercraft.modsync.confirm.cancel"), onCancel, false, 1, 2);
         rebuildRows();
     }
@@ -117,9 +116,24 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         for (ModSyncPlan.PlannedMod mod : allMods) {
             if (!isRemoval(mod) && mod.catalogStatus() != ModSyncPlan.CatalogStatus.PUBLISHED) count++;
         }
-        return count == 0 ? java.util.Collections.emptyList()
-                : PeerCraftUi.wrap(this.fontRendererObj, PeerCraftLang.tr("peercraft.modsync.confirm.catalog_summary", count, plan.count()),
-                        Math.max(1, dialog.contentWidth() - 8));
+        String text;
+        if (count > 0) text = PeerCraftLang.tr("peercraft.modsync.confirm.catalog_summary", count, plan.count());
+        else if (plan.removals().isEmpty()) return java.util.Collections.emptyList();
+        else text = plan.mods().isEmpty()
+                ? PeerCraftLang.tr("peercraft.modsync.confirm.intro_remove", plan.removals().size())
+                : PeerCraftLang.tr("peercraft.modsync.confirm.intro_mixed", plan.count(), plan.removals().size());
+        return PeerCraftUi.wrap(this.fontRendererObj, text, Math.max(1, dialog.contentWidth() - 8));
+    }
+
+    /** Below the filter button, or at the top when there is no filter. */
+    private int textTop() {
+        return plan.mods().isEmpty() ? dialog.contentTop() : dialog.contentTop() + dialog.buttonPitch();
+    }
+
+    /** Downloads only, removals only, or both: the wording follows what will actually change. */
+    private static String wordingKey(ModSyncPlan plan, String key) {
+        if (plan.removals().isEmpty()) return key;
+        return key + (plan.mods().isEmpty() ? "_remove" : "_mixed");
     }
     private int selectionInfoY() { return backY() - dialog.buttonPitch() - 28; }
 
@@ -261,6 +275,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     private String countLine(ModSyncPlan selected) {
         String downloads = PeerCraftLang.tr("peercraft.modsync.confirm.count_selected", selected.count(), plan.count());
         if (plan.removals().isEmpty()) return downloads;
+        if (plan.mods().isEmpty()) return PeerCraftLang.tr("peercraft.modsync.confirm.remove_selected", selected.removals().size(), plan.removals().size());
         return downloads + " · " + PeerCraftLang.tr("peercraft.modsync.confirm.remove_selected", selected.removals().size(), plan.removals().size());
     }
 
@@ -273,7 +288,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
-        int y = dialog.contentTop() + dialog.buttonPitch();
+        int y = textTop();
         for (String line : summaryLines()) { this.drawCenteredString(this.fontRendererObj, line, width / 2, y, PeerCraftUi.TEXT_ACCENT); y += 12; }
         for (String line : warningLines()) { this.drawCenteredString(this.fontRendererObj, line, width / 2, y, PeerCraftUi.TEXT_ERROR); y += 12; }
         List<ModSyncPlan.PlannedMod> vis = visibleMods();
@@ -289,7 +304,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
             this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(rowName(m), textWidth), textX, rowY + 2, PeerCraftUi.TEXT_TITLE);
             String tag = PeerCraftLang.tr(client ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required");
             String details = isRemoval(m)
-                    ? PeerCraftLang.tr("peercraft.modsync.operation.remove") + " · " + tag + " · " + PeerCraftLang.tr("peercraft.modsync.confirm.not_on_host")
+                    ? PeerCraftLang.tr("peercraft.modsync.operation.remove") + " · " + PeerCraftLang.tr("peercraft.modsync.confirm.not_on_host")
                     : PeerCraftLang.tr(m.replacement() == null ? "peercraft.modsync.operation.add" : "peercraft.modsync.operation.replace") + " · " + catalogLabel(m) + " · " + tag + " · " + humanSize(e.sizeBytes()) + " · " + sourceLabel(m);
             this.fontRendererObj.drawStringWithShadow(this.fontRendererObj.trimStringToWidth(details, textWidth), textX, rowY + 14,
                     catalogColor(m));
@@ -302,7 +317,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         ModSyncPlan selected = plan.excluding(deselected);
         this.drawCenteredString(this.fontRendererObj, this.fontRendererObj.trimStringToWidth(countLine(selected), dialog.contentWidth()),
                 width / 2, selectionInfoY(), PeerCraftUi.TEXT_TITLE);
-        this.drawCenteredString(this.fontRendererObj, this.fontRendererObj.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())), dialog.contentWidth()),
+        if (!plan.mods().isEmpty()) this.drawCenteredString(this.fontRendererObj, this.fontRendererObj.trimStringToWidth(PeerCraftLang.tr("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())), dialog.contentWidth()),
                 width / 2, selectionInfoY() + 12, PeerCraftUi.TEXT_ACCENT);
         super.drawScreen(mouseX, mouseY, partialTicks);
         if (hovered != null) drawHoveringText(hovered, mouseX, mouseY, this.fontRendererObj);

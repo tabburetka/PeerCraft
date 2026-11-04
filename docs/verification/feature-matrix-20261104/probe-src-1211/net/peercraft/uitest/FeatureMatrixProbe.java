@@ -248,7 +248,10 @@ public final class FeatureMatrixProbe implements ClientModInitializer {
                 mark("FM_REMOVAL_UNTICKED");
                 capture(mc, scenario + "-modsync-confirm-unticked");
             }
-            press(find(s, tr("peercraft.modsync.confirm.accept")));
+            // The accept label follows the plan: downloads, removals only, or both.
+            String acceptKey = plan.removals().isEmpty() ? "peercraft.modsync.confirm.accept"
+                    : plan.mods().isEmpty() ? "peercraft.modsync.confirm.accept_remove" : "peercraft.modsync.confirm.accept_mixed";
+            press(find(s, tr(acceptKey)));
         } else if (s instanceof ModSyncRestartRequiredScreen) {
             if (ticksOn(s) < 15) return;
             handled.add(s);

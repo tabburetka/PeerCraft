@@ -38,6 +38,8 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     private int listTop;
     private int listBottom;
     private java.util.List<String> reminderLines;
+    private java.util.List<String> introLines;
+    private int reminderTop;
     private static final int ROW_HEIGHT = 24;
 
     private enum ViewFilter {ALL, CLIENT_ONLY, REQUIRED}
@@ -58,7 +60,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
                                 Set<String> initiallyDeselected,
                                 Consumer<Set<String>> onAccept,
                                 Runnable onCancel) {
-        super(new TranslatableComponent("peercraft.modsync.confirm.title"), 500);
+        super(new TranslatableComponent(wordingKey(plan, "peercraft.modsync.confirm.title")), 500);
         this.plan = plan;
         this.onAccept = onAccept;
         this.onCancel = onCancel;
@@ -100,13 +102,17 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     protected void init() {
         super.init();
         rowWidgets.clear();
+        introLines = PeerCraftUi.wrap(font, intro(), dialog.contentWidth());
+        reminderTop = dialog.contentTop() + introLines.size() * font.lineHeight + 5;
         reminderLines = PeerCraftUi.wrap(font, new TranslatableComponent("peercraft.modsync.confirm.trust_reminder").getString(), dialog.contentWidth());
-        int filterY = dialog.contentTop() + 14 + reminderLines.size() * font.lineHeight + 4;
+        int filterY = reminderTop + reminderLines.size() * font.lineHeight + 4;
         filterButton = addButton(Btn.builder(filterLabel(), b -> cycleFilter())
                 .bounds(dialog.contentX(), filterY, dialog.contentWidth(), dialog.buttonHeight()).build());
-        dialogAction(new TranslatableComponent("peercraft.modsync.confirm.accept"), b -> accept(), true, 0, 2);
+        // The client/required filter only sorts downloads; a removal-only plan has nothing to filter.
+        filterButton.visible = !plan.mods().isEmpty();
+        dialogAction(new TranslatableComponent(wordingKey(plan, "peercraft.modsync.confirm.accept")), b -> accept(), true, 0, 2);
         dialogAction(new TranslatableComponent("peercraft.modsync.confirm.cancel"), b -> onCancel.run(), false, 1, 2);
-        listTop = filterY + dialog.buttonPitch();
+        listTop = plan.mods().isEmpty() ? filterY : filterY + dialog.buttonPitch();
         listBottom = bodyBottom() - 24;
         rebuildRows();
     }
@@ -263,13 +269,29 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
 
     private String removalDetail(ModSyncPlan.PlannedMod mod) {
         return new TranslatableComponent("peercraft.modsync.operation.remove").getString() + " · "
-                + new TranslatableComponent(isClient(mod) ? "peercraft.modsync.confirm.tag_client" : "peercraft.modsync.confirm.tag_required").getString()
-                + " · " + new TranslatableComponent("peercraft.modsync.confirm.not_on_host").getString();
+                + new TranslatableComponent("peercraft.modsync.confirm.not_on_host").getString();
+    }
+
+    /** Downloads only, removals only, or both: the wording follows what will actually change. */
+    private static String wordingKey(ModSyncPlan plan, String key) {
+        if (plan.removals().isEmpty()) return key;
+        return key + (plan.mods().isEmpty() ? "_remove" : "_mixed");
+    }
+
+    private String intro() {
+        int unconfirmed = unconfirmedCount();
+        if (unconfirmed > 0) return new TranslatableComponent("peercraft.modsync.confirm.catalog_summary", unconfirmed, plan.count()).getString();
+        if (plan.removals().isEmpty()) return new TranslatableComponent("peercraft.modsync.confirm.intro2", plan.count()).getString();
+        return plan.mods().isEmpty()
+                ? new TranslatableComponent("peercraft.modsync.confirm.intro_remove", plan.removals().size()).getString()
+                : new TranslatableComponent("peercraft.modsync.confirm.intro_mixed", plan.count(), plan.removals().size()).getString();
     }
 
     private Component countLine(ModSyncPlan selected) {
         String downloads = new TranslatableComponent("peercraft.modsync.confirm.count_selected", selected.count(), plan.count()).getString();
         if (plan.removals().isEmpty()) return new TextComponent(downloads);
+        if (plan.mods().isEmpty()) return new TranslatableComponent("peercraft.modsync.confirm.remove_selected",
+                selected.removals().size(), plan.removals().size());
         return new TextComponent(downloads + " · " + new TranslatableComponent("peercraft.modsync.confirm.remove_selected",
                 selected.removals().size(), plan.removals().size()).getString());
     }
@@ -283,14 +305,11 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
     @Override
     public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
         renderBackground(poseStack);
-        int unconfirmed = unconfirmedCount();
-        Component intro = unconfirmed == 0
-                ? new TranslatableComponent("peercraft.modsync.confirm.intro2", plan.count())
-                : new TranslatableComponent("peercraft.modsync.confirm.catalog_summary", unconfirmed, plan.count());
-        GuiComponent.drawCenteredString(poseStack, font, font.plainSubstrByWidth(intro.getString(), dialog.contentWidth()),
-                width / 2, dialog.contentTop(), unconfirmed == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT);
+        int introColor = unconfirmedCount() == 0 ? PeerCraftUi.TEXT_MUTED : PeerCraftUi.TEXT_ACCENT;
+        for (int i = 0; i < introLines.size(); i++) GuiComponent.drawCenteredString(poseStack, font, introLines.get(i), width / 2,
+                dialog.contentTop() + i * font.lineHeight, introColor);
         for (int i = 0; i < reminderLines.size(); i++) GuiComponent.drawCenteredString(poseStack, font, reminderLines.get(i), width / 2,
-                dialog.contentTop() + 14 + i * font.lineHeight, PeerCraftUi.TEXT_ERROR);
+                reminderTop + i * font.lineHeight, PeerCraftUi.TEXT_ERROR);
         List<ModSyncPlan.PlannedMod> mods = visibleMods();
         int rows = Math.min(visibleRows(), Math.max(0, mods.size() - scroll));
         for (int i = 0; i < rows; i++) {
@@ -309,7 +328,7 @@ public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
         ModSyncPlan selected = plan.excluding(deselected);
         GuiComponent.drawCenteredString(poseStack, font, countLine(selected),
                 width / 2, bodyBottom() - 22, PeerCraftUi.TEXT_TITLE);
-        GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())),
+        if (!plan.mods().isEmpty()) GuiComponent.drawCenteredString(poseStack, font, new TranslatableComponent("peercraft.modsync.confirm.total", humanSize(selected.totalBytes())),
                 width / 2, bodyBottom() - 11, PeerCraftUi.TEXT_ACCENT);
         super.render(poseStack, mouseX, mouseY, partialTick);
         if (mouseX >= dialog.contentX() && mouseX < dialog.contentX() + dialog.contentWidth() && mouseY >= listTop && mouseY < listTop + rows * ROW_HEIGHT) {
