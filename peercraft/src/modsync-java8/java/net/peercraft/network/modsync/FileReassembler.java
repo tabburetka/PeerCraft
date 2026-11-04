@@ -32,7 +32,7 @@ public final class FileReassembler implements AutoCloseable {
     private final long maxBytes;
     private final BitSet received;
     private final FileChannel channel;
-    private long bytesWritten;
+    private volatile long bytesWritten;
 
     public FileReassembler(Path partFile, long declaredSize, int chunkCount, int chunkSize, long maxBytes) throws IOException {
         if (chunkSize <= 0 || chunkCount < 0 || declaredSize < 0) {

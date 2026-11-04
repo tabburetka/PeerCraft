@@ -7,8 +7,8 @@ import net.peercraft.client.PeerCraftHostOptions;
 import net.peercraft.client.gui.HandoffReclaimConfirmScreen;
 import net.peercraft.client.gui.PeerCraftUi;
 import net.peercraft.network.handoff.HandoffProtocol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +37,7 @@ import java.util.zip.ZipInputStream;
  */
 public final class SuccessorLauncher {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     public interface Done {
         void serverPublished();

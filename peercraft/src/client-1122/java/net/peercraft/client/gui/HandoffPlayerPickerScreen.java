@@ -57,7 +57,7 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
             int index = i + scrollOffset;
             P2PBridge.HandoffCandidate c = candidates.get(index);
             String name = displayName(server, c, index);
-            boolean eligible = c.signedIn() && !c.declinedSuccessor();
+            boolean eligible = handoffAvailable() && c.signedIn() && !c.declinedSuccessor();
             String label = !c.signedIn() ? PeerCraftLang.tr("peercraft.handoff.picker.row_not_signed_in", name)
                     : c.declinedSuccessor() ? PeerCraftLang.tr("peercraft.handoff.picker.row_declined_successor", name)
                     : PeerCraftLang.tr("peercraft.handoff.picker.hand_off", name);
@@ -65,7 +65,9 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
                     .bounds(dialog.contentX(), listTop + i * dialog.buttonPitch(), dialog.contentWidth() - 8, dialog.buttonHeight()).build();
             b.enabled = eligible; this.buttonList.add(b); rowLabels.add(label);
         }
-        dialogAction(PeerCraftLang.tr("peercraft.handoff.picker.cancel"), () -> PeerCraftUi.setScreen(this.mc, lastScreen), false, 0, 1);
+        dialogAction(PeerCraftLang.tr("peercraft.session.monitor_button"),
+                () -> PeerCraftUi.setScreen(mc, new PeerCraftSessionScreen(this)), false, 0, 2);
+        dialogAction(PeerCraftLang.tr("peercraft.handoff.picker.cancel"), () -> PeerCraftUi.setScreen(this.mc, lastScreen), false, 1, 2);
     }
 
     @Override
@@ -76,7 +78,13 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
     }
 
     /** Preserve the configured confirmation gate before starting any transfer. */
+    private boolean handoffAvailable() {
+        return net.peercraft.config.PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous()
+                && !P2PBridge.INSTANCE.handoffInProgress();
+    }
+
     private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
+        if (!handoffAvailable()) return;
         if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) { choose(c, name); return; }
         PeerCraftUi.setScreen(this.mc, new PeerCraftConfirmScreen(result -> {
             if (result) choose(c, name); else PeerCraftUi.setScreen(this.mc, this);
@@ -202,7 +210,7 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
     }
 
     private List<String> introLines() {
-        return PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr("peercraft.handoff.picker.intro"),
+        return PeerCraftUi.wrap(this.fontRenderer, PeerCraftLang.tr((handoffAvailable() ? "peercraft.handoff.picker.intro" : "peercraft.handoff.picker.inactive_intro")),
                 dialog.contentWidth() - 8);
     }
 

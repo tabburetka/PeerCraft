@@ -11,14 +11,14 @@ import net.peercraft.config.PeerCraftSettingsStore;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Optional;
 
 /** Loader-agnostic client init — called from each loader's thin client entrypoint. */
 public final class PeerCraftClientCommon {
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     private PeerCraftClientCommon() {
     }
@@ -39,6 +39,9 @@ public final class PeerCraftClientCommon {
             net.peercraft.network.telemetry.Telemetry.setEnabled(false);
             LOGGER.debug("[PeerCraft] Diagnostics initialization skipped");
         }
+
+        try { net.peercraft.client.update.UpdateChecker.startOnce(); }
+        catch (RuntimeException e) { LOGGER.debug("[PeerCraft] Update check skipped: {}", e.toString()); }
 
         net.peercraft.network.handoff.WorldInstallRecovery.start(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory());

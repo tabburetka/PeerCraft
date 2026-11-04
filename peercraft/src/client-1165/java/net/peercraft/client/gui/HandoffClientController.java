@@ -10,8 +10,8 @@ import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.network.p2p.PeerAddress;
 import net.peercraft.platform.Services;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ import java.util.UUID;
  */
 public final class HandoffClientController {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     public static final HandoffClientController INSTANCE = new HandoffClientController();
 

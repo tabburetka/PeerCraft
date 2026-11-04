@@ -3,8 +3,8 @@ package net.peercraft.client.modsync;
 import net.peercraft.modsync.install.ModSyncInstaller;
 import net.peercraft.network.modsync.ModSyncPlan;
 import net.peercraft.platform.Services;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import java.io.*;
 import java.nio.channels.*;
 import java.nio.file.*;
@@ -13,7 +13,7 @@ import java.util.function.BooleanSupplier;
 
 /** Starts the bundled helper while the game still owns a JVM-lifetime lock. */
 public final class ModSyncPendingInstaller {
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     // Strong references are intentional: never close these from a shutdown hook.
     private static FileChannel gameChannel;
     private static FileLock gameLock;

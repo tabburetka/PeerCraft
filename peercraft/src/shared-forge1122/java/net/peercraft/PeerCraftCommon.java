@@ -1,8 +1,8 @@
 package net.peercraft;
 
 import net.minecraft.util.ResourceLocation;  // 1.12.2 package (net.minecraft.resources in 1.16.5+)
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Loader-agnostic mod init — called from each loader's thin entrypoint.
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class PeerCraftCommon {
     public static final String MOD_ID = "peercraft";
 
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
     private PeerCraftCommon() {
     }

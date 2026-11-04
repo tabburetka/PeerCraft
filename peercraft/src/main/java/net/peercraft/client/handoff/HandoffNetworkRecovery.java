@@ -29,12 +29,24 @@ public final class HandoffNetworkRecovery {
                     Map<Path, HandoffJournal> latest = new HashMap<>();
                     Map<HandoffJournal, Long> times = new IdentityHashMap<>();
                     try (DirectoryStream<Path> files = Files.newDirectoryStream(journals, "*.journal")) {
+                        int count = 0;
                         for (Path file : files) {
-                            if (pending.size() >= 1000 || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) > 65536)
+                            if (++count > 1000 || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) > 65536)
                                 throw new IOException("Invalid or excessive unresolved handoff journals");
                             HandoffJournal j = HandoffJournal.read(file);
                             if (!file.getFileName().toString().equals(j.session + "-" + Long.toHexString(j.offer) + ".journal"))
                                 throw new IOException("Recovery identity does not match journal");
+                            Set<Path> copied = copiedWorlds(saves, j);
+                            if (copied != null) {
+                                IOException relocated = new IOException("Handoff journal belongs to another saves directory; retained: " + file);
+                                org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Foreign journal retained without recovery: {}", file);
+                                for (Path world : copied) {
+                                    CompletableFuture<Void> blocked = new CompletableFuture<>();
+                                    blocked.completeExceptionally(relocated);
+                                    worlds.put(world, blocked);
+                                }
+                                continue;
+                            }
                             pending.add(j); times.put(j, Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis());
                             for (String path : Arrays.asList(j.source, j.target)) if (!path.isEmpty()) {
                                 Path world = savePath(saves, path);
@@ -47,6 +59,14 @@ public final class HandoffNetworkRecovery {
                     // Register every affected path before allowing any native opening.
                     Map<Path, List<CompletableFuture<Void>>> checks = new HashMap<>();
                     for (HandoffJournal j : pending) {
+                        boolean copiedConflict = false;
+                        for (String path : Arrays.asList(j.source, j.target)) if (!path.isEmpty())
+                            copiedConflict |= worlds.get(savePath(saves, path)).isCompletedExceptionally();
+                        if (copiedConflict) {
+                            for (String path : Arrays.asList(j.source, j.target)) if (!path.isEmpty())
+                                worlds.get(savePath(saves, path)).completeExceptionally(new IOException("Conflicting copied handoff journal"));
+                            continue;
+                        }
                         String protectedPath = "SOURCE".equals(j.role) ? j.source : j.target;
                         if (!protectedPath.isEmpty() && latest.get(savePath(saves, protectedPath)) != j) continue;
                         CompletableFuture<Void> resolved = new CompletableFuture<>();
@@ -55,7 +75,7 @@ public final class HandoffNetworkRecovery {
                         workers.execute(() -> {
                             try { recover(j, saves, grants, modernLock); resolved.complete(null); }
                             catch (Exception failure) {
-                                org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Recovery unconfirmed; attempt {} retained", j.offer, failure);
+                                org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Recovery unconfirmed; attempt {} retained", j.offer, failure);
                                 resolved.completeExceptionally(failure);
                             }
                         });
@@ -70,9 +90,35 @@ public final class HandoffNetworkRecovery {
                 scanned.complete(null);
             } catch (Exception corrupt) {
                 // A corrupt record has no trustworthy path. Do not guess which world it protects.
+                org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Journal scan failed; records retained", corrupt);
                 scanned.completeExceptionally(corrupt);
             } finally { workers.shutdown(); }
         }, "PeerCraft-Handoff-Journal-Scan"); scan.setDaemon(true); scan.start();
+    }
+    /** A copied instance must not recover paths in its original instance. Keep possible local
+     * copies closed, but do not block unrelated worlds. Never rewrite the persisted paths. */
+    static Set<Path> copiedWorlds(Path saves, HandoffJournal journal) throws IOException {
+        Path root = saves.toAbsolutePath().normalize();
+        Set<Path> candidates = new HashSet<>();
+        boolean foreign = false;
+        for (String value : Arrays.asList(journal.source, journal.target)) if (!value.isEmpty()) {
+            Path path = Paths.get(value);
+            if (!path.isAbsolute()) throw new IOException("Relative journal world path");
+            path = path.normalize();
+            if (root.equals(path.getParent())) {
+                savePath(root, value); candidates.add(path);
+            } else {
+                // Only recognize direct world paths under a different saves directory.
+                // Unrecognizable/malformed records still require explicit recovery.
+                if (path.getParent() == null || path.getParent().getFileName() == null
+                        || !"saves".equals(path.getParent().getFileName().toString()))
+                    throw new IOException("Journal world outside a saves directory");
+                foreign = true;
+                Path local = root.resolve(path.getFileName());
+                if (Files.exists(local, LinkOption.NOFOLLOW_LINKS)) candidates.add(local);
+            }
+        }
+        return foreign ? candidates : null;
     }
     private static Path savePath(Path saves, String path) throws IOException {
         Path root = saves.toAbsolutePath().normalize(), world = Paths.get(path).toAbsolutePath().normalize();

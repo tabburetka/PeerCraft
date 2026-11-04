@@ -51,6 +51,7 @@ public class PeerCraftFriendRequestsScreen extends PeerCraftDialogScreen {
             AccountClient.INSTANCE.listIncomingRequests(new AccountClient.FriendRequestListCallback() {
                 @Override
                 public void onResult(List<AccountClient.IncomingRequest> result) {
+                    FriendRequestNotifier.update(result);
                     runOnClientThread(() -> {
                         if (stillOnThisScreen()) {
                             requests = result;
@@ -111,6 +112,7 @@ public class PeerCraftFriendRequestsScreen extends PeerCraftDialogScreen {
                         pending.remove(request.fromAccountId());
                         requests = new java.util.ArrayList<>(requests);
                         requests.remove(request);
+                        FriendRequestNotifier.update(requests);
                         statusMessage = TextComponent.EMPTY;
                         init();
                     }

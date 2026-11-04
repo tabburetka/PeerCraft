@@ -1,8 +1,8 @@
 package net.peercraft.network.handoff;
 
 import net.peercraft.network.modsync.FileReassembler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -30,9 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>No {@code net.minecraft.*}. Java-8-source-clean. Callbacks fire on this class's own
  * daemon threads.
  */
-public final class WorldTransfer {
+public final class WorldTransfer implements net.peercraft.network.diagnostics.TransferRegistry.Source {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     /** A multi-hundred-MB save on a home uplink can take a long time — well past mod-sync's 30 min. */
     static final long TRANSFER_TIMEOUT_MILLIS = 60L * 60_000L;
@@ -101,6 +101,7 @@ public final class WorldTransfer {
         this.sender = sender;
         this.peerIp = peerIp;
         this.peerPort = peerPort;
+        net.peercraft.network.diagnostics.TransferRegistry.register(this);
     }
 
     public static WorldTransfer host(long transferId, Path zip, long size, byte[] sha512,
@@ -124,6 +125,15 @@ public final class WorldTransfer {
         t.recvCb = cb;
         return t;
     }
+
+    @Override public java.util.List<net.peercraft.network.diagnostics.TransferRegistry.Entry> diagnosticTransfers() {
+        if (stopped.get() || finished || (isHost && sendLoopDone.get()) || worker == null) return java.util.Collections.emptyList();
+        FileReassembler r = reassembler;
+        long total = isHost ? size : (r == null ? 0 : diagnosticSize);
+        long done = isHost ? (long) Math.max(0, highestAcked) * WorldTransferProtocol.CHUNK_PAYLOAD : (r == null ? 0 : r.bytesWritten());
+        return java.util.Collections.singletonList(new net.peercraft.network.diagnostics.TransferRegistry.Entry("world.zip", total - done));
+    }
+    private volatile long diagnosticSize;
 
     public long transferId() {
         return transferId;
@@ -397,7 +407,8 @@ public final class WorldTransfer {
         }
         this.size = begin.size(); this.chunkCount = begin.chunkCount();
         this.expectedSha = begin.sha512();
-        this.reassembler = new FileReassembler(partFile, begin.size(), begin.chunkCount(), begin.chunkSize(), maxBytes);
+        this.diagnosticSize = begin.size();
+            reassembler = new FileReassembler(partFile, begin.size(), begin.chunkCount(), begin.chunkSize(), maxBytes);
         ensureAckThread();
         LOGGER.info("[WorldTransfer] Начат приём архива мира: {} байт, {} чанков", begin.size(), begin.chunkCount());
     }
@@ -491,6 +502,10 @@ public final class WorldTransfer {
     }
 
     private void send(byte[] data) {
+        if (data.length > 1 && data[1] == WorldTransferProtocol.T_CHUNK) {
+            try { net.peercraft.network.diagnostics.TransferTraffic.acquire(data.length); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); return; }
+        }
         try {
             sender.send(peerIp, peerPort, data);
         } catch (RuntimeException ignored) {

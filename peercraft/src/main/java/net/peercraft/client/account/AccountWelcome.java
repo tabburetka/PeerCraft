@@ -1,7 +1,7 @@
 package net.peercraft.client.account;
 
 import net.peercraft.platform.Services;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.IOException;
@@ -35,7 +35,7 @@ public final class AccountWelcome {
             Files.createDirectories(marker.getParent());
             Files.write(marker, new byte[0]);
         } catch (IOException | RuntimeException failure) {
-            LoggerFactory.getLogger("peercraft").warn("[PeerCraft] Could not save welcome marker: {}", failure.toString());
+            LogManager.getLogger("peercraft").warn("[PeerCraft] Could not save welcome marker: {}", failure.toString());
         }
         return !loggedIn;
     }

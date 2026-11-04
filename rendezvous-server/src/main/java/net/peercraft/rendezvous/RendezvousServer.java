@@ -35,7 +35,7 @@ public final class RendezvousServer implements AutoCloseable {
     // (nothing large enough to be useful for a UDP reflection/amplification attack could ever
     // be a valid request here). OUTGOING replies (e.g. a friends/search list with many
     // entries) are not bound by this — they're built and sent independently, see send(...).
-    private static final int MAX_DATAGRAM_SIZE = 512;
+    private static final int MAX_DATAGRAM_SIZE = 1200;
     private static final long SWEEP_INTERVAL_SECONDS = 30;
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
@@ -48,6 +48,8 @@ public final class RendezvousServer implements AutoCloseable {
 
     private final int port;
     private final RoomRegistry registry;
+    private final AdmissionRegistry admission;
+    private final RateLimiter<InetAddress> admissionRateLimiter;
     private final HandoffRegistry handoffs;
     private final HandoffDispatch handoffIo;
     private final AccountService accountService;
@@ -102,6 +104,9 @@ public final class RendezvousServer implements AutoCloseable {
         try { this.handoffs = new HandoffRegistry(dataDir.resolve("handoffs"), clock); }
         catch (IOException e) { throw new java.io.UncheckedIOException(e); }
         this.accountService = new AccountService(dataDir.resolve("accounts.json"), fakeMojang, clock);
+        this.admission = new AdmissionRegistry(registry, clock, accountService::isFriend,
+                id -> accountService.displayNameOf(id).orElse("Player"), dataDir.resolve("admission-blocks.txt"));
+        this.admissionRateLimiter = new RateLimiter<>(600, 60_000L, clock);
         this.relayMatches = new RelayMatchRegistry(clock);
         this.roomListRateLimiter = new RateLimiter<>(ROOM_LIST_RATE_LIMIT, ROOM_LIST_RATE_WINDOW_MILLIS, clock);
         this.candidateRateLimiter = new RateLimiter<>(120, 60_000L, clock);
@@ -202,7 +207,9 @@ public final class RendezvousServer implements AutoCloseable {
                     InetAddress fromAddr = packet.getAddress();
                     String from = fromAddr != null ? fromAddr.getHostAddress() + ":" + packet.getPort() : "unknown sender";
                     logErr("Error handling packet from " + from + ": " + e);
-                    e.printStackTrace();
+                    java.io.StringWriter trace = new java.io.StringWriter();
+                    e.printStackTrace(new java.io.PrintWriter(trace));
+                    logErr(trace.toString());
                 }
             }
         }
@@ -244,6 +251,28 @@ public final class RendezvousServer implements AutoCloseable {
     }
 
     private void handle(DatagramSocket socket, byte[] data, InetAddress fromAddr, int fromPort) throws IOException {
+        if (net.peercraft.network.admission.AdmissionProtocol.isMessage(data, data.length)) {
+            if (!admissionRateLimiter.allow(fromAddr)) return;
+            var m = net.peercraft.network.admission.AdmissionProtocol.decode(data, data.length);
+            var from = new RendezvousProtocol.Address(fromAddr, fromPort);
+            if (analytics != null) analytics.request(m.op == net.peercraft.network.admission.AdmissionProtocol.REGISTER ? "register" : "admission", fromAddr, data.length);
+            if (m.op == net.peercraft.network.admission.AdmissionProtocol.REGISTER) {
+                if (RendezvousProtocol.messageType(m.payload, m.payload.length) != RendezvousProtocol.TYPE_REGISTER || m.status > 1)
+                    throw new IllegalArgumentException("Invalid admission registration");
+                handleRegister(socket, m.payload, from, m.status != 0);
+            } else {
+                var actor = accountService.resolveSession(m.token);
+                if (actor.isEmpty()) {
+                    var reply = net.peercraft.network.admission.AdmissionProtocol.message(
+                        net.peercraft.network.admission.AdmissionProtocol.STATUS, m.id, m.room, new byte[16],
+                        net.peercraft.network.admission.AdmissionProtocol.AUTH_REQUIRED);
+                    send(socket, net.peercraft.network.admission.AdmissionProtocol.encode(reply), from);
+                } else for (var reply : admission.handle(m, actor.get(), fromAddr.getHostAddress()))
+                    send(socket, net.peercraft.network.admission.AdmissionProtocol.encode(reply), from);
+            }
+            return;
+        }
+
         if (net.peercraft.network.telemetry.TelemetryProtocol.isEvent(data, data.length)) {
             byte[] ack = telemetry.accept(data, fromAddr);
             if (ack != null) socket.send(new DatagramPacket(ack, ack.length, fromAddr, fromPort));
@@ -347,6 +376,9 @@ public final class RendezvousServer implements AutoCloseable {
     }
 
     private void handleRegister(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from) throws IOException {
+        handleRegister(socket, data, from, null);
+    }
+    private void handleRegister(DatagramSocket socket, byte[] data, RendezvousProtocol.Address from, Boolean protect) throws IOException {
         RendezvousProtocol.Register register = RendezvousProtocol.decodeRegister(data, data.length);
         // A REGISTER's self-reported accountId is never trusted unchecked — only linked to
         // presence/friends if its attached sessionToken actually resolves to that exact
@@ -355,10 +387,15 @@ public final class RendezvousServer implements AutoCloseable {
         // friends-only gate can never end up checking against a spoofed identity.
         java.util.Optional<java.util.UUID> verifiedAccountId = register.account().flatMap(ref ->
                 accountService.resolveSession(ref.sessionToken()).filter(resolved -> resolved.equals(ref.accountId())));
+        if (protect != null && protect && register.publicRoom() && verifiedAccountId.isEmpty()) {
+            send(socket, RendezvousProtocol.encodeJoinFail(RendezvousProtocol.REASON_ACCOUNT_REQUIRED), from); return;
+        }
         boolean friendsOnly = register.friendsOnly() && verifiedAccountId.isPresent();
         RoomRegistry.RegisterResult result = registry.register(from, register.maxPlayers(), register.currentPlayerCount(),
                 verifiedAccountId, friendsOnly, register.publicRoom(), register.worldName(), register.mcVersion(), register.connectivity());
         if (result instanceof RoomRegistry.Registered registered) {
+            admission.register(registered.code(), verifiedAccountId.orElse(null),
+                    protect == null ? register.publicRoom() : protect, protect != null);
             relayMatches.observeHost(registered.code(), verifiedAccountId.orElse(null),
                     register.connectivity().map(ad -> ad.relayCapable() && ad.relayConsent()).orElse(false),
                     register.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));
@@ -396,6 +433,10 @@ public final class RendezvousServer implements AutoCloseable {
             send(socket, RendezvousProtocol.encodeJoinFail(RendezvousProtocol.REASON_ACCOUNT_REQUIRED), from);
             if (analytics != null) analytics.event("join.account_required");
             return;
+        }
+        if (registry.hasAdmissionRoom(join.code()) && !admission.authorizeJoin(join.code(), joinerAccountId.get(),
+                join.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null))) {
+            send(socket, RendezvousProtocol.encodeJoinFail((byte) 7), from); return;
         }
         RoomRegistry.JoinResult result = registry.join(join.code(), from, joinerAccountId, accountService::isFriend,
                 join.connectivity().map(RendezvousProtocol.ConnectivityAdvertisement::clientAttemptId).orElse(null));
@@ -657,10 +698,10 @@ public final class RendezvousServer implements AutoCloseable {
     }
 
     private static void log(String message) {
-        System.out.println("[" + LocalTime.now().format(TIME_FORMAT) + "] [RendezvousServer] " + message);
+        System.out.println("[" + LocalTime.now().format(TIME_FORMAT) + "] [RendezvousServer] " + net.peercraft.network.privacy.NetworkPrivacy.redact(message));
     }
 
     private static void logErr(String message) {
-        System.err.println("[" + LocalTime.now().format(TIME_FORMAT) + "] [RendezvousServer] " + message);
+        System.err.println("[" + LocalTime.now().format(TIME_FORMAT) + "] [RendezvousServer] " + net.peercraft.network.privacy.NetworkPrivacy.redact(message));
     }
 }

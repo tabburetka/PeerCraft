@@ -153,7 +153,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             new Thread(() -> sourceStart(c, successor, successorKey, observerKey), "PeerCraft-Safe-Handoff-Source-Begin").start();
             return true;
         } catch (IOException | RuntimeException failure) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Could not begin source attempt", failure);
+            org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Could not begin source attempt", failure);
             callbacks.onAborted("peercraft.handoff.abort.transfer_failed"); return false;
         }
     }
@@ -260,7 +260,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
             }, c.operation, HandoffSourceFlow.Limits.defaults(), phase -> c.callbacks.onStatus("peercraft.handoff.status.transferring"));
             c.sourceFlow.start(); if (c.cancelled.get()) c.sourceFlow.cancel();
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Source setup failed before transfer", failure);
+            org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Source setup failed before transfer", failure);
             try {
                 if (!c.beginSent) { c.stopWorkers().get(); c.cleanup().get(); }
                 else if (c.operation.abort()) { c.stopWorkers().get(); c.cleanup().get(); }
@@ -338,7 +338,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 else if (m.type == PREFLIGHT && p.successor && p.consent.getNow(false)) p.preflight.complete(null);
                 else if (m.type == PREPARED && c.frozen) p.prepared.complete(null);
             }
-        } catch (IOException | RuntimeException invalid) { org.slf4j.LoggerFactory.getLogger("peercraft").debug("[Handoff] Ignored invalid control packet", invalid); }
+        } catch (IOException | RuntimeException invalid) { org.apache.logging.log4j.LogManager.getLogger("peercraft").debug("[Handoff] Ignored invalid control packet", invalid); }
     }
     public boolean onWorldPacket(byte[] bytes, int length, InetSocketAddress sender) {
         Context c = current; if (c == null || c.transfer == null) return false;
@@ -435,7 +435,7 @@ public final class SafeHandoffSession implements P2PBridge.HandoffControlReceive
                 candidate(c); return null;
             }).whenComplete((done, preflightFailure) -> {
                 if (preflightFailure != null) new Thread(() -> {
-                    org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Successor preflight failed", preflightFailure);
+                    org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Successor preflight failed", preflightFailure);
                     c.send(source, DECLINE, new byte[0]);
                     try { if (c.operation.abort()) { c.stopWorkers().get(); c.cleanup().get(); } }
                     catch (Exception unknown) { /* Retain all files when ABORT is unconfirmed. */ }

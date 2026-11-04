@@ -2,8 +2,8 @@ package net.peercraft.client.handoff;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,7 +32,7 @@ import java.util.UUID;
  */
 public final class PeercraftWorldMeta {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     public static final String FILE_NAME = "peercraft-world.json";
 

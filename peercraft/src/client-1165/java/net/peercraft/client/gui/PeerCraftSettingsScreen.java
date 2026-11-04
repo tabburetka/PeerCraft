@@ -92,6 +92,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case "peerHost": return "127.0.0.1";
             case "peerPort": return "";
             case "telemetry.enabled": return "false";
+            case "updateCheck.enabled": return "true";
             case "internetPlay": return "false";
             case "rendezvousHost": return PeerCraftConfig.DEFAULT_RENDEZVOUS_HOST;
             case "rendezvousPort": return "51000";
@@ -105,6 +106,7 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
             case "handoff": return "true";
             case "handoff.declineSuccessor": return "false";
             case "handoff.confirmBeforeOffer": return "true";
+            case "privacy.approveStrangers": return "true";
             case "handoff.chatNotify": return "true";
             default: return "";
         }
@@ -152,7 +154,9 @@ public class PeerCraftSettingsScreen extends PeerCraftDialogScreen {
         }
         this.rows.clear();
 
+        addRow("privacy.approveStrangers", KIND_BOOL, false, false, 0, 0, "approve_strangers");
         addRow("telemetry.enabled", KIND_BOOL, false, false, 0, 0, "telemetry");
+        addRow("updateCheck.enabled", KIND_BOOL, false, false, 0, 0, "update_check");
         addRow("modSync.client", KIND_MODSYNC, false, false, 0, 0, "modsync_client");
         addRow("modSync.host", KIND_MODSYNC, false, false, 0, 0, "modsync_host");
         addRow("modSync.reofferDeclined", KIND_BOOL, false, false, 0, 0, "reoffer_declined");

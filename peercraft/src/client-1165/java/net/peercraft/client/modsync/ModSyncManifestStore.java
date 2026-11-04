@@ -7,8 +7,8 @@ package net.peercraft.client.modsync;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.peercraft.platform.Services;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -25,7 +25,7 @@ import java.nio.file.StandardOpenOption;
  */
 public final class ModSyncManifestStore {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private ModSyncManifestStore() {

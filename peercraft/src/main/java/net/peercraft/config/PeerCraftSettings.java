@@ -29,6 +29,16 @@ public final class PeerCraftSettings {
     @SerializedName("_telemetryNoticeAcknowledged")
     public boolean telemetryNoticeAcknowledged;
 
+    @SerializedName("privacy.approveStrangers")
+    public String approveStrangers;
+
+    @SerializedName("updateCheck.enabled")
+    public String updateCheckEnabled;
+
+    /** The release whose title-screen notice the player closed; never part of {@link #toOverrideMap()}. */
+    @SerializedName("_updateNoticeDismissedVersion")
+    public String updateNoticeDismissedVersion;
+
     // ---- normal section -------------------------------------------------------------------
     @SerializedName("modSync.client")
     public String modSyncClient;
@@ -87,7 +97,7 @@ public final class PeerCraftSettings {
 
     /** Config-key ↔ field, in screen order. Used by both {@link #toOverrideMap()} and the screen. */
     public static final String[] FLAG_KEYS = {
-            "telemetry.enabled", "modSync.client", "modSync.host", "modSync.reofferDeclined",
+            "privacy.approveStrangers", "telemetry.enabled", "updateCheck.enabled", "modSync.client", "modSync.host", "modSync.reofferDeclined",
             "modSync.maxTotalMb", "modSync.maxModMb", "internetPlay", "maxPlayers",
             "handoff", "handoff.declineSuccessor", "handoff.confirmBeforeOffer", "handoff.chatNotify",
             "mode", "modSync.autoAccept", "rendezvousHost", "rendezvousPort",
@@ -97,6 +107,7 @@ public final class PeerCraftSettings {
     public String get(String key) {
         switch (key) {
             case "telemetry.enabled": return telemetryEnabled;
+            case "updateCheck.enabled": return updateCheckEnabled;
             case "modSync.client": return modSyncClient;
             case "modSync.host": return modSyncHost;
             case "modSync.reofferDeclined": return modSyncReofferDeclined;
@@ -107,6 +118,7 @@ public final class PeerCraftSettings {
             case "handoff": return handoff;
             case "handoff.declineSuccessor": return handoffDeclineSuccessor;
             case "handoff.confirmBeforeOffer": return handoffConfirmBeforeOffer;
+            case "privacy.approveStrangers": return approveStrangers;
             case "handoff.chatNotify": return handoffChatNotify;
             case "mode": return mode;
             case "modSync.autoAccept": return modSyncAutoAccept;
@@ -125,6 +137,7 @@ public final class PeerCraftSettings {
         String v = (value == null || value.trim().isEmpty()) ? null : value.trim();
         switch (key) {
             case "telemetry.enabled": telemetryEnabled = v; break;
+            case "updateCheck.enabled": updateCheckEnabled = v; break;
             case "modSync.client": modSyncClient = v; break;
             case "modSync.host": modSyncHost = v; break;
             case "modSync.reofferDeclined": modSyncReofferDeclined = v; break;
@@ -135,6 +148,7 @@ public final class PeerCraftSettings {
             case "handoff": handoff = v; break;
             case "handoff.declineSuccessor": handoffDeclineSuccessor = v; break;
             case "handoff.confirmBeforeOffer": handoffConfirmBeforeOffer = v; break;
+            case "privacy.approveStrangers": approveStrangers = v; break;
             case "handoff.chatNotify": handoffChatNotify = v; break;
             case "mode": mode = v; break;
             case "modSync.autoAccept": modSyncAutoAccept = v; break;

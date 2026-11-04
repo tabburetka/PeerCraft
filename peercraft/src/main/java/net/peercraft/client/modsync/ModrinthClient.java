@@ -6,8 +6,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModSyncPlan;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -47,7 +47,7 @@ import java.util.concurrent.Executors;
  */
 public final class ModrinthClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final String VERSION_FILE_API = "https://api.modrinth.com/v2/version_file/";
     private static final String PROJECTS_API = "https://api.modrinth.com/v2/projects?ids=";
     private static final Duration TIMEOUT = Duration.ofSeconds(12);

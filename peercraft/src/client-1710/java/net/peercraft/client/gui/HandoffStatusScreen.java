@@ -17,6 +17,8 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
 
     private final GuiScreen backScreen;
     private final String successorName;
+    private final String titleKey;
+    private Runnable recoveryProceed;
 
     private volatile String statusKey = "peercraft.handoff.status.offering";
     private volatile String terminalKey;
@@ -26,7 +28,12 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
     private boolean closeHandled;
 
     public HandoffStatusScreen(GuiScreen backScreen, String successorName) {
-        super(PeerCraftLang.tr("peercraft.handoff.picker.title"), 320, 400);
+        this(backScreen, successorName, false);
+    }
+
+    public HandoffStatusScreen(GuiScreen backScreen, String successorName, boolean recovery) {
+        super(PeerCraftLang.tr(recovery ? "peercraft.handoff.recovery.title" : "peercraft.handoff.picker.title"), 320, 400);
+        this.titleKey = recovery ? "peercraft.handoff.recovery.title" : "peercraft.handoff.picker.title";
         this.backScreen = backScreen;
         this.successorName = successorName;
     }
@@ -40,11 +47,14 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
     public void initGui() {
         super.initGui();
         int desiredHeight = dialog.headerHeight + 6 + Math.max(3, lines().size()) * 12
-                + 22 + (terminalKey == null ? 0 : dialog.buttonHeight());
-        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr("peercraft.handoff.picker.title"), 400);
+                + 22 + (terminalKey == null ? 0 : dialog.buttonHeight() + (recoveryProceed == null ? 0 : dialog.buttonPitch()));
+        dialog = new SteampunkDialog(width, height, desiredHeight, PeerCraftLang.tr(titleKey), 400);
         this.buttonList.clear();
         if (terminalKey == null) return;
-        if (success) dialogAction(net.minecraft.client.resources.I18n.format("menu.returnToMenu"), this::toTitle, true, 0, 1);
+        if (recoveryProceed != null) {
+            dialogAction(PeerCraftLang.tr("peercraft.handoff.recovery.proceed"), this::proceedAfterRecoveryFailure, false, 0, 2);
+            dialogAction(PeerCraftLang.tr("peercraft.handoff.stale.back"), this::backToScreen, true, 1, 2);
+        } else if (success) dialogAction(net.minecraft.client.resources.I18n.format("menu.returnToMenu"), this::toTitle, true, 0, 1);
         else dialogAction(PeerCraftLang.tr("peercraft.modsync.restart.back"), this::backToScreen, false, 0, 1);
     }
 
@@ -81,6 +91,20 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
             this.success = false;
             rebuild();
         });
+    }
+
+    /** Explicit local open only; never changes recovery journals or authority. */
+    public void onRecoveryFailed(Runnable proceed) {
+        this.recoveryProceed = proceed;
+        onAborted("peercraft.handoff.recovery.body");
+    }
+
+    private void proceedAfterRecoveryFailure() {
+        Runnable action = recoveryProceed;
+        if (action == null) return;
+        recoveryProceed = null; // Consume before re-entering native loading.
+        closeHandled = true;
+        action.run();
     }
 
     private void run(Runnable r) {

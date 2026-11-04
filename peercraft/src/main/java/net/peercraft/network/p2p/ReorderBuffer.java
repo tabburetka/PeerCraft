@@ -1,7 +1,7 @@
 package net.peercraft.network.p2p;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.TreeMap;
  */
 public final class ReorderBuffer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     /** Max datagrams buffered behind one missing seq before the session is declared broken. */
     public static final int MAX_PENDING = (int) longProp("peercraft.reorder.maxPending", 4096, 64, 1 << 20);

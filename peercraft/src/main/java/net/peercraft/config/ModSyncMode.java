@@ -1,7 +1,7 @@
 package net.peercraft.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Three-state mod-sync setting, used independently for the host side ({@code peercraft.modSync.host})
@@ -23,7 +23,7 @@ public enum ModSyncMode {
     REQUIRED("required"),
     ALL("all");
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     private final String key;
 

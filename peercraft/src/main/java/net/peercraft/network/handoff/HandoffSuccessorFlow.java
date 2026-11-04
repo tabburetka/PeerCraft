@@ -92,11 +92,11 @@ public final class HandoffSuccessorFlow {
         if (!ended.compareAndSet(false, true)) return;
         try { stopWorkers(); }
         catch (IOException failure) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
+            net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
             outcome = Outcome.STOP_FAILED;
         }
         try { steps.terminal(outcome, room); }
-        catch (RuntimeException callbackFailure) { org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure); }
+        catch (RuntimeException callbackFailure) { net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure); }
         finally { completion.complete(outcome); }
     }
     private void run() {
@@ -134,7 +134,7 @@ public final class HandoffSuccessorFlow {
             }
             finish(Outcome.READY, room.code);
         } catch (IOException | RuntimeException | InterruptedException failed) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Successor failed before/after COMMIT (committed={}, startRequested={})", committed, startRequested, failed);
+            net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Successor failed before/after COMMIT (committed={}, startRequested={})", committed, startRequested, failed);
             if (failed instanceof InterruptedException) Thread.currentThread().interrupt();
             try {
                 if (!committed) {

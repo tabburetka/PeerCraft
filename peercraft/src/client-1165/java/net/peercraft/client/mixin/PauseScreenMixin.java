@@ -1,22 +1,30 @@
 package net.peercraft.client.mixin;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
-import net.peercraft.client.gui.HandoffPlayerPickerScreen;
+import net.peercraft.client.gui.FriendRequestNotifier;
+import net.peercraft.client.gui.PeerCraftInGameMenuScreen;
 import net.peercraft.client.gui.PeerCraftUi;
 import net.peercraft.config.PeerCraftConfig;
-import net.peercraft.network.p2p.P2PBridge;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Adds the session and eligible handoff actions in one non-overlapping row. */
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * One small "PC" entry beside "Back to game" that opens the in-game PeerCraft menu (handoff,
+ * session monitor, join requests, friends). Never moves vanilla or other mods' buttons.
+ */
 @Mixin(PauseScreen.class)
 public abstract class PauseScreenMixin extends Screen {
 
@@ -25,33 +33,32 @@ public abstract class PauseScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void peercraft$addSessionButtons(CallbackInfo ci) {
+    private void peercraft$addMenuButton(CallbackInfo ci) {
         if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) return;
-        boolean handoff = PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous();
-        int bottom = 0;
+        List<int[]> occupied = new ArrayList<>();
+        int[] anchor = null;
         for (GuiEventListener child : children()) {
             if (child instanceof AbstractWidget) {
                 AbstractWidget widget = (AbstractWidget) child;
-                bottom = Math.max(bottom, widget.y + widget.getHeight());
+                int[] rect = {widget.x, widget.y, widget.getWidth(), widget.getHeight()};
+                occupied.add(rect);
+                // "Back to game" is the topmost full-width button of the vanilla menu.
+                if (widget.getWidth() >= 150 && (anchor == null || rect[1] < anchor[1])) anchor = rect;
             }
         }
+        // F3+Esc pause shows no menu at all — stay out of it too.
+        if (occupied.isEmpty()) return;
         net.peercraft.client.theme.SessionPauseLayout layout =
-                net.peercraft.client.theme.SessionPauseLayout.below(width, height, bottom, handoff);
-        if (layout.shiftUp > 0) for (GuiEventListener child : children()) {
-            if (child instanceof AbstractWidget) {
-                AbstractWidget widget = (AbstractWidget) child;
-                widget.y -= layout.shiftUp;
-            }
-        }
-        addButton(new Button(layout.left, layout.top, layout.buttonWidth, 20,
-                new TranslatableComponent("peercraft.session.title"),
-                b -> PeerCraftUi.setScreen(minecraft, new net.peercraft.client.gui.PeerCraftSessionScreen(this))));
-        if (handoff) {
-            Button button = new Button(layout.handoffLeft(), layout.top, layout.buttonWidth, 20,
-                    new TranslatableComponent("peercraft.handoff.menu.button"),
-                    b -> PeerCraftUi.setScreen(minecraft, new HandoffPlayerPickerScreen(this)));
-            button.active = !P2PBridge.INSTANCE.handoffInProgress();
-            addButton(button);
-        }
+                net.peercraft.client.theme.SessionPauseLayout.icon(width, height, occupied, anchor, 20);
+        int pending = FriendRequestNotifier.pendingCount();
+        Component label = pending > 0
+                ? new TextComponent("PC").withStyle(ChatFormatting.YELLOW)
+                : new TextComponent("PC");
+        Component tooltip = pending > 0
+                ? new TranslatableComponent("peercraft.ingame.button_tooltip_pending", pending)
+                : new TranslatableComponent("peercraft.ingame.button_tooltip");
+        addButton(new Button(layout.left, layout.top, 20, 20, label,
+                b -> PeerCraftUi.setScreen(minecraft, new PeerCraftInGameMenuScreen(this)),
+                (b, pose, mouseX, mouseY) -> renderTooltip(pose, tooltip, mouseX, mouseY)));
     }
 }

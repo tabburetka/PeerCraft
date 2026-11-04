@@ -1,8 +1,8 @@
 package net.peercraft.client.modsync;
 
 import net.peercraft.network.modsync.FileReassembler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,7 +24,7 @@ import java.time.Duration;
  */
 public final class ModDownloader {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(10);
 
@@ -49,7 +49,7 @@ public final class ModDownloader {
      */
     public byte[] download(String url, Path dest, long declaredSize, long maxBytes, ProgressSink progress) {
         Path parent = dest.toAbsolutePath().getParent();
-        try {
+        try (net.peercraft.network.diagnostics.DownloadSample sample = new net.peercraft.network.diagnostics.DownloadSample(dest.getFileName().toString(), declaredSize)) {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
@@ -79,6 +79,7 @@ public final class ModDownloader {
                         return null;
                     }
                     out.write(buf, 0, n);
+                    sample.progress(count,total);
                     progress.onProgress(count, total);
                 }
             }

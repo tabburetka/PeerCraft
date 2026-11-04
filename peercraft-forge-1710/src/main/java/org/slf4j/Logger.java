@@ -18,30 +18,30 @@ public final class Logger {
         this.delegate = LogManager.getLogger(name);
     }
 
-    public void trace(String msg) { delegate.trace(msg); }
-    public void trace(String fmt, Object arg) { delegate.trace(fmt, arg); }
-    public void trace(String fmt, Object a, Object b) { delegate.trace(fmt, a, b); }
-    public void trace(String fmt, Object... args) { delegate.trace(fmt, args); }
+    public void trace(String msg) { delegate.trace(net.peercraft.network.privacy.PrivateNetworkLogger.redact(msg)); }
+    public void trace(String fmt, Object arg) { delegate.trace(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(arg)); }
+    public void trace(String fmt, Object a, Object b) { delegate.trace(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(a), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(b)); }
+    public void trace(String fmt, Object... args) { delegate.trace(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), (Object[]) net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(args)); }
 
-    public void debug(String msg) { delegate.debug(msg); }
-    public void debug(String fmt, Object arg) { delegate.debug(fmt, arg); }
-    public void debug(String fmt, Object a, Object b) { delegate.debug(fmt, a, b); }
-    public void debug(String fmt, Object... args) { delegate.debug(fmt, args); }
+    public void debug(String msg) { delegate.debug(net.peercraft.network.privacy.PrivateNetworkLogger.redact(msg)); }
+    public void debug(String fmt, Object arg) { delegate.debug(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(arg)); }
+    public void debug(String fmt, Object a, Object b) { delegate.debug(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(a), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(b)); }
+    public void debug(String fmt, Object... args) { delegate.debug(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), (Object[]) net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(args)); }
 
-    public void info(String msg) { delegate.info(msg); }
-    public void info(String fmt, Object arg) { delegate.info(fmt, arg); }
-    public void info(String fmt, Object a, Object b) { delegate.info(fmt, a, b); }
-    public void info(String fmt, Object... args) { delegate.info(fmt, args); }
+    public void info(String msg) { delegate.info(net.peercraft.network.privacy.PrivateNetworkLogger.redact(msg)); }
+    public void info(String fmt, Object arg) { delegate.info(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(arg)); }
+    public void info(String fmt, Object a, Object b) { delegate.info(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(a), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(b)); }
+    public void info(String fmt, Object... args) { delegate.info(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), (Object[]) net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(args)); }
 
-    public void warn(String msg) { delegate.warn(msg); }
-    public void warn(String fmt, Object arg) { delegate.warn(fmt, arg); }
-    public void warn(String fmt, Object a, Object b) { delegate.warn(fmt, a, b); }
-    public void warn(String fmt, Object... args) { delegate.warn(fmt, args); }
+    public void warn(String msg) { delegate.warn(net.peercraft.network.privacy.PrivateNetworkLogger.redact(msg)); }
+    public void warn(String fmt, Object arg) { delegate.warn(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(arg)); }
+    public void warn(String fmt, Object a, Object b) { delegate.warn(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(a), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(b)); }
+    public void warn(String fmt, Object... args) { delegate.warn(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), (Object[]) net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(args)); }
 
-    public void error(String msg) { delegate.error(msg); }
-    public void error(String fmt, Object arg) { delegate.error(fmt, arg); }
-    public void error(String fmt, Object a, Object b) { delegate.error(fmt, a, b); }
-    public void error(String fmt, Object... args) { delegate.error(fmt, args); }
+    public void error(String msg) { delegate.error(net.peercraft.network.privacy.PrivateNetworkLogger.redact(msg)); }
+    public void error(String fmt, Object arg) { delegate.error(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(arg)); }
+    public void error(String fmt, Object a, Object b) { delegate.error(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(a), net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(b)); }
+    public void error(String fmt, Object... args) { delegate.error(net.peercraft.network.privacy.PrivateNetworkLogger.redact(fmt), (Object[]) net.peercraft.network.privacy.PrivateNetworkLogger.sanitize(args)); }
 
     public boolean isTraceEnabled() { return delegate.isTraceEnabled(); }
     public boolean isDebugEnabled() { return delegate.isDebugEnabled(); }

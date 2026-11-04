@@ -128,8 +128,10 @@ public class PeerCraftJoinScreen extends GuiScreen {
 
         this.connectButton.enabled = false;
         this.statusMessage = PeerCraftLang.tr("peercraft.gui.join.connecting");
+        AdmissionScreens.join(this, code, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(code, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(), newListener(),
                 new ClientModSyncAgent(this, code));
+        });
     }
 
     private void runOnClientThread(Runnable action) {
@@ -181,6 +183,7 @@ public class PeerCraftJoinScreen extends GuiScreen {
         super.drawScreen(mouseX, mouseY, partialTicks);
         boolean idle = statusMessage.isEmpty();
         String message = idle ? PeerCraftLang.tr("peercraft.gui.join.code_help") : statusMessage;
+        if (!idle && !connectButton.enabled) message += " · " + P2PBridge.INSTANCE.sessionMonitor().stageSeconds() + " s";
         dialog.status(this.fontRenderer, message,
                 dialog.contentTop() + 14 + dialog.buttonPitch() * 2,
                 Math.max(0, dialog.top + dialog.height - dialog.buttonHeight() - 20

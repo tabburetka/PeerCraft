@@ -6,8 +6,8 @@ import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.modsync.ModSyncHostProvider;
 import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class HostModSyncProviderImpl implements ModSyncHostProvider {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final long HASH_WAIT_MILLIS = 60_000;
 
     private final Path modsDir;
@@ -120,7 +120,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 return pm.version();
             }
         }
-        return "3.4.2";
+        return "3.4.3";
     }
 
     @Override

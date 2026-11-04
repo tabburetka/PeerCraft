@@ -14,8 +14,8 @@ import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     private final Screen lastScreen;
     private int scrollOffset;
@@ -49,7 +49,9 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
         introLines = introLines();
         int introRows = Math.min(introLines.size(), Math.max(1, (dialog.height - dialog.headerHeight - 100) / 12));
         listTop = dialog.contentTop() + introRows * 12 + 10;
-        dialogAction(new TranslatableComponent("peercraft.handoff.picker.cancel"), btn -> onClose(), false, 0, 1);
+        dialogAction(new TranslatableComponent("peercraft.session.monitor_button"),
+                btn -> PeerCraftUi.setScreen(minecraft, new PeerCraftSessionScreen(this)), false, 0, 2);
+        dialogAction(new TranslatableComponent("peercraft.handoff.picker.cancel"), btn -> onClose(), false, 1, 2);
         listBottom = bodyBottom();
         shownRows = Math.max(0, (listBottom - listTop) / dialog.buttonPitch());
         scrollOffset = Math.max(0, Math.min(scrollOffset, candidates.size() - shownRows));
@@ -58,7 +60,7 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
             int candidateIndex = i + scrollOffset;
             P2PBridge.HandoffCandidate candidate = candidates.get(candidateIndex);
             String name = displayName(server, candidate, candidateIndex);
-            boolean eligible = candidate.signedIn() && !candidate.declinedSuccessor();
+            boolean eligible = handoffAvailable() && candidate.signedIn() && !candidate.declinedSuccessor();
             TranslatableComponent label = !candidate.signedIn()
                     ? new TranslatableComponent("peercraft.handoff.picker.row_not_signed_in", name)
                     : candidate.declinedSuccessor()
@@ -72,7 +74,13 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
     }
 
     /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
+    private boolean handoffAvailable() {
+        return net.peercraft.config.PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous()
+                && !P2PBridge.INSTANCE.handoffInProgress();
+    }
+
     private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
+        if (!handoffAvailable()) return;
         if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) {
             choose(c, name);
             return;
@@ -212,7 +220,7 @@ public class HandoffPlayerPickerScreen extends PeerCraftDialogScreen {
 
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.font,
-                new TranslatableComponent("peercraft.handoff.picker.intro").getString(),
+                new TranslatableComponent((handoffAvailable() ? "peercraft.handoff.picker.intro" : "peercraft.handoff.picker.inactive_intro")).getString(),
                 dialog.contentWidth() - 10);
     }
 

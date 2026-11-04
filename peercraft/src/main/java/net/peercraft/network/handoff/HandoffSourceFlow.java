@@ -96,12 +96,12 @@ public final class HandoffSourceFlow {
         if (!ended.compareAndSet(false, true)) return;
         try { stopWorkers(); }
         catch (IOException failure) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
+            net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Attempt workers did not stop", failure);
             outcome = Outcome.RECOVERY_FAILED;
         }
         try { steps.terminal(outcome, room); }
         catch (RuntimeException callbackFailure) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure);
+            net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Terminal callback failed", callbackFailure);
         } finally { completion.complete(outcome); }
     }
     private void run() {
@@ -155,7 +155,7 @@ public final class HandoffSourceFlow {
             advance(HandoffPhases.Phase.ROOM_REGISTERED); advance(HandoffPhases.Phase.READY);
             finish(Outcome.READY, room);
         } catch (IOException | RuntimeException failed) {
-            org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Source failed in phase {}", phases.phase(), failed);
+            net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Source failed in phase {}", phases.phase(), failed);
             if (committed) { finish(Outcome.FAILED_AFTER_COMMIT, ""); return; }
             try {
                 if (!operation.abort()) {

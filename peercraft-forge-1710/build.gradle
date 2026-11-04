@@ -57,6 +57,7 @@ def syncSharedMain = tasks.register("syncSharedMain", Sync) {
 	into(filteredSharedMain)
 	exclude "net/peercraft/client/gui/**"
 	exclude "net/peercraft/client/mixin/**"
+	exclude "net/peercraft/client/skin/**"
 	exclude "net/peercraft/mixin/**"
 	exclude "net/peercraft/network/modsync/**"
 	exclude "net/peercraft/client/modsync/**"

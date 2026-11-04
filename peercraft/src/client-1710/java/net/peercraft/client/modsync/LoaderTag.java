@@ -6,8 +6,8 @@ package net.peercraft.client.modsync;
 // with the original.
 
 import net.peercraft.network.modsync.ModSyncProtocol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Which mod loader this client is running under, for mod-sync's loader-mismatch check.
@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class LoaderTag {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final ModSyncProtocol.Loader DETECTED = detectAndLog();
 
     private static ModSyncProtocol.Loader detectAndLog() {

@@ -15,8 +15,8 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.handoff.HandoffProtocol;
 import net.peercraft.network.handoff.LookupHostClient;
 import net.peercraft.network.p2p.P2PBridge;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +32,7 @@ import java.util.UUID;
  */
 public class HostMigrationScreen extends PeerCraftDialogScreen {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final long LOOKUP_TIMEOUT_MILLIS = 3 * 60_000L;
 
     private final UUID successorAccountId;
@@ -137,6 +137,7 @@ public class HostMigrationScreen extends PeerCraftDialogScreen {
         this.statusKey = "peercraft.handoff.migrating.body";
         leaveCurrentWorld();
         P2PBridge.INSTANCE.prepareForHandoffReconnect();
+        AdmissionScreens.join(this, roomCode, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(roomCode,
                 PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
@@ -149,6 +150,7 @@ public class HostMigrationScreen extends PeerCraftDialogScreen {
                     }
                 },
                 new ClientModSyncAgent(this, roomCode));
+        });
     }
 
     /** 1.16.5 has no {@code Minecraft.disconnect()}/{@code disconnect(Screen)} — vanilla's own

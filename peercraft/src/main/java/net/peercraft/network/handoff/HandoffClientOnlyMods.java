@@ -4,8 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +23,7 @@ import java.util.concurrent.*;
 
 /** Classifies whole client-side JARs before the hosting manifest is compared. Java 8 compatible. */
 public final class HandoffClientOnlyMods {
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final String API = "https://api.modrinth.com/v2/";
     private static final Set<String> OFFLINE_CLIENT_ONLY = Collections.singleton("appleskin");
     private static final ConcurrentMap<String, Boolean> SIDES = new ConcurrentHashMap<>();

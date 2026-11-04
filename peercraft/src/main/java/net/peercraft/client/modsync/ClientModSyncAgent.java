@@ -23,8 +23,8 @@ import net.peercraft.network.modsync.ModSyncPlan;
 import net.peercraft.network.modsync.ModSyncProtocol;
 import net.peercraft.platform.Services;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,7 +58,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinator.JoinerHandler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private static final long P2P_FILE_TIMEOUT_MILLIS = 12 * 60_000;
 
     private final Screen previousScreen;
@@ -629,7 +629,7 @@ public final class ClientModSyncAgent implements ModSyncAgent, ModSyncCoordinato
                 return pm.version();
             }
         }
-        return "3.4.2";
+        return "3.4.3";
     }
 
     private record ModrinthDownloadDeps(ModDownloader downloader) {

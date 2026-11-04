@@ -102,8 +102,10 @@ public class PeerCraftJoinScreen extends PeerCraftDialogScreen {
 
         this.connectButton.active = false;
         this.statusMessage = new TranslatableComponent("peercraft.gui.join.connecting");
+        AdmissionScreens.join(this, code, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(code, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(), newListener(),
                 new ClientModSyncAgent(this, code));
+        });
     }
 
     private void runOnClientThread(Runnable action) {
@@ -155,6 +157,7 @@ public class PeerCraftJoinScreen extends PeerCraftDialogScreen {
         GuiComponent.drawString(poseStack, this.font, new TranslatableComponent("peercraft.gui.join.room_code_field"), dialog.contentX(), dialog.contentTop(), PeerCraftUi.TEXT_MUTED);
         boolean idle = this.statusMessage.getString().isEmpty();
         Component message = idle ? new TranslatableComponent("peercraft.gui.join.code_help") : this.statusMessage;
+        if (!idle && !this.connectButton.active) message = new TextComponent(message.getString() + " · " + P2PBridge.INSTANCE.sessionMonitor().stageSeconds() + " s");
         dialog.status(poseStack, this.font, message, dialog.contentTop() + 12 + dialog.buttonPitch() * 2, 40,
                 idle ? net.peercraft.client.theme.SteampunkPalette.MUTED : PeerCraftUi.TEXT_ACCENT);
         super.render(poseStack, mouseX, mouseY, partialTick);

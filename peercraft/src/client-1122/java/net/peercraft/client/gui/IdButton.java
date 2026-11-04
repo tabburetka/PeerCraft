@@ -46,7 +46,7 @@ class IdButton extends GuiButton {
             drawSheet(x + 3, y + 3, color);
             return;
         }
-        String label = mc.fontRenderer.trimStringToWidth(this.displayString, Math.max(0, this.width - 12));
+        String label = mc.fontRenderer.trimStringToWidth(this.displayString, Math.max(0, this.width - (this.width < 40 ? 4 : 12)));
         if (this.enabled && primary) {
             mc.fontRenderer.drawString(label, this.x + (this.width - mc.fontRenderer.getStringWidth(label)) / 2,
                     this.y + (this.height - 8) / 2, net.peercraft.client.theme.SteampunkPalette.CONTROL);

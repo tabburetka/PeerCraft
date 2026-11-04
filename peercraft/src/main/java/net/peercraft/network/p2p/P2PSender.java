@@ -1,7 +1,7 @@
 package net.peercraft.network.p2p;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -11,7 +11,7 @@ import java.net.UnknownHostException;
 
 public class P2PSender {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
 
     private final DatagramSocket socket;

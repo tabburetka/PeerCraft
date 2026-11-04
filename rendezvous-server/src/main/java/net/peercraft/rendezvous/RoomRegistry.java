@@ -64,6 +64,13 @@ final class RoomRegistry {
         return ownsRoom(code, address) && expected != null && proof != null && proof.length == 32
                 && java.security.MessageDigest.isEqual(expected, proof);
     }
+    boolean hasAdmissionRoom(String code) { return roomsByCode.containsKey(code); }
+    record AdmissionRoom(UUID owner, boolean publicRoom, boolean friendsOnly, Object incarnation) { }
+    AdmissionRoom admissionRoom(String code) {
+        Room room = roomsByCode.get(code);
+        if (room == null || handoffSuspended.containsKey(code) || clock.getAsLong()-room.hostLastSeenAt > PUBLIC_LISTING_STALE_MILLIS) return null;
+        return new AdmissionRoom(room.hostAccountId.orElse(null), room.publicRoom, room.friendsOnly, room);
+    }
     boolean ownsRoom(String code, RendezvousProtocol.Address address) {
         Room room = roomsByCode.get(code);
         return room != null && room.hostAddress.equals(address) && clock.getAsLong() - room.lastSeenAt <= ROOM_TTL_MILLIS;

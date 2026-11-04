@@ -1,7 +1,7 @@
 package net.peercraft.network.p2p;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.InetAddress;
 import java.net.SocketException;
@@ -13,7 +13,7 @@ import java.net.DatagramSocket;
 
 public class P2PReceiver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
 
     // Ask the OS for a larger receive buffer (Linux's default is usually ~208KB — not

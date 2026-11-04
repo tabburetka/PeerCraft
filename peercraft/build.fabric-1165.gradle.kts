@@ -48,6 +48,7 @@ val backportReplaced = listOf(
 	"**/net/peercraft/PeerCraftCommon.java",
 	"**/net/peercraft/client/gui/**",
 	"**/net/peercraft/client/mixin/**",
+	"**/net/peercraft/client/skin/**",
 	// client/handoff: WorldArchiver (MinecraftServerAccessor + LevelResource) and
 	// SuccessorLauncher (IntegratedServer/CompoundTag/GameType, modern GUI screens) need a
 	// 1.16.5-API twin (see src/client-1165/.../client/handoff). PeercraftWorldMeta and
@@ -116,15 +117,10 @@ dependencies {
 	modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
 	modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_api_version")}")
 
-	// Fabric Loader only started bundling org.slf4j around the 1.20 era; the 1.16.5-era
-	// loader/API pairing does not put it on the classpath, and Minecraft 1.16.5 itself ships
-	// Log4j 2 (2.17.1) without an SLF4J facade. The shared network/config code logs through
-	// org.slf4j, so bundle the 1.7.x API (call-site compatible with the mod's basic Logger
-	// usage) plus the Log4j-2 binding, so PeerCraft's logs land in the normal game log instead
-	// of SLF4J's silent NOP fallback.
-	modImplementation("org.slf4j:slf4j-api:1.7.36")
-	include("org.slf4j:slf4j-api:1.7.36")
-	include("org.apache.logging.log4j:log4j-slf4j-impl:2.17.1") { isTransitive = false }
+	// PeerCraft logs through the Log4j 2 API that Minecraft itself ships. Do not bundle
+	// slf4j / log4j-slf4j-impl here: the 2.17.x binding calls
+	// LoggerContextFactory.isClassLoaderDependent(), which the launcher's older Log4j on
+	// 1.16.5 does not have, and the mod crashes with NoSuchMethodError during init.
 
 	compileOnly("org.spongepowered:mixin:0.8.5")
 

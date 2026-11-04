@@ -1,7 +1,7 @@
 package net.peercraft.network.handoff;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.InetAddress;
 import java.util.UUID;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class HandoffClientAgent {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     private static final int REPLY_REPEAT = 5;
     private static final long REPLY_INTERVAL_MILLIS = 300;

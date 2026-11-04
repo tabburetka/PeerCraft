@@ -21,6 +21,7 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
 
     private final Screen backScreen;
     private final String successorName;
+    private Runnable recoveryProceed;
 
     private volatile String statusKey = "peercraft.handoff.status.offering";
     private volatile String terminalKey;
@@ -29,7 +30,11 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
     private volatile long totalBytes;
 
     public HandoffStatusScreen(Screen backScreen, String successorName) {
-        super(new TranslatableComponent("peercraft.handoff.picker.title"), 300);
+        this(backScreen, successorName, false);
+    }
+
+    public HandoffStatusScreen(Screen backScreen, String successorName, boolean recovery) {
+        super(new TranslatableComponent(recovery ? "peercraft.handoff.recovery.title" : "peercraft.handoff.picker.title"), 300);
         this.backScreen = backScreen;
         this.successorName = successorName;
     }
@@ -38,7 +43,7 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
     protected void init() {
         super.init();
         int desiredHeight = dialog.headerHeight + 6 + Math.max(3, lines().size()) * 12
-                + 22 + (terminalKey == null ? 0 : dialog.buttonHeight());
+                + 22 + (terminalKey == null ? 0 : dialog.buttonHeight() + (recoveryProceed == null ? 0 : dialog.buttonPitch()));
         dialog = new SteampunkDialog(width, height, desiredHeight, title);
         this.buttons.clear();
         this.children.clear();
@@ -46,7 +51,10 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
         if (terminalKey == null) {
             return;
         }
-        if (success) {
+        if (recoveryProceed != null) {
+            dialogAction(new TranslatableComponent("peercraft.handoff.recovery.proceed"), b -> proceedAfterRecoveryFailure(), false, 0, 2);
+            dialogAction(new TranslatableComponent("peercraft.handoff.stale.back"), b -> PeerCraftUi.setScreen(this.minecraft, backScreen), true, 1, 2);
+        } else if (success) {
             dialogAction(new TranslatableComponent("menu.returnToMenu"), b -> toTitle(), false, 0, 1);
         } else {
             dialogAction(new TranslatableComponent("peercraft.modsync.restart.back"),
@@ -80,6 +88,19 @@ public class HandoffStatusScreen extends PeerCraftDialogScreen {
             this.success = false;
             rebuild();
         });
+    }
+
+    /** Explicit local open only; never changes recovery journals or authority. */
+    public void onRecoveryFailed(Runnable proceed) {
+        this.recoveryProceed = proceed;
+        onAborted("peercraft.handoff.recovery.body");
+    }
+
+    private void proceedAfterRecoveryFailure() {
+        Runnable action = recoveryProceed;
+        if (action == null) return;
+        recoveryProceed = null; // Consume before re-entering native loading.
+        action.run();
     }
 
     private void run(Runnable r) {

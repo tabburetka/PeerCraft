@@ -1,8 +1,8 @@
 package net.peercraft.network.modsync;
 
 import net.peercraft.network.p2p.RawPacketListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,9 +35,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * injected. Callbacks fire on this class's own daemon threads — the client layer marshals to
  * the game thread.
  */
-public final class ModSyncCoordinator implements RawPacketListener {
+public final class ModSyncCoordinator implements RawPacketListener, net.peercraft.network.diagnostics.TransferRegistry.Source {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     private static final long HELLO_RETRY_MILLIS = 600;
     private static final long HANDSHAKE_TIMEOUT_MILLIS = 8_000;
@@ -140,6 +140,7 @@ public final class ModSyncCoordinator implements RawPacketListener {
         this.handler = handler;
         this.provider = provider;
         this.hostTmpDir = hostTmpDir;
+        net.peercraft.network.diagnostics.TransferRegistry.register(this);
     }
 
     public static ModSyncCoordinator joiner(Sender sender, ModSyncProtocol.Loader loader,
@@ -614,6 +615,18 @@ public final class ModSyncCoordinator implements RawPacketListener {
         });
     }
 
+    @Override public java.util.List<net.peercraft.network.diagnostics.TransferRegistry.Entry> diagnosticTransfers() {
+        java.util.List<net.peercraft.network.diagnostics.TransferRegistry.Entry> result = new java.util.ArrayList<>();
+        if (cancelled.get()) return result;
+        for (OutboundTransfer t : outbound.values()) if (!t.stopped.get())
+            result.add(new net.peercraft.network.diagnostics.TransferRegistry.Entry(t.modId,
+                    t.size - Math.min(t.size, (long) Math.max(0, t.highestAcked) * FILE_CHUNK_PAYLOAD)));
+        for (InboundTransfer t : inbound.values()) if (!t.stopped.get())
+            result.add(new net.peercraft.network.diagnostics.TransferRegistry.Entry(t.modId,
+                    t.begin.size() - t.reassembler.bytesWritten()));
+        return result;
+    }
+
     // ================= inbound (joiner) transfer =================
 
     private final class InboundTransfer {
@@ -941,6 +954,8 @@ public final class ModSyncCoordinator implements RawPacketListener {
             }
             byte[] buf = new byte[len];
             src.readFully(offset, buf);
+            try { net.peercraft.network.diagnostics.TransferTraffic.acquire(len); }
+            catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException("Transfer throttling interrupted", interrupted); }
             sender.send(ModSyncProtocol.encodeFileChunk(modId, index, buf, 0, len));
         }
 

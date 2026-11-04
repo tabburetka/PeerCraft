@@ -2,8 +2,8 @@ package net.peercraft.network.rendezvous;
 
 import net.peercraft.network.p2p.P2PSender;
 import net.peercraft.network.p2p.RawPacketListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.InetAddress;
 import java.util.Map;
@@ -38,7 +38,7 @@ import java.util.function.Supplier;
  */
 public final class RendezvousClient implements RawPacketListener {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final long RETRY_INTERVAL_MILLIS = 500;
     // How long we'll keep retrying REGISTER/JOIN before giving up on reaching the
     // rendezvous server at all — not how long we wait for a peer to show up (that's
@@ -134,6 +134,7 @@ public final class RendezvousClient implements RawPacketListener {
     // host has actually closed their world — which is exactly how this method came to exist.
     @Override
     public void cancel() {
+        if (hostMode) net.peercraft.network.admission.AdmissionClient.INSTANCE.stopHost(lastKnownRoomCode == null ? "" : lastKnownRoomCode);
         state = State.DONE;
     }
 
@@ -191,12 +192,12 @@ public final class RendezvousClient implements RawPacketListener {
         java.util.UUID accId = this.accountId;
         byte[] token = this.accountSessionToken;
         if (accId != null && token != null) {
-            return RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly, this.publicRoom, this.worldName, this.mcVersion, connectivity);
+            return net.peercraft.network.admission.AdmissionProtocol.registration(RendezvousProtocol.encodeRegisterWithAccount(this.maxPlayers, count, accId, token, this.friendsOnly, this.publicRoom, this.worldName, this.mcVersion, connectivity), net.peercraft.config.PeerCraftConfig.approveStrangers());
         }
         if (this.publicRoom) {
-            return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion, connectivity);
+            return net.peercraft.network.admission.AdmissionProtocol.registration(RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, true, this.worldName, this.mcVersion, connectivity), net.peercraft.config.PeerCraftConfig.approveStrangers());
         }
-        return RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, false, "", this.mcVersion, connectivity);
+        return net.peercraft.network.admission.AdmissionProtocol.registration(RendezvousProtocol.encodeRegisterAnonymous(this.maxPlayers, count, false, "", this.mcVersion, connectivity), net.peercraft.config.PeerCraftConfig.approveStrangers());
     }
 
     public void joinRoom(String code, MatchCallback matchCallback) {
@@ -299,6 +300,7 @@ public final class RendezvousClient implements RawPacketListener {
         boolean changed = previousCode != null && !previousCode.equals(roomCreated.code());
         if (firstTime || changed) {
             lastKnownRoomCode = roomCreated.code();
+            net.peercraft.network.admission.AdmissionClient.INSTANCE.host(roomCreated.code());
             RoomCallback callback = roomCallback;
             if (callback != null) {
                 callback.onRoomCreated(roomCreated.code(), changed);
@@ -373,7 +375,7 @@ public final class RendezvousClient implements RawPacketListener {
     }
 
     private void handleJoinFail(byte[] data, int length) {
-        if (state != State.JOINING) {
+        if (state != State.JOINING && state != State.REGISTERING) {
             return;
         }
         fail(describeReason(RendezvousProtocol.decodeJoinFailReason(data, length)));
@@ -400,6 +402,7 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_EXPIRED -> "peercraft.p2p.join_fail.expired";
             case RendezvousProtocol.REASON_SERVER_BUSY -> "peercraft.p2p.join_fail.server_busy";
             case RendezvousProtocol.REASON_NOT_FRIEND -> "peercraft.p2p.join_fail.not_friend";
+            case 7 -> "peercraft.admission.required";
             case RendezvousProtocol.REASON_ACCOUNT_REQUIRED -> "peercraft.p2p.fail.account_required";
             default -> "peercraft.p2p.join_fail.unknown";
         };
@@ -410,6 +413,7 @@ public final class RendezvousClient implements RawPacketListener {
             case RendezvousProtocol.REASON_EXPIRED: return "peercraft.p2p.join_fail.expired";
             case RendezvousProtocol.REASON_SERVER_BUSY: return "peercraft.p2p.join_fail.server_busy";
             case RendezvousProtocol.REASON_NOT_FRIEND: return "peercraft.p2p.join_fail.not_friend";
+            case 7: return "peercraft.admission.required";
             case RendezvousProtocol.REASON_ACCOUNT_REQUIRED: return "peercraft.p2p.fail.account_required";
             default: return "peercraft.p2p.join_fail.unknown";
         }*/

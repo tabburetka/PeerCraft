@@ -5,8 +5,8 @@ import com.mojang.authlib.exceptions.AuthenticationException;
 import com.mojang.authlib.minecraft.MinecraftSessionService;
 import net.peercraft.network.rendezvous.AccountProtocol;
 import net.peercraft.network.rendezvous.RendezvousProtocol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -33,7 +33,7 @@ public final class AccountClient {
 
     public static final AccountClient INSTANCE = new AccountClient();
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final int MAX_UDP_PAYLOAD_SIZE = 65_507;
     private static final long RETRY_INTERVAL_MILLIS = 500;
     private static final long REQUEST_TIMEOUT_MILLIS = 10_000;

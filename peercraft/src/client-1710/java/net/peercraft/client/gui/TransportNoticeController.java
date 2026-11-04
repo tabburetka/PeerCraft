@@ -67,6 +67,8 @@ public final class TransportNoticeController {
     }
     /** Runs on the Minecraft thread. Do not replace handoff/install/recovery screens. */
     public static void tick() {
+        SessionDiagnosticsController.tick();
+        AdmissionScreens.tick();
         Minecraft mc = Minecraft.getMinecraft();
         long now = System.currentTimeMillis();
         if (pendingMode != null && now > modeExpires) pendingMode = null;

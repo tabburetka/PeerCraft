@@ -1,8 +1,8 @@
 package net.peercraft.network.proxy;
 
 import net.peercraft.network.p2p.P2PBridge;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,7 +14,7 @@ import java.net.Socket;
 
 public class LocalProxy {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     // Each inbound P2P packet arrives as its own sendToClient() call and used to go straight
     // out as its own write()+flush() — one TCP segment per UDP datagram the other side

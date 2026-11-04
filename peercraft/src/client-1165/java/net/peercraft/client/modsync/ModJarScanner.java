@@ -4,8 +4,8 @@ import com.google.gson.*;
 import net.peercraft.network.modsync.ModEntry;
 import net.peercraft.network.modsync.ModDiff;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -16,7 +16,7 @@ import java.util.zip.*;
 
 /** Physical top-level jars are the unit of installation. Shared Java 8 implementation across all clients. */
 public final class ModJarScanner {
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     private ModJarScanner() { }
 
     public static final class ScannedJar {

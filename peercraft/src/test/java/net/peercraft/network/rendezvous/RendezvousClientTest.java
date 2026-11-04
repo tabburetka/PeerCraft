@@ -22,6 +22,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * perfectly healthy WAITING_FOR_PEER room.
  */
 class RendezvousClientTest {
+    private static RendezvousProtocol.Register decodeRegistration(DatagramPacket packet) {
+        var envelope=net.peercraft.network.admission.AdmissionProtocol.decode(packet.getData(),packet.getLength());
+        assertEquals(net.peercraft.network.admission.AdmissionProtocol.REGISTER,envelope.op);
+        assertEquals(1,envelope.status, "approval must default to enabled");
+        return RendezvousProtocol.decodeRegister(envelope.payload,envelope.payload.length);
+    }
+
 
     @Test
     @Timeout(10)
@@ -43,8 +50,7 @@ class RendezvousClientTest {
                     byte[] buffer = new byte[512];
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     serverSocket.receive(packet);
-                    RendezvousProtocol.Register register = RendezvousProtocol.decodeRegister(
-                            packet.getData(), packet.getLength());
+                    RendezvousProtocol.Register register = decodeRegistration(packet);
                     assertEquals("1.21.1", register.mcVersion());
                     assertEquals("", register.worldName());
                     assertFalse(register.publicRoom());
@@ -72,14 +78,14 @@ class RendezvousClientTest {
             CompletableFuture<Integer> clientPortFuture = new CompletableFuture<>();
 
             Thread fakeServer = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 boolean replied = false;
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
                         packet.setLength(buffer.length);
                         fakeServerSocket.receive(packet);
-                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                        if (net.peercraft.network.admission.AdmissionProtocol.isMessage(packet.getData(), packet.getLength())) {
                             registerCount.incrementAndGet();
                             if (!replied) {
                                 replied = true;
@@ -113,7 +119,7 @@ class RendezvousClientTest {
 
             // Feed the fake server's replies back into the client manually (no P2PReceiver in this test).
             Thread clientRecvLoop = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
@@ -179,13 +185,13 @@ class RendezvousClientTest {
             });
 
             Thread fakeServer = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
                         packet.setLength(buffer.length);
                         fakeServerSocket.receive(packet);
-                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                        if (net.peercraft.network.admission.AdmissionProtocol.isMessage(packet.getData(), packet.getLength())) {
                             RendezvousProtocol.Address observed = new RendezvousProtocol.Address(packet.getAddress(), packet.getPort());
                             byte[] reply = RendezvousProtocol.encodeRoomCreated("ABCDEF", observed);
                             fakeServerSocket.send(new DatagramPacket(reply, reply.length, packet.getAddress(), packet.getPort()));
@@ -199,7 +205,7 @@ class RendezvousClientTest {
             fakeServer.start();
 
             Thread clientRecvLoop = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
@@ -272,13 +278,13 @@ class RendezvousClientTest {
             });
 
             Thread fakeServer = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
                         packet.setLength(buffer.length);
                         fakeServerSocket.receive(packet);
-                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
+                        if (net.peercraft.network.admission.AdmissionProtocol.isMessage(packet.getData(), packet.getLength())) {
                             RendezvousProtocol.Address observed = new RendezvousProtocol.Address(packet.getAddress(), packet.getPort());
                             byte[] reply = RendezvousProtocol.encodeRoomCreated("ABCDEF", observed);
                             fakeServerSocket.send(new DatagramPacket(reply, reply.length, packet.getAddress(), packet.getPort()));
@@ -292,7 +298,7 @@ class RendezvousClientTest {
             fakeServer.start();
 
             Thread clientRecvLoop = new Thread(() -> {
-                byte[] buffer = new byte[64];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
@@ -347,14 +353,14 @@ class RendezvousClientTest {
             CompletableFuture<RendezvousProtocol.Register> receivedRegister = new CompletableFuture<>();
 
             Thread fakeServer = new Thread(() -> {
-                byte[] buffer = new byte[128];
+                byte[] buffer = new byte[1200];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     while (!Thread.currentThread().isInterrupted()) {
                         packet.setLength(buffer.length);
                         fakeServerSocket.receive(packet);
-                        if (RendezvousProtocol.messageType(packet.getData(), packet.getLength()) == RendezvousProtocol.TYPE_REGISTER) {
-                            receivedRegister.complete(RendezvousProtocol.decodeRegister(packet.getData(), packet.getLength()));
+                        if (net.peercraft.network.admission.AdmissionProtocol.isMessage(packet.getData(), packet.getLength())) {
+                            receivedRegister.complete(decodeRegistration(packet));
                         }
                     }
                 } catch (Exception ignored) {

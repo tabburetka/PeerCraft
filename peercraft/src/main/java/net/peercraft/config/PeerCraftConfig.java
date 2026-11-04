@@ -1,7 +1,7 @@
 package net.peercraft.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStream;
 import java.util.Collections;
@@ -11,7 +11,7 @@ import java.util.Properties;
 
 public final class PeerCraftConfig {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
     public static final String DEFAULT_RENDEZVOUS_HOST = "connection.peercraft.ru";
     public static final String MODE_AUTO = "auto";
     public static final String MODE_CLIENT = "client";
@@ -103,12 +103,27 @@ public final class PeerCraftConfig {
         return boolValue("telemetry.enabled", false);
     }
 
+    public static final String DEFAULT_UPDATE_CHECK_URL =
+            "https://raw.githubusercontent.com/tabburetka/PeerCraft/main/update.json";
+
+    /** Once-per-launch check of {@link #updateCheckUrl()} for a newer PeerCraft release. */
+    public static boolean updateCheckEnabled() {
+        return boolValue("updateCheck.enabled", true);
+    }
+
+    /** Overridable for local testing; any non-default value may also be plain http. */
+    public static String updateCheckUrl() {
+        return stringValue("updateCheck.url", DEFAULT_UPDATE_CHECK_URL);
+    }
+
     public static String rendezvousHost() {
         return stringValue("rendezvousHost", DEFAULT_RENDEZVOUS_HOST);
     }
 
     /** Client consent; the broker itself stays disabled until deployment is configured. */
     // Relay rollout postponed: ignore saved settings until explicitly restored.
+    public static boolean approveStrangers() { return boolValue("privacy.approveStrangers", true); }
+
     public static boolean relayEnabled() {
         // return boolValue("relay.enabled", true);
         return false;

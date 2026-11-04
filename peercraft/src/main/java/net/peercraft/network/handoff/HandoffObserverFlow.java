@@ -79,7 +79,7 @@ public final class HandoffObserverFlow {
                 if (outcome != Outcome.RECONNECTED) steps.stopReconnect();
                 steps.terminal(outcome);
             }
-            catch (RuntimeException callbackFailure) { org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Observer callback failed", callbackFailure); }
+            catch (RuntimeException callbackFailure) { net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").warn("[Handoff] Observer callback failed", callbackFailure); }
             finally { completion.complete(outcome); }
         }
     }

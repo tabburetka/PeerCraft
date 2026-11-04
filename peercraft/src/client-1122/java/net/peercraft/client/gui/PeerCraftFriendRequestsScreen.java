@@ -42,6 +42,7 @@ public class PeerCraftFriendRequestsScreen extends PeerCraftDialogScreen {
             this.statusMessage = PeerCraftLang.tr("peercraft.gui.friend_requests.loading");
             AccountClient.INSTANCE.listIncomingRequests(new AccountClient.FriendRequestListCallback() {
                 @Override public void onResult(List<AccountClient.IncomingRequest> result) {
+                    FriendRequestNotifier.update(result);
                     runOnClientThread(() -> {
                         if (stillOnThisScreen()) {
                             requests = result;

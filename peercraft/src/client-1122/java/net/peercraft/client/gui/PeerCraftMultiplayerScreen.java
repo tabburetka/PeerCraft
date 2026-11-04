@@ -172,6 +172,8 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
         this.gameSearchBox.setText(savedGameSearch);
         rebuildGameRows();
         applyTabVisibility();
+
+        this.buttonList.add(AdmissionScreens.watch(IdButton.builder(PeerCraftLang.tr("peercraft.admission.menu_short"), () -> PeerCraftUi.setScreen(this.mc,new JoinRequestWaitingScreen(this))).bounds(8,8,150,20).build()));
     }
 
     @Override
@@ -751,6 +753,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
         if (PeerCraftProgressNoticeScreen.beforeConnecting(this, () -> onConnectToFriend(friend))) return;
         this.friendsStatusMessage = PeerCraftLang.tr("peercraft.gui.multiplayer.connecting_to", friend.displayName());
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
+        AdmissionScreens.join(this, friend.roomCode(), () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(friend.roomCode(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override public String telemetryEntry() { return "friend"; }
@@ -793,6 +796,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
                         });
                     }
                 }, new ClientModSyncAgent(this, friend.roomCode()));
+        });
     }
 
     private void startVanillaConnect() {
@@ -1062,6 +1066,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
         String label = blank(game.worldName()) ? game.code() : game.worldName();
         this.gamesStatusMessage = PeerCraftLang.tr("peercraft.gui.multiplayer.joining_game", label);
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
+        AdmissionScreens.join(this, game.code(), () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(game.code(), PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override public String telemetryEntry() { return "public"; }
@@ -1104,6 +1109,7 @@ public class PeerCraftMultiplayerScreen extends GuiMultiplayer {
                         });
                     }
                 }, new ClientModSyncAgent(this, game.code()));
+        });
     }
 
     // ==================== shared plumbing ====================

@@ -16,8 +16,8 @@ import net.peercraft.network.modsync.ModSyncFilter;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.platform.Services;
 import net.peercraft.platform.services.PlatformMod;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class HandoffPlayerPickerScreen extends Screen {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     private final Screen lastScreen;
     private List<P2PBridge.HandoffCandidate> candidates = java.util.Collections.emptyList();
@@ -67,7 +67,7 @@ public class HandoffPlayerPickerScreen extends Screen {
         for (int i = 0; i < Math.min(visibleRows(), candidates.size() - scroll); i++) {
             P2PBridge.HandoffCandidate c = candidates.get(scroll + i);
             String name = displayName(server, c, scroll + i);
-            boolean eligible = c.signedIn() && !c.declinedSuccessor();
+            boolean eligible = handoffAvailable() && c.signedIn() && !c.declinedSuccessor();
             Component label = !c.signedIn()
                     ? Component.translatable("peercraft.handoff.picker.row_not_signed_in", name)
                     : c.declinedSuccessor()
@@ -81,7 +81,11 @@ public class HandoffPlayerPickerScreen extends Screen {
             y += 24;
         }
 
-        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), backTop(), contentWidth(), 20,
+        int footerWidth = (contentWidth() - 4) / 2;
+        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft(), backTop(), footerWidth, 20,
+                Component.translatable("peercraft.session.monitor_button"),
+                btn -> PeerCraftUi.setScreen(minecraft, new PeerCraftSessionScreen(this)), false));
+        this.addRenderableWidget(SteampunkSettingsTheme.action(contentLeft() + footerWidth + 4, backTop(), footerWidth, 20,
                 Component.translatable("peercraft.handoff.picker.cancel"),
                 btn -> PeerCraftUi.setScreen(this.minecraft, lastScreen), false));
     }
@@ -113,7 +117,13 @@ public class HandoffPlayerPickerScreen extends Screen {
     @Override public void onClose() { PeerCraftUi.setScreen(minecraft, lastScreen); }
 
     /** Gates the actual offer behind a Yes/No confirmation when handoffConfirmBeforeOffer() is set (the default) — a handoff can't be cleanly undone once the successor accepts. */
+    private boolean handoffAvailable() {
+        return net.peercraft.config.PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous()
+                && !P2PBridge.INSTANCE.handoffInProgress();
+    }
+
     private void confirmAndChoose(P2PBridge.HandoffCandidate c, String name) {
+        if (!handoffAvailable()) return;
         if (!net.peercraft.config.PeerCraftConfig.handoffConfirmBeforeOffer()) {
             choose(c, name);
             return;
@@ -271,7 +281,7 @@ public class HandoffPlayerPickerScreen extends Screen {
 
     private List<String> introLines() {
         return PeerCraftUi.wrap(this.font,
-                Component.translatable("peercraft.handoff.picker.intro").getString(),
+                Component.translatable((handoffAvailable() ? "peercraft.handoff.picker.intro" : "peercraft.handoff.picker.inactive_intro")).getString(),
                 contentWidth());
     }
 

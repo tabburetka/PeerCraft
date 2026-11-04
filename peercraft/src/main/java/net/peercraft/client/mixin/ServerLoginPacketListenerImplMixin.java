@@ -1,5 +1,7 @@
 package net.peercraft.client.mixin;
 
+import net.peercraft.client.skin.SkinProfileSupport;
+
 import com.mojang.authlib.GameProfile;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.Connection;
@@ -55,9 +57,9 @@ public abstract class ServerLoginPacketListenerImplMixin {
         UUID id = LocalPlayerIdentity.current();
         if (original == null || id == null) return original;
         //? if <1.21.9
-        return id.equals(original.getId()) ? original : new GameProfile(id, original.getName());
+        return id.equals(original.getId()) ? original : SkinProfileSupport.copy(original, id);
         //? if >=1.21.9
-        /*return id.equals(original.id()) ? original : new GameProfile(id, original.name());*/
+        /*return id.equals(original.id()) ? original : SkinProfileSupport.copy(original, id);*/
     }
 
     @Redirect(method = "handleHello", at = @At(value = "INVOKE",

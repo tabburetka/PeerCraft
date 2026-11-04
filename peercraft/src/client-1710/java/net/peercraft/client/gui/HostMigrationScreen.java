@@ -137,6 +137,7 @@ public class HostMigrationScreen extends PeerCraftDialogScreen {
         this.statusKey = "peercraft.handoff.migrating.body";
         leaveCurrentWorld();
         P2PBridge.INSTANCE.prepareForHandoffReconnect();
+        AdmissionScreens.join(this, roomCode, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(roomCode,
                 PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
@@ -149,6 +150,7 @@ public class HostMigrationScreen extends PeerCraftDialogScreen {
                     }
                 },
                 new ClientModSyncAgent(this, roomCode));
+        });
     }
 
     private void leaveCurrentWorld() {

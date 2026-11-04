@@ -2,8 +2,8 @@ package net.peercraft.network.rendezvous;
 
 import net.peercraft.network.p2p.P2PSender;
 import net.peercraft.network.p2p.RawPacketListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.InetAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Legacy small-packet punching. Compatible peers use DirectConnectivityCoordinator instead. */
 public final class PunchCoordinator implements RawPacketListener {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
     private static final long RETRY_INTERVAL_MILLIS = 300;
     private static final long TIMEOUT_MILLIS = 10_000;
 

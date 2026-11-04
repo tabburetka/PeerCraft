@@ -6,8 +6,8 @@ import net.peercraft.network.handoff.WorldTransfer;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.network.p2p.PeerAddress;
 import net.peercraft.platform.Services;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,7 +21,7 @@ import java.util.function.Consumer;
  */
 public final class HostHandoffTransfer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     public interface Progress {
         void archiving();

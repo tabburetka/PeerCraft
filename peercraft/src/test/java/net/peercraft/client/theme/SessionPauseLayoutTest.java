@@ -35,4 +35,49 @@ class SessionPauseLayoutTest {
         assertEquals(12, row.shiftUp);
         assertEquals(212, row.top);
     }
+    @Test void compactEntryDoesNotMoveNativeControls() {
+        java.util.List<int[]> occupied = java.util.Arrays.asList(
+                new int[] {218, 120, 204, 20}, new int[] {218, 144, 98, 20}, new int[] {324, 144, 98, 20});
+        SessionPauseLayout entry = SessionPauseLayout.compact(640, 450, occupied);
+        assertEquals(76, entry.buttonWidth);
+        assertEquals(8, entry.top);
+        assertEquals(556, entry.left);
+        assertEquals(0, entry.shiftUp);
+        assertEquals(218, occupied.get(0)[0]);
+    }
+
+    @Test void iconSitsBesideBackToGameWhenFree() {
+        int[] back = {218, 120, 204, 20};
+        java.util.List<int[]> occupied = java.util.Arrays.asList(back, new int[] {218, 144, 98, 20});
+        SessionPauseLayout entry = SessionPauseLayout.icon(640, 450, occupied, back, 20);
+        assertEquals(426, entry.left);
+        assertEquals(120, entry.top);
+        assertEquals(20, entry.buttonWidth);
+    }
+
+    @Test void iconFallsBackWithoutOverlappingAnything() {
+        for (int width : new int[] {210, 320, 640}) {
+            int[] back = {(width - 204) / 2, 120, 204, 20};
+            java.util.List<int[]> occupied = java.util.Arrays.asList(back,
+                    new int[] {back[0] + 208, 120, 98, 20}, new int[] {back[0] - 102, 120, 98, 20},
+                    new int[] {width - 88, 8, 80, 20});
+            SessionPauseLayout entry = SessionPauseLayout.icon(width, 240, occupied, back, 20);
+            assertTrue(entry.left >= 0 && entry.left + 20 <= width);
+            for (int[] box : occupied) assertFalse(entry.left < box[0] + box[2]
+                    && entry.left + 20 > box[0] && entry.top < box[1] + box[3] && entry.top + 20 > box[1]);
+        }
+    }
+
+    @Test void compactEntryAvoidsOtherModButtonsOnSmallScreens() {
+        for (int width : new int[] {320, 426, 640}) {
+            java.util.List<int[]> occupied = java.util.Arrays.asList(
+                    new int[] {width - 88, 8, 80, 20}, new int[] {8, 8, 80, 20},
+                    new int[] {(width - 204) / 2, 90, 204, 110});
+            SessionPauseLayout entry = SessionPauseLayout.compact(width, 240, occupied);
+            assertEquals(0, entry.shiftUp);
+            assertTrue(entry.left >= 8 && entry.left + entry.buttonWidth <= width - 8);
+            for (int[] box : occupied) assertFalse(entry.left < box[0] + box[2]
+                    && entry.left + entry.buttonWidth > box[0] && entry.top < box[1] + box[3] && entry.top + 20 > box[1]);
+        }
+    }
 }

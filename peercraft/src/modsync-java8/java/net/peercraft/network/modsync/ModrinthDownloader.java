@@ -29,7 +29,7 @@ public final class ModrinthDownloader {
                                    BooleanSupplier cancelled, ProgressSink progress) {
         HttpsURLConnection connection = null;
         boolean verified = false;
-        try {
+        try (net.peercraft.network.diagnostics.DownloadSample sample = new net.peercraft.network.diagnostics.DownloadSample(entry.id(), entry.sizeBytes())) {
             if (!isCdnUrl(url) || entry.sizeBytes() < 0 || entry.sizeBytes() > maxBytes
                     || cancelled.getAsBoolean()) return false;
             connection = (HttpsURLConnection) new URL(url).openConnection();
@@ -56,6 +56,7 @@ public final class ModrinthDownloader {
                     output.write(buffer, 0, n);
                     digest.update(buffer, 0, n);
                     count += n;
+                    sample.progress(count,entry.sizeBytes());
                     progress.onProgress(count, entry.sizeBytes());
                 }
             }

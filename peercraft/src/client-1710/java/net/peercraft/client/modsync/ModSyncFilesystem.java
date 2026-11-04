@@ -6,8 +6,8 @@ package net.peercraft.client.modsync;
 
 import net.peercraft.network.modsync.FileReassembler;
 import net.peercraft.network.modsync.ModEntry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,7 +24,7 @@ import java.security.MessageDigest;
  */
 public final class ModSyncFilesystem {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = LogManager.getLogger("peercraft");
 
     static final String TEMP_DIR_NAME = ".peercraft-modsync-tmp";
     static final String SERVING_DIR_NAME = "serving";

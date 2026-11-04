@@ -41,6 +41,20 @@ import java.util.List;
  * </ul>
  */
 public class PeerCraftScreenEvents {
+
+    @SubscribeEvent
+    public void onJoinRequestHud(net.minecraftforge.client.event.RenderGameOverlayEvent.Post event){
+        if(event.type != net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL)return;
+        Minecraft mc=Minecraft.getMinecraft();
+        net.peercraft.network.admission.AdmissionClient client=net.peercraft.network.admission.AdmissionClient.INSTANCE;
+        if(mc.thePlayer==null || System.currentTimeMillis()>client.toastUntil || client.noticeKey.isEmpty())return;
+        int right=event.resolution.getScaledWidth()-8,left=Math.max(8,right-250);
+        net.minecraft.client.gui.Gui.drawRect(left,8,right,52,net.peercraft.client.theme.SteampunkPalette.PANEL);
+        int i=0;for(Object line:mc.fontRenderer.listFormattedStringToWidth(PeerCraftLang.tr(client.noticeKey),right-left-16)){
+            if(i>=2)break;mc.fontRenderer.drawString((String)line,left+8,17+i++*12,net.peercraft.client.theme.SteampunkPalette.ACCENT);
+        }
+    }
+
     @cpw.mods.fml.common.eventhandler.SubscribeEvent(priority = cpw.mods.fml.common.eventhandler.EventPriority.LOWEST)
     public void onPlayerList(net.minecraftforge.client.event.RenderGameOverlayEvent.Pre event) {
         SessionPlayerListOverlay.render(event);
@@ -73,6 +87,11 @@ public class PeerCraftScreenEvents {
         GuiButton button = event.button;
 
         if (event.gui instanceof GuiMainMenu) {
+            if (button instanceof UpdateNoticeButton) {
+                ((UpdateNoticeButton) button).press();
+                event.setCanceled(true);
+                return;
+            }
             if (!PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())
                     && button.displayString.equals(I18n.format("menu.multiplayer"))) {
                 Minecraft.getMinecraft().displayGuiScreen(new PeerCraftMultiplayerScreen(event.gui));
@@ -106,6 +125,14 @@ public class PeerCraftScreenEvents {
 
     @SubscribeEvent
     public void onInitPost(GuiScreenEvent.InitGuiEvent.Post event) {
+        if (event.gui instanceof GuiMainMenu) {
+            // Added last so it sees every other button when keeping clear of them; inert until
+            // a newer release is known. Independent of mode: a disabled PeerCraft can be outdated.
+            event.buttonList.add(new UpdateNoticeButton(event.gui, event.buttonList));
+            // Idempotent; the title screen always precedes any world, so in-game notices are ready.
+            if (!PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) FriendRequestNotifier.start();
+            return;
+        }
         if (event.gui instanceof PeerCraftLanScreen) return;
         if (event.gui instanceof GuiIngameMenu) {
             onPauseMenuInit(event);
@@ -200,32 +227,29 @@ public class PeerCraftScreenEvents {
         setGatedVisible(PeerCraftHostOptions.internetPlayRequested);
     }
 
-    /**
-     * While hosting a world over the rendezvous server, add a "Hand off hosting…" button below
-     * whatever vanilla's own {@code GuiIngameMenu.initGui()} just built — same rationale as the
-     * modern {@code PauseScreenMixin} / the 1.12.2 twin's event handler.
-     */
+    /** Keep vanilla controls and add one handoff entry below them. */
     @SuppressWarnings("unchecked")
+    /** One small "PC" entry beside "Back to game" that opens the in-game PeerCraft menu; never moves vanilla buttons. */
     private void onPauseMenuInit(GuiScreenEvent.InitGuiEvent.Post event) {
         if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) return;
-        boolean handoff = PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous();
         GuiScreen gui = event.gui;
+        @SuppressWarnings("unchecked")
         List<GuiButton> buttons = event.buttonList;
-        int bottom = 0;
-        for (GuiButton button : buttons) bottom = Math.max(bottom, button.yPosition + button.height);
-        net.peercraft.client.theme.SessionPauseLayout layout =
-                net.peercraft.client.theme.SessionPauseLayout.below(gui.width, gui.height, bottom, handoff);
-        if (layout.shiftUp > 0) for (GuiButton button : buttons) button.yPosition -= layout.shiftUp;
-        buttons.add(IdButton.builder(PeerCraftLang.tr("peercraft.session.title"),
-                () -> Minecraft.getMinecraft().displayGuiScreen(new PeerCraftSessionScreen(gui)))
-                .bounds(layout.left, layout.top, layout.buttonWidth, 20).build());
-        if (handoff) {
-            IdButton button = IdButton.builder(PeerCraftLang.tr("peercraft.handoff.menu.button"),
-                    () -> Minecraft.getMinecraft().displayGuiScreen(new HandoffPlayerPickerScreen(gui)))
-                    .bounds(layout.handoffLeft(), layout.top, layout.buttonWidth, 20).build();
-            button.enabled = !P2PBridge.INSTANCE.handoffInProgress();
-            buttons.add(button);
+        if (buttons.isEmpty()) return;
+        List<int[]> occupied = new ArrayList<>();
+        int[] anchor = null;
+        for (GuiButton button : buttons) {
+            int[] rect = {button.xPosition, button.yPosition, button.width, button.height};
+            occupied.add(rect);
+            // "Back to game" is the topmost full-width button of the vanilla menu.
+            if (button.width >= 150 && (anchor == null || rect[1] < anchor[1])) anchor = rect;
         }
+        net.peercraft.client.theme.SessionPauseLayout layout =
+                net.peercraft.client.theme.SessionPauseLayout.icon(gui.width, gui.height, occupied, anchor, 20);
+        String label = FriendRequestNotifier.pendingCount() > 0 ? "\u00a7ePC" : "PC";
+        buttons.add(IdButton.builder(label,
+                () -> Minecraft.getMinecraft().displayGuiScreen(new PeerCraftInGameMenuScreen(gui)))
+                .bounds(layout.left, layout.top, 20, 20).build());
     }
 
     private void setGatedVisible(boolean visible) {

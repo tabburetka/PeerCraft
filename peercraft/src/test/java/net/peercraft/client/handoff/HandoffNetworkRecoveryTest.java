@@ -8,11 +8,60 @@ import java.net.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import static net.peercraft.network.handoff.HandoffAuthorityProtocol.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class HandoffNetworkRecoveryTest {
     @TempDir Path root;
+    @Test void copiedJournalsBlockOnlyPossibleCopiesAndNeverRecoverTheOriginal() throws Exception {
+        Path saves = Files.createDirectories(root.resolve("copy/saves"));
+        Path original = Files.createDirectories(root.resolve("original/saves/transferred"));
+        Path copy = Files.createDirectories(saves.resolve("transferred"));
+        Files.write(original.resolve("level.dat"), new byte[]{1, 2});
+        Files.write(copy.resolve("level.dat"), new byte[]{3, 4});
+        Path records = Files.createDirectories(root.resolve("copy/journals"));
+        UUID session = UUID.randomUUID();
+        HandoffJournal foreign = new HandoffJournal(records.resolve(session + "-4.journal"), session, 4, 0, new byte[32]);
+        foreign.source = original.resolve(".").toString();
+        foreign.role = "SOURCE";
+        foreign.advance(HandoffJournal.Phase.COMMITTED);
+        byte[] before = Files.readAllBytes(foreign.path());
+        // A second copied record has no same-name world here and must not block anything.
+        UUID absentSession = UUID.randomUUID();
+        HandoffJournal absent = new HandoffJournal(records.resolve(absentSession + "-5.journal"), absentSession, 5, 0, new byte[32]);
+        absent.target = root.resolve("original/saves/absent").toString(); absent.save();
+        // Local confirmed ABORT still recovers normally alongside copied records.
+        UUID localSession = UUID.randomUUID();
+        HandoffJournal local = new HandoffJournal(records.resolve(localSession + "-6.journal"), localSession, 6, 0, new byte[32]);
+        local.source = saves.resolve("local").toString(); local.advance(HandoffJournal.Phase.ABORTED);
+        HandoffNetworkRecovery.start(records, saves, (path, sid, epoch, key) -> fail("Copied journal must not grant ownership"), true);
+        CompletableFuture<Void> opened = new CompletableFuture<>();
+        if (!HandoffNetworkRecovery.deferOpen(saves.resolve("unrelated"), Runnable::run,
+                () -> opened.complete(null), opened::completeExceptionally)) opened.complete(null);
+        opened.get(5, TimeUnit.SECONDS);
+        CompletableFuture<Throwable> blocked = new CompletableFuture<>();
+        assertTrue(HandoffNetworkRecovery.deferOpen(copy, Runnable::run, () -> fail("Copied world needs consent"), blocked::complete));
+        assertNotNull(blocked.get(5, TimeUnit.SECONDS));
+        CompletableFuture<Void> localOpened = new CompletableFuture<>();
+        if (!HandoffNetworkRecovery.deferOpen(saves.resolve("local"), Runnable::run,
+                () -> localOpened.complete(null), localOpened::completeExceptionally)) localOpened.complete(null);
+        localOpened.get(5, TimeUnit.SECONDS);
+        assertArrayEquals(before, Files.readAllBytes(foreign.path()));
+        assertTrue(Files.exists(absent.path()));
+        assertArrayEquals(new byte[]{1, 2}, Files.readAllBytes(original.resolve("level.dat")));
+        assertArrayEquals(new byte[]{3, 4}, Files.readAllBytes(copy.resolve("level.dat")));
+    }
+
+    @Test void localJournalIsNotMistakenForACopiedJournal() throws Exception {
+        HandoffJournal j = journal("SOURCE");
+        assertNull(HandoffNetworkRecovery.copiedWorlds(root.resolve("saves"), j));
+        j.source = "relative/saves/world";
+        assertThrows(IOException.class, () -> HandoffNetworkRecovery.copiedWorlds(root.resolve("saves"), j));
+        j.source = root.resolve("outside/world").toString();
+        assertThrows(IOException.class, () -> HandoffNetworkRecovery.copiedWorlds(root.resolve("saves"), j));
+    }
     HandoffJournal journal(String role) throws Exception {
         Path saves = Files.createDirectories(root.resolve("saves"));
         Path records = Files.createDirectories(root.resolve("journals"));

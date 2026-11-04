@@ -17,7 +17,7 @@ public final class WorldInstallRecovery {
             Thread worker = new Thread(() -> {
                 try { WorldInstall.recoverAll(path); result.complete(null); }
                 catch (Exception failure) {
-                    org.slf4j.LoggerFactory.getLogger("peercraft").error("[Handoff] Placement recovery failed; copies retained at {}", path, failure);
+                    net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft").error("[Handoff] Placement recovery failed; copies retained at {}", path, failure);
                     result.completeExceptionally(failure);
                 }
             }, "PeerCraft-Handoff-Startup-Recovery");

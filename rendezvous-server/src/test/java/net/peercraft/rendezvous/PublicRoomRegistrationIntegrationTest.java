@@ -89,6 +89,7 @@ class PublicRoomRegistrationIntegrationTest {
              DatagramSocket browser = new DatagramSocket()) {
             var identity = session();
             byte[] request = net.peercraft.network.rendezvous.RendezvousProtocol.encodeRegisterAnonymous(4, 0, true, "桜花", "26.2", identity);
+            request = net.peercraft.network.admission.AdmissionProtocol.registration(request, false);
             String code = register(first, request);
             assertEquals(code, register(second, request));
             assertEquals(code, register(third, request));

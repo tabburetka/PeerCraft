@@ -207,6 +207,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         buildDiscoverTab();
         buildGamesTab();
         applyTabVisibility();
+
+        this.addRenderableWidget(SteampunkSettingsTheme.action(8,8,150,20,net.minecraft.network.chat.Component.translatable("peercraft.admission.menu_short"),b -> PeerCraftUi.setScreen(this.minecraft,new JoinRequestWaitingScreen(this)),false));
     }
 
     /**
@@ -826,6 +828,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.friendsStatusMessage = Component.translatable("peercraft.gui.multiplayer.connecting_to", friend.displayName());
         this.friendsStatusColor = PeerCraftUi.TEXT_MUTED;
         String friendRoomCode = friend.roomCode();
+        AdmissionScreens.join(this, friendRoomCode, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(friendRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override public String telemetryEntry() { return "friend"; }
@@ -873,6 +876,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                         });
                     }
                 }, new ClientModSyncAgent(this, friendRoomCode));
+        });
     }
 
     // ==================== DISCOVER (FIND PLAYERS) TAB ====================
@@ -1158,6 +1162,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         this.gamesStatusMessage = Component.translatable("peercraft.gui.multiplayer.joining_game", label);
         this.gamesStatusColor = PeerCraftUi.TEXT_MUTED;
         String gameRoomCode = game.code();
+        AdmissionScreens.join(this, gameRoomCode, () -> {
         P2PBridge.INSTANCE.startClientViaRendezvous(gameRoomCode, PeerCraftConfig.rendezvousHost(), PeerCraftConfig.rendezvousPort(),
                 new P2PBridge.ConnectListener() {
                     @Override public String telemetryEntry() { return "public"; }
@@ -1205,6 +1210,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                         });
                     }
                 }, new ClientModSyncAgent(this, gameRoomCode));
+        });
     }
 
     // ==================== shared plumbing ====================

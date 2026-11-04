@@ -30,9 +30,14 @@ public abstract class TitleScreenMixin extends Screen {
      */
     @Inject(method = "init", at = @At("TAIL"))
     private void peercraft$addButtons(CallbackInfo ci) {
+        // Added last so it sees every other button when keeping clear of them; inert until a
+        // newer release is known. Independent of mode: a disabled PeerCraft can still be outdated.
+        this.addRenderableWidget(new net.peercraft.client.gui.UpdateNoticeWidget(this));
         if (PeerCraftConfig.MODE_DISABLED.equals(PeerCraftConfig.mode())) {
             return;
         }
+        // Idempotent; the title screen always precedes any world, so in-game notices are ready.
+        net.peercraft.client.gui.FriendRequestNotifier.start();
 
         peercraft$replaceMultiplayerButton();
     }

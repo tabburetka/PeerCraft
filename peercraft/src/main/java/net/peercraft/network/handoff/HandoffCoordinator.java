@@ -1,7 +1,7 @@
 package net.peercraft.network.handoff;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.InetAddress;
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class HandoffCoordinator {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     private static final long OFFER_RETRY_MILLIS = 700;
     /** Successor never answered the offer at all — give up and let the host keep hosting. */

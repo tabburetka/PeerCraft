@@ -1,5 +1,7 @@
 package net.peercraft.client.mixin;
 
+import net.peercraft.client.skin.SkinProfileSupport;
+
 import com.mojang.authlib.GameProfile;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.server.network.NetHandlerLoginServer;
@@ -58,7 +60,7 @@ public abstract class ServerLoginPacketListenerImplMixin {
     private void peercraft$localIdentity(net.minecraft.network.login.client.C00PacketLoginStart packet, CallbackInfo ci) {
         UUID id = LocalPlayerIdentity.current();
         if (this.field_147333_a.isLocalChannel() && id != null) {
-            this.field_147337_i = new GameProfile(id, this.field_147337_i.getName());
+            this.field_147337_i = SkinProfileSupport.copy(this.field_147337_i, id);
         }
     }
 

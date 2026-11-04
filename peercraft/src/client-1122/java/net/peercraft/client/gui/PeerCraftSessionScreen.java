@@ -37,7 +37,7 @@ public final class PeerCraftSessionScreen extends GuiScreen {
     private int inner() { return panelWidth() - 28; }
     private int bodyTop() { return top() + 54; }
     private int bodyBottom() { return top() + panelHeight() - 36; }
-    private String tr(String key, Object... args) { return PeerCraftLang.tr("peercraft.session." + key, args); }
+    private String tr(String key, Object... args) { return PeerCraftLang.tr((key.startsWith("peercraft.") ? key : "peercraft.session." + key), args); }
     private void open(Page next) { page = next; scroll = 0; buttonList.clear(); initGui(); }
 
     @Override public void initGui() {
@@ -45,17 +45,34 @@ public final class PeerCraftSessionScreen extends GuiScreen {
         if (page == Page.OVERVIEW) {
             card(57, "network", networkSummary(), Page.NETWORK);
             card(101, "world", worldSummary(), Page.WORLD);
-            card(145, "files", tr("unavailable"), Page.FILES);
+            card(145, "files", filesSummary(), Page.FILES);
             action(195, "players", () -> open(Page.PLAYERS));
             action(221, "hosts", () -> open(Page.HOSTS));
             contentHeight = 247;
+            if (showHostControls()) {
+                action(48, "handoff", () -> PeerCraftUi.setScreen(mc, parent instanceof HandoffPlayerPickerScreen ? parent : new HandoffPlayerPickerScreen(this)));
+                contentButtons.get(contentButtons.size() - 1).enabled = canHandoff();
+                contentHeight = 273;
+            }
         } else {
             List<String> lines = detailLines();
             contentHeight = lines.size() * 13 + 12;
+            if (page == Page.HOSTS) {
+                action(contentHeight + 4, "metric.test_button", () -> P2PBridge.INSTANCE.sessionMonitor().requestComparison());
+                contentHeight += 28;
+            }
+            if (page == Page.FILES) {
+                action(contentHeight + 4, "metric.limit_button", () -> {
+                    int current = net.peercraft.network.diagnostics.TransferTraffic.limitKiB();
+                    net.peercraft.network.diagnostics.TransferTraffic.setLimitKiB(current == 0 ? 256 : current == 256 ? 1024 : 0);
+                    open(Page.FILES);
+                });
+                contentHeight += 28;
+            }
             if (page == Page.HOSTS && PeerCraftConfig.handoff()
                     && P2PBridge.INSTANCE.isHostingViaRendezvous()) {
-                action(contentHeight + 4, "handoff", () -> PeerCraftUi.setScreen(mc, new HandoffPlayerPickerScreen(this)));
-                contentButtons.get(contentButtons.size() - 1).enabled = !P2PBridge.INSTANCE.handoffInProgress();
+                action(contentHeight + 4, "handoff", () -> PeerCraftUi.setScreen(mc, parent instanceof HandoffPlayerPickerScreen ? parent : new HandoffPlayerPickerScreen(this)));
+                contentButtons.get(contentButtons.size() - 1).enabled = canHandoff();
                 contentHeight += 32;
             }
         }
@@ -63,12 +80,21 @@ public final class PeerCraftSessionScreen extends GuiScreen {
                 .bounds(left() + 14, top() + panelHeight() - 31, inner(), 20).build());
         updateScroll();
     }
+    private boolean showHostControls() { return mc.getIntegratedServer() != null; }
+    private boolean canHandoff() { return PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous() && !P2PBridge.INSTANCE.handoffInProgress(); }
+    private int overviewOffset(int offset) { return page == Page.OVERVIEW && showHostControls() && offset >= 57 ? offset + 26 : offset; }
+    private String overviewHint() {
+        if (showHostControls() && !canHandoff()) return tr(!PeerCraftConfig.handoff() ? "metric.handoff_disabled" : P2PBridge.INSTANCE.handoffInProgress() ? "metric.handoff_busy" : "metric.handoff_needs_session");
+        return tr(tickMillis() > 50 ? "world.advice" : "overview.hint");
+    }
     private void card(int offset, String key, String summary, Page next) {
+        offset = overviewOffset(offset);
         GuiButton button = IdButton.builder(tr(key) + ": " + summary, () -> open(next))
                 .bounds(left() + 14, bodyTop() + offset, inner(), 38).build();
         contentButtons.add(addButton(button)); buttonOffsets.add(offset);
     }
     private void action(int offset, String key, Runnable action) {
+        offset = overviewOffset(offset);
         contentButtons.add(addButton(IdButton.builder(tr(key), action)
                 .bounds(left() + 14, bodyTop() + offset, inner(), 20).build()));
         buttonOffsets.add(offset);
@@ -92,11 +118,15 @@ public final class PeerCraftSessionScreen extends GuiScreen {
         if (key == 201 || key == 209) { scroll += key == 201 ? -78 : 78; updateScroll(); return; }
         super.keyTyped(character, key);
     }
+    private long nextRefresh;
     @Override public void updateScreen() {
-        if (page != Page.OVERVIEW && page != Page.HOSTS) {
-            contentHeight = detailLines().size() * 13 + 12;
-            updateScroll();
-        }
+        if (page == Page.OVERVIEW || System.nanoTime() < nextRefresh) return;
+        nextRefresh = System.nanoTime() + 1_000_000_000L;
+        int needed = detailLines().size() * 13 + 12;
+        if (page == Page.FILES || page == Page.HOSTS) needed += 28;
+        if (page == Page.HOSTS && PeerCraftConfig.handoff() && P2PBridge.INSTANCE.isHostingViaRendezvous()) needed += 32;
+        if (needed != contentHeight) { initGui(); }
+        updateScroll();
     }
     public void onClose() {
         if (page != Page.OVERVIEW) open(Page.OVERVIEW);
@@ -120,7 +150,7 @@ public final class PeerCraftSessionScreen extends GuiScreen {
         return count == 0 ? -1 : sum / (double) count / 1_000_000.0;
     }
     private String worldSummary() {
-        double tick = tickMillis();
+        double tick = net.peercraft.client.theme.SessionPresentation.worldTick(P2PBridge.INSTANCE.sessionMonitor(), tickMillis());
         return tick < 0 ? tr("world.remote") : tr("world.value", String.format(Locale.ROOT, "%.1f", tick));
     }
     private String networkSummary() {
@@ -129,43 +159,17 @@ public final class PeerCraftSessionScreen extends GuiScreen {
         return max < 0 ? tr("unavailable") : tr("network.value", max);
     }
     private String status() {
-        if (tickMillis() > 50) return tr("status.world");
-        if (players().stream().anyMatch(p -> p.ping >= 150)) return tr("status.network");
-        return tr("status.measuring");
+        return tr(net.peercraft.client.theme.SessionPresentation.diagnosis(P2PBridge.INSTANCE.sessionMonitor(),
+                net.peercraft.client.theme.SessionPresentation.worldTick(P2PBridge.INSTANCE.sessionMonitor(), tickMillis())));
     }
+    private String filesSummary() { return tr("metric.files_count", net.peercraft.client.theme.SessionPresentation.files(P2PBridge.INSTANCE.sessionMonitor())); }
     private List<String> detailLines() {
         List<String> raw = new ArrayList<>();
-        switch (page) {
-            case NETWORK: {
-                raw.add(networkSummary()); raw.add("");
-                raw.add(tr("network.source")); raw.add(tr("network.unknown")); raw.add("");
-                raw.add(tr("network.advice"));
-                break;
-            }
-            case WORLD: {
-                raw.add(worldSummary()); raw.add(""); raw.add(tr("world.explain"));
-                raw.add(tr(tickMillis() > 50 ? "world.advice" : "world.no_advice"));
-                if (tickMillis() < 0) raw.add(tr("world.remote_detail"));
-                break;
-            }
-            case FILES: {
-                raw.add(tr("files.unknown")); raw.add("");
-                raw.add(tr("files.explain")); raw.add(tr("files.advice"));
-                break;
-            }
-            case PLAYERS: {
-                raw.add(tr("players.explain")); raw.add("");
-                for (Player player : players()) raw.add(player.name + "    " + (player.ping < 0 ? "—" : tr("ping", player.ping)));
-                if (players().isEmpty()) raw.add(tr("players.empty"));
-                break;
-            }
-            case HOSTS: {
-                raw.add(tr("hosts.explain")); raw.add(""); raw.add(tr("hosts.unavailable"));
-                raw.add(tr("hosts.world")); raw.add(""); raw.add(tr("hosts.manual"));
-                break;
-            }
-            default: break;
-        }
+        if (page == Page.PLAYERS) {
+            raw.add(tr("players.explain")); raw.add("");
+            for (Player player : players()) raw.add(player.name + "    " + (player.ping < 0 ? "—" : tr("ping", player.ping)));
+            if (players().isEmpty()) raw.add(tr("players.empty"));
+        } else raw.addAll(net.peercraft.client.theme.SessionPresentation.lines(page.name(), P2PBridge.INSTANCE.sessionMonitor(), tickMillis(), this::tr));
         List<String> wrapped = new ArrayList<>();
         for (String line : raw) wrapped.addAll(PeerCraftUi.wrap(fontRenderer, line, inner() - 16));
         return wrapped;
@@ -190,7 +194,7 @@ public final class PeerCraftSessionScreen extends GuiScreen {
             int color = tickMillis() > 50 || players().stream().anyMatch(p -> p.ping >= 150) ? AMBER : SteampunkPalette.TEXT;
             net.minecraft.client.gui.Gui.drawRect(left() + 14, y, left() + 17, y + 42, color);
             fontRenderer.drawStringWithShadow(status(), x, y + 5, color);
-            List<String> hint = PeerCraftUi.wrap(fontRenderer, tr(tickMillis() > 50 ? "world.advice" : "overview.hint"), inner() - 20);
+            List<String> hint = PeerCraftUi.wrap(fontRenderer, overviewHint(), inner() - 20);
             for (int i = 0; i < Math.min(2, hint.size()); i++) fontRenderer.drawStringWithShadow(hint.get(i), x, y + 20 + i * 11, SteampunkPalette.MUTED);
             drawCard(57, "network", networkSummary());
             drawCard(101, "world", worldSummary());
@@ -210,7 +214,7 @@ public final class PeerCraftSessionScreen extends GuiScreen {
         }
     }
     private void drawCard(int offset, String key, String value) {
-        int y = bodyTop() + offset - scroll;
+        int y = bodyTop() + overviewOffset(offset) - scroll;
         if (y < bodyTop() || y + 38 > bodyBottom())
             SteampunkDialog.frame(left() + 14, y, inner(), 38, SteampunkPalette.CONTROL, SteampunkPalette.BORDER);
         // Cover the normal one-line button label with a two-line card, preserving hover/focus border.

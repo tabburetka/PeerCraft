@@ -90,7 +90,8 @@ class PublicGameBrowserIntegrationTest {
             assertEquals(RendezvousProtocol.REASON_ACCOUNT_REQUIRED, RendezvousProtocol.decodeJoinFailReason(joinReply, joinReply.length));
             var account = TestAccounts.register(browserSocket, loopback, port);
             joinReply = sendAndReceive(browserSocket, loopback, port, RendezvousProtocol.encodeJoinWithAccount(listed.code(), account.sessionToken()));
-            assertEquals(RendezvousProtocol.TYPE_PEER_FOUND, RendezvousProtocol.messageType(joinReply, joinReply.length));
+            assertEquals(RendezvousProtocol.TYPE_JOIN_FAIL, RendezvousProtocol.messageType(joinReply, joinReply.length));
+            assertEquals(7, RendezvousProtocol.decodeJoinFailReason(joinReply, joinReply.length), "legacy public hosts must not expose addresses without approval");
         }
     }
 

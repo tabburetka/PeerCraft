@@ -1,5 +1,7 @@
 package net.peercraft.client.mixin;
 
+import net.peercraft.client.skin.SkinProfileSupport;
+
 import com.mojang.authlib.GameProfile;
 import net.minecraft.client.server.IntegratedServer;
 import net.peercraft.client.handoff.WorldArchiver;
@@ -26,11 +28,11 @@ public abstract class PlayerDataMigrationMixin {
         // the file actually played, so removing PeerCraft still loads the current host.
         //? if <1.21.9 {
         if (!LocalPlayerIdentity.current().equals(profile.getId())) {
-            server.setSingleplayerProfile(new GameProfile(LocalPlayerIdentity.current(), profile.getName()));
+            server.setSingleplayerProfile(SkinProfileSupport.copy(profile, LocalPlayerIdentity.current()));
         }
         //?} else {
         /*if (!LocalPlayerIdentity.current().equals(profile.id())) {
-            server.setSingleplayerProfile(new GameProfile(LocalPlayerIdentity.current(), profile.name()));
+            server.setSingleplayerProfile(SkinProfileSupport.copy(profile, LocalPlayerIdentity.current()));
         }
         *///?}
     }

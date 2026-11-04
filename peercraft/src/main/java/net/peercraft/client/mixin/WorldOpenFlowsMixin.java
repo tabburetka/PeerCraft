@@ -28,20 +28,39 @@ public abstract class WorldOpenFlowsMixin {
     @Unique
     private static final ThreadLocal<Boolean> peercraft$bypass = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
+    @Unique
+    private void peercraft$showRecoveryFailure(Minecraft client, String world, Runnable open) {
+        net.peercraft.client.gui.HandoffStatusScreen error = new net.peercraft.client.gui.HandoffStatusScreen(new TitleScreen(), "", true);
+        error.onRecoveryFailed(() -> {
+            Path selected = net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(world);
+            try {
+                // As with the stale-world warning, do not reuse an old hosting grant.
+                net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.forkStaleWorld(selected);
+            } catch (java.io.IOException failure) {
+                org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Could not clear the local hosting grant", failure);
+                peercraft$showRecoveryFailure(client, world, open);
+                return;
+            }
+            net.peercraft.network.handoff.RecoveryOpenOverride.open(selected, open);
+        });
+        net.peercraft.network.handoff.WorldInstallRecovery.start(net.peercraft.client.handoff.SuccessorLauncher.savesDirectory())
+                .whenComplete((ok, failure) -> client.execute(() -> PeerCraftUi.setScreen(client, error)));
+    }
+
     @Inject(method = "openWorld(Ljava/lang/String;Ljava/lang/Runnable;)V", at = @At("HEAD"), cancellable = true)
     private void peercraft$warnStaleHandoff(String levelId, Runnable onFail, CallbackInfo ci) {
+        if (net.peercraft.network.handoff.RecoveryOpenOverride.allows(
+                net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(levelId))) { peercraft$bypass.set(Boolean.FALSE); return; }
         Minecraft peercraft$client = Minecraft.getInstance();
         if (net.peercraft.client.handoff.HandoffNetworkRecovery.deferOpen(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory().resolve(levelId), peercraft$client::execute,
                 () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail), failure -> {
-                    net.peercraft.client.handoff.SafeHandoffPlatform.INSTANCE.error("peercraft.handoff.abort.recovery_failed");
+                    peercraft$showRecoveryFailure(peercraft$client, levelId, () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail));
                 })) { ci.cancel(); return; }
         if (net.peercraft.network.handoff.WorldInstallRecovery.deferOpen(
                 net.peercraft.client.handoff.SuccessorLauncher.savesDirectory(), peercraft$client::execute,
                 () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail), failure -> {
-                    net.peercraft.client.gui.HandoffStatusScreen error = new net.peercraft.client.gui.HandoffStatusScreen(new TitleScreen(), "");
-                    error.onAborted("peercraft.handoff.abort.recovery_failed");
-                    PeerCraftUi.setScreen(peercraft$client, error);
+                    peercraft$showRecoveryFailure(peercraft$client, levelId, () -> peercraft$client.createWorldOpenFlows().openWorld(levelId, onFail));
                 })) {
             ci.cancel(); return;
         }
@@ -88,7 +107,7 @@ public abstract class WorldOpenFlowsMixin {
             net.minecraft.server.WorldStem stem, net.minecraft.server.packs.repository.PackRepository packs, CallbackInfo ci) {
         if (!net.peercraft.network.handoff.HandoffLaunchContext.permits(access)) {
             try { access.close(); } catch (java.io.IOException failure) {
-                org.slf4j.LoggerFactory.getLogger("peercraft").warn("[Handoff] Cancelled native access failed to close", failure);
+                org.apache.logging.log4j.LogManager.getLogger("peercraft").warn("[Handoff] Cancelled native access failed to close", failure);
             }
             stem.close(); ci.cancel();
         }

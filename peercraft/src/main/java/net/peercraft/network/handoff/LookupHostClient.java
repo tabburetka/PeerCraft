@@ -1,8 +1,8 @@
 package net.peercraft.network.handoff;
 
 import net.peercraft.network.rendezvous.RendezvousProtocol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class LookupHostClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("peercraft");
+    private static final Logger LOGGER = net.peercraft.network.privacy.PrivateNetworkLogger.getLogger("peercraft");
 
     private static final long RETRY_MILLIS = 2000L;
 
