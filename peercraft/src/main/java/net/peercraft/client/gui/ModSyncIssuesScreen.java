@@ -17,7 +17,7 @@ import java.util.List;
  * title screen) and reconnects next launch, when the mods are present and the join goes
  * straight through.
  */
-public class ModSyncIssuesScreen extends PeerCraftDialogScreen {
+public class ModSyncIssuesScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     private int scroll;
 

@@ -17,7 +17,7 @@ import org.lwjgl.input.Keyboard;
  * confirm screen isn't a blank, seemingly-frozen screen. Carries a status line the agent
  * updates through the phases and an indeterminate "working" bar.
  */
-public class ModSyncPreparingScreen extends PeerCraftDialogScreen {
+public class ModSyncPreparingScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.prepare.title");

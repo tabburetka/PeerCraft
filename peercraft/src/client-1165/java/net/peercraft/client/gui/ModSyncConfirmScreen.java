@@ -33,7 +33,7 @@ import java.util.function.Consumer;
  * (see {@code ModSyncDeclinedStore}) so this screen doesn't reappear on every re-join.
  * Auto-accept skips this screen only when every selected jar has a public catalog match.
  */
-public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
+public class ModSyncConfirmScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     private int listTop;
     private int listBottom;

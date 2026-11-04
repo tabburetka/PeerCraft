@@ -20,7 +20,7 @@ import java.util.List;
  * Shown after mod sync has installed the missing jars. Minecraft can't load them without a
  * relaunch, so the join is deliberately NOT continued.
  */
-public class ModSyncIssuesScreen extends PeerCraftDialogScreen {
+public class ModSyncIssuesScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     private static final int MAX_LISTED = 12;
 

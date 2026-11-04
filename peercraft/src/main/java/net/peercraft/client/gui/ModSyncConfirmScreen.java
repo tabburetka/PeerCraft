@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  * Local mods the host doesn't have ({@code modSync.removeExtra}) are listed as removal rows,
  * each with its own checkbox (ticked by default); auto-accept never skips a removal.
  */
-public class ModSyncConfirmScreen extends Screen {
+public class ModSyncConfirmScreen extends Screen implements net.peercraft.client.JoinFlowScreen {
 
     private int LIST_TOP = 82;
     private int filterY;

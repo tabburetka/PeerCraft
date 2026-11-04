@@ -20,7 +20,7 @@ import net.peercraft.network.modsync.ModSyncPlan;
  * version without touching the render-primitive API). A Cancel button aborts the whole batch
  * and returns to the previous screen; a hard failure swaps to an error message.
  */
-public class ModSyncProgressScreen extends PeerCraftDialogScreen {
+public class ModSyncProgressScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     public enum State {DOWNLOADING, VERIFYING, INSTALLING}
 

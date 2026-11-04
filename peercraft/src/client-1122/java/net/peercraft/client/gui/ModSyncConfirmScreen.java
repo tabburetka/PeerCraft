@@ -32,7 +32,7 @@ import java.util.function.Consumer;
  * out; mods needed to join the host's world have no checkbox. A filter button cycles all /
  * client-only / required. What the player unchecks is remembered ({@code ModSyncDeclinedStore}).
  */
-public class ModSyncConfirmScreen extends PeerCraftDialogScreen {
+public class ModSyncConfirmScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     private int listTop;
     private static final int ROW_HEIGHT = 28;

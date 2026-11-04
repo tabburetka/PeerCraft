@@ -41,8 +41,7 @@ public final class TransportNoticeController {
         if (vanillaConnecting && current != joinScreen && current != returnScreen
                 && !(current instanceof GuiDisconnected)) return;
         if (!vanillaConnecting && (current == joinScreen
-                || current instanceof ModSyncPreparingScreen || current instanceof ModSyncConfirmScreen
-                || current instanceof ModSyncProgressScreen || current instanceof ModSyncSecurityNoticeScreen)) return;
+                || current instanceof net.peercraft.client.JoinFlowScreen)) return;
         if (vanillaConnecting && current instanceof GuiDisconnected)
             attempt.telemetry().finish("failed", "vanilla_disconnect");
         attempt.cancel();

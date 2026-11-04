@@ -17,7 +17,7 @@ import java.io.IOException;
  * acknowledges the risk (a flag in {@code settings.json} is set and this screen never returns)
  * or cancels the join. A short red reminder stays on the preparing/confirm screens after that.
  */
-public class ModSyncSecurityNoticeScreen extends PeerCraftDialogScreen {
+public class ModSyncSecurityNoticeScreen extends PeerCraftDialogScreen implements net.peercraft.client.JoinFlowScreen {
 
     private final String titleText = PeerCraftLang.tr("peercraft.modsync.notice.title");
     private final Runnable onAccept;
