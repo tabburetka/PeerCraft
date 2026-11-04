@@ -129,7 +129,7 @@ public final class HostModSyncProviderImpl implements ModSyncHostProvider {
                 return pm.version();
             }
         }
-        return "3.4.3";
+        return "3.5.0";
     }
 
     @Override
