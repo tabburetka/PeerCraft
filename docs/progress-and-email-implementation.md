@@ -122,7 +122,7 @@ zero errors and zero skips. The selection was `net.peercraft.rendezvous.account.
 This includes both successful SMTP TLS modes in the same run as the HTTPS recovery
 contract, verifying that their temporary TLS contexts are restored and do not break
 the other transport tests. Results were counted from the current JUnit XML files
-under `rendezvous-server/build/test-results/test`.
+under `servers/rendezvous/build/test-results/test`.
 
 ### Native world progress with real registration
 

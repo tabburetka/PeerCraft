@@ -95,7 +95,7 @@ Usually no: PeerCraft attempts direct UDP NAT traversal and points at a public r
 Yes. They register a nickname + password account in-game instead of logging in with Mojang. A host can choose whether to allow this.
 
 **Why did hole punching fail / why can't we connect?**
-Some NAT and firewall configurations prevent direct peer-to-peer connectivity. Current builds require a working direct UDP route. When both peers negotiate the newer direct-check protocol, they check supported routes for up to 20 seconds; if those checks fail, PeerCraft shows a dialog suggesting to turn off any VPN and retry. If that does not help, one of the two players can run a **self-hosted relay** ([peercraft-relay](peercraft-relay/README.md)): a small program on a PC with a forwarded UDP port or on a VPS. Paste its relay code into PeerCraft settings (or use **Own relay…** in the error dialog); the other player needs nothing. The relay only forwards packets that are encrypted end to end between the players. The PeerCraft-operated TURN fallback stays disabled in both the client and server code, including the Forge backports. A hole-punching error alone does not identify the exact NAT or firewall responsible.
+Some NAT and firewall configurations prevent direct peer-to-peer connectivity. Current builds require a working direct UDP route. When both peers negotiate the newer direct-check protocol, they check supported routes for up to 20 seconds; if those checks fail, PeerCraft shows a dialog suggesting to turn off any VPN and retry. If that does not help, one of the two players can run a **self-hosted relay** ([peercraft-relay](servers/relay/README.md)): a small program on a PC with a forwarded UDP port or on a VPS. Paste its relay code into PeerCraft settings (or use **Own relay…** in the error dialog); the other player needs nothing. The relay only forwards packets that are encrypted end to end between the players. The PeerCraft-operated TURN fallback stays disabled in both the client and server code, including the Forge backports. A hole-punching error alone does not identify the exact NAT or firewall responsible.
 
 **Is this safe to use with a real Mojang account?**
 PeerCraft never asks for or stores your Mojang password — licensed login uses the same session-verification method Mojang's own multiplayer uses. That said, this is a hobby project without a security audit, so avoid reusing sensitive passwords for a pirate account, and treat it as you would any small independent mod.
@@ -123,17 +123,26 @@ Released under [CC BY-NC 4.0](LICENSE) — free to use, modify, and share with a
 
 The rest of this document is for people building or contributing to PeerCraft, not for players.
 
-Player identity, one-time save migration and vanilla compatibility during host handoff are documented in [player-data-migration.md](peercraft/docs/player-data-migration.md).
+Player identity, one-time save migration and vanilla compatibility during host handoff are documented in [player-data-migration.md](docs/player-data-migration.md).
 
 ### Repository layout
 
+```
+mod/              the mod: Stonecutter build for Fabric/NeoForge + all shared source roots
+legacy/           RetroFuturaGradle backports (Forge 1.12.2, Forge 1.7.10)
+servers/          rendezvous server and self-hosted relay (no Minecraft dependency)
+docs/             design notes, plans and committed verification evidence
+tools/release/    release manifest signing (writes releases/update.json)
+releases/         per-release manifests, checksums and the signed update.json
+```
+
 Several independent Gradle projects in one repo:
 
-- `peercraft/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build), plus an experimental Fabric-only **1.16.5** backport target (Java 8, its own `build.fabric-1165.gradle.kts`). Build one target with `cd peercraft && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
-- `rendezvous-server/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd rendezvous-server && ./gradlew jar`.
-- `peercraft-relay/` — the self-hosted relay players can run when direct P2P fails (Java 17, no dependencies, plus a Dockerfile). Its wire codec is compiled from the mod's own `peercraft/src/main/java/net/peercraft/network/ownrelay/OwnRelayProtocol.java`. Build with `cd peercraft-relay && ./gradlew jar`; `./export-standalone.sh DIR` produces the public standalone repository layout. Player-facing instructions are in its [README](peercraft-relay/README.md).
-- `peercraft-forge-1122/` — a Minecraft **1.12.2 Forge** backport, built on RetroFuturaGradle (Gradle 8.8, Java 8) instead of Stonecutter/Loom. It reuses the shared networking/account code straight from `peercraft/src/` via `srcDir` (with hand-resolved Java-8 / 1.12.2-API twins under `peercraft/src/shared-forge1122/` and `peercraft/src/client-1122/`). Build with `cd peercraft-forge-1122 && ./gradlew build` (first run is slow — it decompiles Minecraft) → `build/libs/peercraft-forge-1.12.2-<version>.jar`; try it with `./gradlew runClient`. Requires [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The mod ships a coremod (`PeerCraftCoreMod`) that registers its mixin config, so it does **not** need to be extracted. This backport builds and loads; it's not yet as thoroughly runtime-tested as the 1.21.x / 26.x targets.
-- `peercraft-forge-1710/` — a Minecraft **1.7.10 Forge** backport, same toolchain as the 1.12.2 one (RetroFuturaGradle, Gradle 8.8, Java 8) and ported almost file-for-file from it — 1.7.10 and 1.12.2 share the pre-1.13 immediate-mode GUI (`GuiScreen` + `buttonList`), so most of the work was mechanical API renames (`fontRendererObj`, the `cpw.mods.fml.*` package, MCP `stable_12` names). It reuses the shared code from `peercraft/src/` via `srcDir` with twins under `peercraft/src/shared-forge1710/` and `peercraft/src/client-1710/`, and the loader-agnostic mod-sync core from `peercraft/src/modsync-java8/` (shared with the 1.12.2 backport). Build with `cd peercraft-forge-1710 && ./gradlew build` → `build/libs/peercraft-forge-1.7.10-<version>.jar`; try it with `./gradlew runClient`. Requires [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). Mod sync is backported here too — Modrinth HTTPS CDN transfer for exact SHA-512 matches, with P2P fallback, reading `mcmod.info` for the jar list; `./gradlew :peercraft-forge-1710:modsyncTest` runs a Minecraft-free loopback check of the handshake + transfer. The `build` (including the mixin refmap) is green; runtime application of the mixins is not yet verified.
+- `mod/` — the mod itself (Fabric + NeoForge, Minecraft 1.21.1–1.21.11 and 26.1–26.2, Java 21/25, a Stonecutter multi-version build), plus an experimental Fabric-only **1.16.5** backport target (Java 8, its own `build.fabric-1165.gradle.kts`). Build one target with `cd mod && ./gradlew :1.21.1-fabric:build`, or the whole matrix with `./gradlew buildAll`.
+- `servers/rendezvous/` — the standalone UDP rendezvous server (no Minecraft/Loom dependency). Build with `cd servers/rendezvous && ./gradlew jar`.
+- `servers/relay/` — the self-hosted relay players can run when direct P2P fails (Java 17, no dependencies, plus a Dockerfile). Its wire codec is compiled from the mod's own `mod/src/main/java/net/peercraft/network/ownrelay/OwnRelayProtocol.java`. Build with `cd servers/relay && ./gradlew jar`; `./export-standalone.sh DIR` produces the public standalone repository layout. Player-facing instructions are in its [README](servers/relay/README.md).
+- `legacy/forge-1122/` — a Minecraft **1.12.2 Forge** backport, built on RetroFuturaGradle (Gradle 8.8, Java 8) instead of Stonecutter/Loom. It reuses the shared networking/account code straight from `mod/src/` via `srcDir` (with hand-resolved Java-8 / 1.12.2-API twins under `mod/src/shared-forge1122/` and `mod/src/client-1122/`). Build with `cd legacy/forge-1122 && ./gradlew build` (first run is slow — it decompiles Minecraft) → `build/libs/peercraft-forge-1.12.2-<version>.jar`; try it with `./gradlew runClient`. Requires [MixinBooter](https://www.curseforge.com/minecraft/mc-mods/mixin-booter) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). The mod ships a coremod (`PeerCraftCoreMod`) that registers its mixin config, so it does **not** need to be extracted. This backport builds and loads; it's not yet as thoroughly runtime-tested as the 1.21.x / 26.x targets.
+- `legacy/forge-1710/` — a Minecraft **1.7.10 Forge** backport, same toolchain as the 1.12.2 one (RetroFuturaGradle, Gradle 8.8, Java 8) and ported almost file-for-file from it — 1.7.10 and 1.12.2 share the pre-1.13 immediate-mode GUI (`GuiScreen` + `buttonList`), so most of the work was mechanical API renames (`fontRendererObj`, the `cpw.mods.fml.*` package, MCP `stable_12` names). It reuses the shared code from `mod/src/` via `srcDir` with twins under `mod/src/shared-forge1710/` and `mod/src/client-1710/`, and the loader-agnostic mod-sync core from `mod/src/modsync-java8/` (shared with the 1.12.2 backport). Build with `cd legacy/forge-1710 && ./gradlew build` → `build/libs/peercraft-forge-1.7.10-<version>.jar`; try it with `./gradlew runClient`. Requires [UniMixins](https://www.curseforge.com/minecraft/mc-mods/unimixins) at runtime for the two server-side mixins (the GUI hooks are plain Forge events). Mod sync is backported here too — Modrinth HTTPS CDN transfer for exact SHA-512 matches, with P2P fallback, reading `mcmod.info` for the jar list; `./gradlew :peercraft-forge-1710:modsyncTest` runs a Minecraft-free loopback check of the handshake + transfer. The `build` (including the mixin refmap) is green; runtime application of the mixins is not yet verified.
 
 ### Configuration
 
@@ -189,9 +198,9 @@ The P2P transfer tolerates ordinary packet loss (a mangled or dropped chunk is s
 
 ### Local self-connect test
 
-Run the two Minecraft instances from separate working directories (`peercraft/run-host/` and `peercraft/run-client/`) so their `logs/latest.log` files don't interleave — the IDE run configs `Minecraft Client (host)` and `Minecraft Client (join)` are already set up this way.
+Run the two Minecraft instances from separate working directories (`mod/run-host/` and `mod/run-client/`) so their `logs/latest.log` files don't interleave — the IDE run configs `Minecraft Client (host)` and `Minecraft Client (join)` are already set up this way.
 
-1. Build the mod with `cd peercraft && ./gradlew build`.
+1. Build the mod with `cd mod && ./gradlew build`.
 2. Start the **host** instance (`Minecraft Client (host)`, working dir `run-host/`). Create or load a single-player world.
 3. Click **Open to LAN** (leave "play over the internet" unticked for this local test). `run-host/logs/latest.log` should confirm the host is ready and listening on UDP `50001`.
 4. Start the **client** instance (`Minecraft Client (join)`, working dir `run-client/`). `run-client/logs/latest.log` should confirm the client is ready, local proxy port `25566`, UDP listen port `50002`.
@@ -201,22 +210,22 @@ Run the two Minecraft instances from separate working directories (`peercraft/ru
 
 ### Internet play (rendezvous server + hole punching)
 
-For two players on different networks, PeerCraft uses the standalone rendezvous server (`rendezvous-server/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream uses the same P2P bridge protocol as the local test above, just talking to a real remote address instead of `127.0.0.1`.
+For two players on different networks, PeerCraft uses the standalone rendezvous server (`servers/rendezvous/`) to let host and joiner discover each other's public UDP address, then attempts direct UDP hole punching. Once punching succeeds, everything downstream uses the same P2P bridge protocol as the local test above, just talking to a real remote address instead of `127.0.0.1`.
 
 **Self-hosted relay.** When the direct checks fail, the player who configured a relay code (`relay.ownCode`) opens a session on their `peercraft-relay` from the P2P socket and announces it as a *relay ticket*: a signed candidate update (`TYPE_CONNECTIVITY_CHECK`/`DIRECT_CANDIDATE_UPDATE`) whose reserved 8-byte field carries the session id. The rendezvous server forwards it like any candidate, so no server change is needed. The other player joins the session; payloads go through `SecureDatagramChannel` with keys derived from the match secret, so the relay sees only ciphertext. If both players have a relay, the host's is used; if neither has one, the attempt fails with `peercraft.p2p.fail.direct_failed` after a short wait for a ticket.
 
 **TURN fallback is disabled in current builds.** `PeerCraftConfig.relayEnabled()` returns `false`, the direct-failure path in `P2PBridge` does not call `beginRelay(...)`, and `RendezvousServer.run()` does not call `startRelay()`. This applies to the main client sources and both Forge backports. Neither saved settings, launch flags nor `enabled=true` in the broker configuration restore fallback; reactivation requires code changes, rebuilt clients/server and closed real-network/gameplay validation.
 
-The retained experimental implementation supports coturn and Cloudflare TURN, account-authenticated leases and provider health/usage guards. The [coturn preparation guide](rendezvous-server/deploy/coturn/README.ru.md) and [broker configuration](rendezvous-server/README.md) describe that implementation for future testing, not an available connection option. Normal play currently requires direct connectivity.
+The retained experimental implementation supports coturn and Cloudflare TURN, account-authenticated leases and provider health/usage guards. The [coturn preparation guide](servers/rendezvous/deploy/coturn/README.ru.md) and [broker configuration](servers/rendezvous/README.md) describe that implementation for future testing, not an available connection option. Normal play currently requires direct connectivity.
 
 #### Running your own rendezvous server
 
 ```
-cd rendezvous-server
+cd servers/rendezvous
 ./gradlew jar
 ```
 
-Copy `rendezvous-server/build/libs/rendezvous-server-*.jar` to whatever machine will host it and run it there:
+Copy `servers/rendezvous/build/libs/rendezvous-server-*.jar` to whatever machine will host it and run it there:
 
 ```
 java -jar rendezvous-server-1.0.0.jar 51000
@@ -226,7 +235,7 @@ Forward UDP port `51000` (or whatever you pass as the argument) on that machine'
 
 ### Tests
 
-- `peercraft`: `cd peercraft && ./gradlew test` — unit and integration tests for the P2P relay, rendezvous protocol, and accounts/friends stack.
-- `peercraft-relay`: `cd peercraft-relay && ./gradlew test` — relay session handling, limits and a real-socket forwarding test.
-- `rendezvous-server`: `cd rendezvous-server && ./gradlew test` — unit and integration tests for the room registry, protocol, and accounts service, exercised over raw UDP with no Minecraft dependency.
-- End-to-end tests that spin up a real rendezvous-server subprocess self-skip if the sibling project's jar hasn't been built yet — build it first with `cd rendezvous-server && ./gradlew jar`.
+- `peercraft`: `cd mod && ./gradlew test` — unit and integration tests for the P2P relay, rendezvous protocol, and accounts/friends stack.
+- `peercraft-relay`: `cd servers/relay && ./gradlew test` — relay session handling, limits and a real-socket forwarding test.
+- `rendezvous-server`: `cd servers/rendezvous && ./gradlew test` — unit and integration tests for the room registry, protocol, and accounts service, exercised over raw UDP with no Minecraft dependency.
+- End-to-end tests that spin up a real rendezvous-server subprocess self-skip if the sibling project's jar hasn't been built yet — build it first with `cd servers/rendezvous && ./gradlew jar`.

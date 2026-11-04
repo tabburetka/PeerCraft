@@ -1,0 +1,67 @@
+plugins {
+	id 'application'
+}
+
+version = '1.0.0'
+group = 'net.peercraft'
+
+repositories {
+	mavenCentral()
+}
+
+application {
+	mainClass = 'net.peercraft.rendezvous.RendezvousServer'
+}
+
+dependencies {
+	implementation 'com.google.code.gson:gson:2.11.0'
+	implementation 'org.eclipse.angus:jakarta.mail:2.0.5'
+
+	testImplementation 'org.slf4j:slf4j-api:2.0.17'
+	testImplementation 'org.apache.logging.log4j:log4j-api:2.22.1'
+	testImplementation platform('org.junit:junit-bom:5.10.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
+	inputs.property('coturnExecutable', System.getenv('PEERCRAFT_TEST_COTURN_BIN') ?: '')
+	inputs.property('coturnLibraries', System.getenv('LD_LIBRARY_PATH') ?: '')
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+// Fat jar built by hand (no shadow-plugin dependency, which had breaking incompatibilities
+// with this Gradle version's `application` plugin) — bundles the runtime classpath (Gson)
+// straight into build/libs/rendezvous-server-1.0.0.jar so `java -jar ...` and the mod's
+// RendezvousEndToEndTest (which launches this exact jar as a subprocess) keep working
+// unchanged now that the server has a runtime dependency.
+jar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	manifest {
+		attributes 'Main-Class': application.mainClass
+	}
+	from {
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+}
+
+// Compile the production client codec in contract tests; never copy its wire logic.
+// The telemetry wire format is shared in production as well: Java 8 clients and
+// the collector must reject and interpret exactly the same bounded fields.
+sourceSets.main.java.srcDir('../../mod/src/main/java')
+sourceSets.main.java.include('net/peercraft/rendezvous/**', 'net/peercraft/network/control/**', 'net/peercraft/network/telemetry/TelemetryProtocol.java', 'net/peercraft/network/admission/AdmissionProtocol.java', 'net/peercraft/network/privacy/NetworkPrivacy.java')
+sourceSets.test.java.srcDir('../../mod/src/main/java')
+sourceSets.test.java.include('net/peercraft/rendezvous/**', 'net/peercraft/network/control/**', 'net/peercraft/network/telemetry/**', 'net/peercraft/network/privacy/PrivateNetworkLogger.java', 'net/peercraft/config/PeerCraftConfig.java', 'net/peercraft/config/ModSyncMode.java', 'net/peercraft/config/ModSyncRemoveMode.java', 'net/peercraft/network/handoff/HandoffAuthorityProtocol.java',
+    'net/peercraft/network/handoff/HandoffSourceFlow.java', 'net/peercraft/network/handoff/HandoffSuccessorFlow.java',
+    'net/peercraft/network/handoff/HandoffObserverFlow.java', 'net/peercraft/network/handoff/HandoffOperation.java',
+    'net/peercraft/network/handoff/HandoffJournal.java', 'net/peercraft/network/handoff/HandoffFiles.java',
+    'net/peercraft/network/handoff/HandoffPhases.java',
+    'net/peercraft/network/handoff/HandoffControlProtocol.java', 'net/peercraft/network/handoff/HandoffParticipant.java',
+    'net/peercraft/network/account/EmailRecoveryClient.java', 'net/peercraft/network/account/PasswordCrypto.java',
+    'net/peercraft/network/rendezvous/AccountProtocol.java', 'net/peercraft/network/rendezvous/RendezvousProtocol.java',
+    'net/peercraft/network/turn/StunCodec.java', 'net/peercraft/network/turn/TurnUdpClient.java')

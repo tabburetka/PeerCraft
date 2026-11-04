@@ -7,7 +7,7 @@
 
 build reads releases/<dir>/manifest.json and curseforge-uploads.json, checks the local jars,
 derives CurseForge CDN links, confirms every link is live (files are only on the CDN once
-moderation approved them), then rewrites update.json and update.json.sig in the repository root.
+moderation approved them), then rewrites releases/update.json and releases/update.json.sig.
 The signature is ECDSA P-256 / SHA-256 in DER, base64, over the exact bytes of update.json; Java 8
 verifies it with Signature.getInstance("SHA256withECDSA").
 """
@@ -118,7 +118,7 @@ def cmd_build(args):
     version = versions.pop()
     beta = version_key(version)[3] != 3 or channels & {"beta", "alpha"}
 
-    out_path = ROOT / "update.json"
+    out_path = ROOT / "releases" / "update.json"
     current = json.loads(out_path.read_text()) if out_path.exists() else {}
     doc = {
         "format": 2,
@@ -143,16 +143,16 @@ def cmd_build(args):
         print(f"signature: {base64.b64encode(signature).decode()}", file=sys.stderr)
         return
     out_path.write_bytes(body)
-    (ROOT / "update.json.sig").write_text(base64.b64encode(signature).decode() + "\n")
+    (ROOT / "releases" / "update.json.sig").write_text(base64.b64encode(signature).decode() + "\n")
     print(f"update.json: stable={doc['stable']} beta={doc['beta']}, {len(files)} builds for {version}")
-    print("commit and push update.json and update.json.sig to main")
+    print("commit and push releases/update.json and releases/update.json.sig to main")
 
 
 def cmd_verify(args):
     from cryptography.exceptions import InvalidSignature
     public = serialization.load_der_public_key(base64.b64decode(args.pub))
-    body = (ROOT / "update.json").read_bytes()
-    signature = base64.b64decode((ROOT / "update.json.sig").read_text().strip())
+    body = (ROOT / "releases" / "update.json").read_bytes()
+    signature = base64.b64decode((ROOT / "releases" / "update.json.sig").read_text().strip())
     try:
         public.verify(signature, body, ec.ECDSA(hashes.SHA256()))
     except InvalidSignature:

@@ -51,13 +51,13 @@
 
 ## Где менять номер
 Номер должен совпадать везде:
-- `peercraft/gradle.properties` → `mod_version`
-- `peercraft-forge-1122/gradle.properties` → `mod_version`
-- `peercraft-forge-1710/gradle.properties` → `mod_version`
-- `peercraft-forge-1122/src/main/java/net/peercraft/forge1122/PeerCraftForge.java` → `VERSION`
-- `peercraft-forge-1710/src/main/java/net/peercraft/forge1710/PeerCraftForge.java` → `VERSION`
+- `mod/gradle.properties` → `mod_version`
+- `legacy/forge-1122/gradle.properties` → `mod_version`
+- `legacy/forge-1710/gradle.properties` → `mod_version`
+- `legacy/forge-1122/src/main/java/net/peercraft/forge1122/PeerCraftForge.java` → `VERSION`
+- `legacy/forge-1710/src/main/java/net/peercraft/forge1710/PeerCraftForge.java` → `VERSION`
 - запасное значение в `selfVersion()` в `ClientModSyncAgent.java` и
-  `HostModSyncProviderImpl.java` (`peercraft/src/main/java/net/peercraft/client/modsync/`)
+  `HostModSyncProviderImpl.java` (`mod/src/main/java/net/peercraft/client/modsync/`)
 
 Проверка, что ничего не забыто: `grep -rn '"<старая версия>"' --include='*.java' .`
 
@@ -72,8 +72,8 @@
    python3 tools/release/make-update-manifest.py build releases/<версия> --key ~/.config/peercraft/release-key.pem
    ```
    Скрипт проверит хеши jar, построит прямые ссылки на CDN CurseForge (и убедится, что они уже
-   открываются), обновит `stable` или `beta` и перепишет `update.json` и `update.json.sig` в корне
-   репозитория. Их нужно закоммитить и запушить в `main`.
+   открываются), обновит `stable` или `beta` и перепишет `releases/update.json` и `releases/update.json.sig`.
+   Их нужно закоммитить и запушить в `main`.
    Клиенты показывают табличку в главном меню и по клику предлагают обновиться сами. Стабильные
    игроки видят только `stable`, игроки на пре-релизе видят и `beta`.
    Закрытый ключ `release-key.pem` хранится только локально (и в резервной копии!). Без него

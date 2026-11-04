@@ -1,0 +1,11 @@
+.gradle/
+build/
+out/
+data/
+*.log
+
+# Private deployment output: never commit.
+data/
+deploy/secrets/
+deploy/coturn/generated/
+deploy/coturn/packages/

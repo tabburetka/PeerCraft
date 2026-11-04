@@ -7,7 +7,9 @@ name: build
 on: [pull_request, push]
 
 jobs:
-  build:
+  # The modern Stonecutter matrix (Fabric + NeoForge). Runs after the rendezvous server so its
+  # jar is on disk for the end-to-end tests in mod/src/test.
+  mod:
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repository
@@ -19,13 +21,52 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
-      - name: make gradle wrapper executable
-        run: chmod +x peercraft/gradlew
+      - name: build rendezvous server jar
+        working-directory: servers/rendezvous
+        run: chmod +x gradlew && ./gradlew jar
       - name: build
-        working-directory: peercraft
-        run: ./gradlew buildAll
+        working-directory: mod
+        run: chmod +x gradlew && ./gradlew buildAll
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: Artifacts
-          path: peercraft/versions/*/build/libs/
+          name: mod
+          path: mod/versions/*/build/libs/
+
+  # RetroFuturaGradle backports. Gradle 8.8 cannot run on Java 25, so these use Java 21 and
+  # let RFG provision the Java 8 toolchain.
+  legacy:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [forge-1122, forge-1710]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      - name: build
+        working-directory: legacy/${{ matrix.project }}
+        run: chmod +x gradlew && ./gradlew build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: legacy-${{ matrix.project }}
+          path: legacy/${{ matrix.project }}/build/libs/
+
+  servers:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [rendezvous, relay]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      - name: test
+        working-directory: servers/${{ matrix.project }}
+        run: chmod +x gradlew && ./gradlew build
