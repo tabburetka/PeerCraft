@@ -1,0 +1,439 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Running Stonecutter 0.9.7
+
+> Configure project :1.16.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.10-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.11-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.3-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.4-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.6-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.7-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.8-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.9-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.2-fabric
+Fabric Loom: 1.17.21
+
+> Task :1.16.5-fabric:stonecutterPrepare UP-TO-DATE
+> Task :1.16.5-fabric:stonecutterGenerate
+> Task :1.16.5-fabric:processResources
+> Task :1.16.5-fabric:stripBackportTwins
+> Task :1.16.5-fabric:compileJava UP-TO-DATE
+> Task :1.16.5-fabric:classes
+> Task :1.16.5-fabric:jar
+> Task :1.16.5-fabric:processIncludeJars UP-TO-DATE
+> Task :1.16.5-fabric:remapJar
+> Task :1.16.5-fabric:sourcesJar
+> Task :1.16.5-fabric:remapSourcesJar
+> Task :1.16.5-fabric:assemble
+> Task :1.16.5-fabric:validateAccessWidener NO-SOURCE
+> Task :1.16.5-fabric:check
+> Task :1.16.5-fabric:build
+> Task :1.21.1-fabric:compileJava UP-TO-DATE
+> Task :1.21.1-fabric:processResources UP-TO-DATE
+> Task :1.21.1-fabric:classes UP-TO-DATE
+> Task :1.21.1-fabric:jar
+> Task :1.21.1-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.1-fabric:remapJar
+> Task :1.21.1-fabric:sourcesJar
+> Task :1.21.1-fabric:remapSourcesJar
+> Task :1.21.1-fabric:assemble
+> Task :1.21.1-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.1-fabric:check
+> Task :1.21.1-fabric:build
+> Task :1.21.1-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.1-neoforge:stonecutterPrepare
+> Task :1.21.1-neoforge:stonecutterGenerate
+> Task :1.21.1-neoforge:compileJava
+> Task :1.21.1-neoforge:processResources
+> Task :1.21.1-neoforge:classes
+> Task :1.21.1-neoforge:jarJar NO-SOURCE
+> Task :1.21.1-neoforge:jar
+> Task :1.21.1-neoforge:sourcesJar
+> Task :1.21.1-neoforge:assemble
+> Task :1.21.1-neoforge:check
+> Task :1.21.1-neoforge:build
+> Task :1.21.10-fabric:stonecutterPrepare
+> Task :1.21.10-fabric:stonecutterGenerate
+> Task :1.21.10-fabric:compileJava
+> Task :1.21.10-fabric:processResources
+> Task :1.21.10-fabric:classes
+> Task :1.21.10-fabric:jar
+> Task :1.21.10-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.10-fabric:remapJar
+> Task :1.21.10-fabric:sourcesJar
+> Task :1.21.10-fabric:remapSourcesJar
+> Task :1.21.10-fabric:assemble
+> Task :1.21.10-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.10-fabric:check
+> Task :1.21.10-fabric:build
+> Task :1.21.10-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.10-neoforge:stonecutterPrepare
+> Task :1.21.10-neoforge:stonecutterGenerate
+> Task :1.21.10-neoforge:compileJava
+> Task :1.21.10-neoforge:processResources
+> Task :1.21.10-neoforge:classes
+> Task :1.21.10-neoforge:jarJar NO-SOURCE
+> Task :1.21.10-neoforge:jar
+> Task :1.21.10-neoforge:sourcesJar
+> Task :1.21.10-neoforge:assemble
+> Task :1.21.10-neoforge:check
+> Task :1.21.10-neoforge:build
+> Task :1.21.11-fabric:stonecutterPrepare
+> Task :1.21.11-fabric:stonecutterGenerate
+> Task :1.21.11-fabric:compileJava
+> Task :1.21.11-fabric:processResources
+> Task :1.21.11-fabric:classes
+> Task :1.21.11-fabric:jar
+> Task :1.21.11-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.11-fabric:remapJar
+> Task :1.21.11-fabric:sourcesJar
+> Task :1.21.11-fabric:remapSourcesJar
+> Task :1.21.11-fabric:assemble
+> Task :1.21.11-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.11-fabric:check
+> Task :1.21.11-fabric:build
+> Task :1.21.11-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.11-neoforge:stonecutterPrepare
+> Task :1.21.11-neoforge:stonecutterGenerate
+> Task :1.21.11-neoforge:compileJava
+> Task :1.21.11-neoforge:processResources
+> Task :1.21.11-neoforge:classes
+> Task :1.21.11-neoforge:jarJar NO-SOURCE
+> Task :1.21.11-neoforge:jar
+> Task :1.21.11-neoforge:sourcesJar
+> Task :1.21.11-neoforge:assemble
+> Task :1.21.11-neoforge:check
+> Task :1.21.11-neoforge:build
+> Task :1.21.2-fabric:stonecutterPrepare
+> Task :1.21.2-fabric:stonecutterGenerate
+> Task :1.21.2-fabric:compileJava
+> Task :1.21.2-fabric:processResources
+> Task :1.21.2-fabric:classes
+> Task :1.21.2-fabric:jar
+> Task :1.21.2-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.2-fabric:remapJar
+> Task :1.21.2-fabric:sourcesJar
+> Task :1.21.2-fabric:remapSourcesJar
+> Task :1.21.2-fabric:assemble
+> Task :1.21.2-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.2-fabric:check
+> Task :1.21.2-fabric:build
+> Task :1.21.3-fabric:stonecutterPrepare
+> Task :1.21.3-fabric:stonecutterGenerate
+> Task :1.21.3-fabric:compileJava
+> Task :1.21.3-fabric:processResources
+> Task :1.21.3-fabric:classes
+> Task :1.21.3-fabric:jar
+> Task :1.21.3-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.3-fabric:remapJar
+> Task :1.21.3-fabric:sourcesJar
+> Task :1.21.3-fabric:remapSourcesJar
+> Task :1.21.3-fabric:assemble
+> Task :1.21.3-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.3-fabric:check
+> Task :1.21.3-fabric:build
+> Task :1.21.3-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.3-neoforge:stonecutterPrepare
+> Task :1.21.3-neoforge:stonecutterGenerate
+> Task :1.21.3-neoforge:compileJava
+> Task :1.21.3-neoforge:processResources
+> Task :1.21.3-neoforge:classes
+> Task :1.21.3-neoforge:jarJar NO-SOURCE
+> Task :1.21.3-neoforge:jar
+> Task :1.21.3-neoforge:sourcesJar
+> Task :1.21.3-neoforge:assemble
+> Task :1.21.3-neoforge:check
+> Task :1.21.3-neoforge:build
+> Task :1.21.4-fabric:stonecutterPrepare
+> Task :1.21.4-fabric:stonecutterGenerate
+> Task :1.21.4-fabric:compileJava
+> Task :1.21.4-fabric:processResources
+> Task :1.21.4-fabric:classes
+> Task :1.21.4-fabric:jar
+> Task :1.21.4-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.4-fabric:remapJar
+> Task :1.21.4-fabric:sourcesJar
+> Task :1.21.4-fabric:remapSourcesJar
+> Task :1.21.4-fabric:assemble
+> Task :1.21.4-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.4-fabric:check
+> Task :1.21.4-fabric:build
+> Task :1.21.4-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.4-neoforge:stonecutterPrepare
+> Task :1.21.4-neoforge:stonecutterGenerate
+> Task :1.21.4-neoforge:compileJava
+> Task :1.21.4-neoforge:processResources
+> Task :1.21.4-neoforge:classes
+> Task :1.21.4-neoforge:jarJar NO-SOURCE
+> Task :1.21.4-neoforge:jar
+> Task :1.21.4-neoforge:sourcesJar
+> Task :1.21.4-neoforge:assemble
+> Task :1.21.4-neoforge:check
+> Task :1.21.4-neoforge:build
+> Task :1.21.5-fabric:stonecutterPrepare
+> Task :1.21.5-fabric:stonecutterGenerate
+> Task :1.21.5-fabric:compileJava
+> Task :1.21.5-fabric:processResources
+> Task :1.21.5-fabric:classes
+> Task :1.21.5-fabric:jar
+> Task :1.21.5-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.5-fabric:remapJar
+> Task :1.21.5-fabric:sourcesJar
+> Task :1.21.5-fabric:remapSourcesJar
+> Task :1.21.5-fabric:assemble
+> Task :1.21.5-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.5-fabric:check
+> Task :1.21.5-fabric:build
+> Task :1.21.5-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.5-neoforge:stonecutterPrepare
+> Task :1.21.5-neoforge:stonecutterGenerate
+> Task :1.21.5-neoforge:compileJava
+> Task :1.21.5-neoforge:processResources
+> Task :1.21.5-neoforge:classes
+> Task :1.21.5-neoforge:jarJar NO-SOURCE
+> Task :1.21.5-neoforge:jar
+> Task :1.21.5-neoforge:sourcesJar
+> Task :1.21.5-neoforge:assemble
+> Task :1.21.5-neoforge:check
+> Task :1.21.5-neoforge:build
+> Task :1.21.6-fabric:stonecutterPrepare
+> Task :1.21.6-fabric:stonecutterGenerate
+> Task :1.21.6-fabric:compileJava
+> Task :1.21.6-fabric:processResources
+> Task :1.21.6-fabric:classes
+> Task :1.21.6-fabric:jar
+> Task :1.21.6-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.6-fabric:remapJar
+> Task :1.21.6-fabric:sourcesJar
+> Task :1.21.6-fabric:remapSourcesJar
+> Task :1.21.6-fabric:assemble
+> Task :1.21.6-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.6-fabric:check
+> Task :1.21.6-fabric:build
+> Task :1.21.6-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.6-neoforge:stonecutterPrepare
+> Task :1.21.6-neoforge:stonecutterGenerate
+> Task :1.21.6-neoforge:compileJava
+> Task :1.21.6-neoforge:processResources
+> Task :1.21.6-neoforge:classes
+> Task :1.21.6-neoforge:jarJar NO-SOURCE
+> Task :1.21.6-neoforge:jar
+> Task :1.21.6-neoforge:sourcesJar
+> Task :1.21.6-neoforge:assemble
+> Task :1.21.6-neoforge:check
+> Task :1.21.6-neoforge:build
+> Task :1.21.7-fabric:stonecutterPrepare
+> Task :1.21.7-fabric:stonecutterGenerate
+> Task :1.21.7-fabric:compileJava
+> Task :1.21.7-fabric:processResources
+> Task :1.21.7-fabric:classes
+> Task :1.21.7-fabric:jar
+> Task :1.21.7-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.7-fabric:remapJar
+> Task :1.21.7-fabric:sourcesJar
+> Task :1.21.7-fabric:remapSourcesJar
+> Task :1.21.7-fabric:assemble
+> Task :1.21.7-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.7-fabric:check
+> Task :1.21.7-fabric:build
+> Task :1.21.7-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.7-neoforge:stonecutterPrepare
+> Task :1.21.7-neoforge:stonecutterGenerate
+> Task :1.21.7-neoforge:compileJava
+> Task :1.21.7-neoforge:processResources
+> Task :1.21.7-neoforge:classes
+> Task :1.21.7-neoforge:jarJar NO-SOURCE
+> Task :1.21.7-neoforge:jar
+> Task :1.21.7-neoforge:sourcesJar
+> Task :1.21.7-neoforge:assemble
+> Task :1.21.7-neoforge:check
+> Task :1.21.7-neoforge:build
+> Task :1.21.8-fabric:stonecutterPrepare
+> Task :1.21.8-fabric:stonecutterGenerate
+> Task :1.21.8-fabric:compileJava
+> Task :1.21.8-fabric:processResources
+> Task :1.21.8-fabric:classes
+> Task :1.21.8-fabric:jar
+> Task :1.21.8-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.8-fabric:remapJar
+> Task :1.21.8-fabric:sourcesJar
+> Task :1.21.8-fabric:remapSourcesJar
+> Task :1.21.8-fabric:assemble
+> Task :1.21.8-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.8-fabric:check
+> Task :1.21.8-fabric:build
+> Task :1.21.8-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.8-neoforge:stonecutterPrepare
+> Task :1.21.8-neoforge:stonecutterGenerate
+> Task :1.21.8-neoforge:compileJava
+> Task :1.21.8-neoforge:processResources
+> Task :1.21.8-neoforge:classes
+> Task :1.21.8-neoforge:jarJar NO-SOURCE
+> Task :1.21.8-neoforge:jar
+> Task :1.21.8-neoforge:sourcesJar
+> Task :1.21.8-neoforge:assemble
+> Task :1.21.8-neoforge:check
+> Task :1.21.8-neoforge:build
+> Task :1.21.9-fabric:stonecutterPrepare
+> Task :1.21.9-fabric:stonecutterGenerate
+> Task :1.21.9-fabric:compileJava
+> Task :1.21.9-fabric:processResources
+> Task :1.21.9-fabric:classes
+> Task :1.21.9-fabric:jar
+> Task :1.21.9-fabric:processIncludeJars UP-TO-DATE
+> Task :1.21.9-fabric:remapJar
+> Task :1.21.9-fabric:sourcesJar
+> Task :1.21.9-fabric:remapSourcesJar
+> Task :1.21.9-fabric:assemble
+> Task :1.21.9-fabric:validateAccessWidener NO-SOURCE
+> Task :1.21.9-fabric:check
+> Task :1.21.9-fabric:build
+> Task :1.21.9-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :1.21.9-neoforge:stonecutterPrepare
+> Task :1.21.9-neoforge:stonecutterGenerate
+> Task :1.21.9-neoforge:compileJava
+> Task :1.21.9-neoforge:processResources
+> Task :1.21.9-neoforge:classes
+> Task :1.21.9-neoforge:jarJar NO-SOURCE
+> Task :1.21.9-neoforge:jar
+> Task :1.21.9-neoforge:sourcesJar
+> Task :1.21.9-neoforge:assemble
+> Task :1.21.9-neoforge:check
+> Task :1.21.9-neoforge:build
+> Task :26.1-fabric:stonecutterPrepare
+> Task :26.1-fabric:stonecutterGenerate
+> Task :26.1-fabric:compileJava
+> Task :26.1-fabric:processResources
+> Task :26.1-fabric:classes
+> Task :26.1-fabric:processIncludeJars UP-TO-DATE
+> Task :26.1-fabric:jar
+> Task :26.1-fabric:sourcesJar
+> Task :26.1-fabric:assemble
+> Task :26.1-fabric:validateAccessWidener NO-SOURCE
+> Task :26.1-fabric:check
+> Task :26.1-fabric:build
+> Task :26.1-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :26.1-neoforge:stonecutterPrepare
+> Task :26.1-neoforge:stonecutterGenerate
+> Task :26.1-neoforge:compileJava
+> Task :26.1-neoforge:processResources
+> Task :26.1-neoforge:classes
+> Task :26.1-neoforge:jarJar NO-SOURCE
+> Task :26.1-neoforge:jar
+> Task :26.1-neoforge:sourcesJar
+> Task :26.1-neoforge:assemble
+> Task :26.1-neoforge:check
+> Task :26.1-neoforge:build
+> Task :26.1.1-fabric:stonecutterPrepare
+> Task :26.1.1-fabric:stonecutterGenerate
+> Task :26.1.1-fabric:compileJava
+> Task :26.1.1-fabric:processResources
+> Task :26.1.1-fabric:classes
+> Task :26.1.1-fabric:processIncludeJars UP-TO-DATE
+> Task :26.1.1-fabric:jar
+> Task :26.1.1-fabric:sourcesJar
+> Task :26.1.1-fabric:assemble
+> Task :26.1.1-fabric:validateAccessWidener NO-SOURCE
+> Task :26.1.1-fabric:check
+> Task :26.1.1-fabric:build
+> Task :26.1.1-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :26.1.1-neoforge:stonecutterPrepare
+> Task :26.1.1-neoforge:stonecutterGenerate
+> Task :26.1.1-neoforge:compileJava
+> Task :26.1.1-neoforge:processResources
+> Task :26.1.1-neoforge:classes
+> Task :26.1.1-neoforge:jarJar NO-SOURCE
+> Task :26.1.1-neoforge:jar
+> Task :26.1.1-neoforge:sourcesJar
+> Task :26.1.1-neoforge:assemble
+> Task :26.1.1-neoforge:check
+> Task :26.1.1-neoforge:build
+> Task :26.1.2-fabric:stonecutterPrepare
+> Task :26.1.2-fabric:stonecutterGenerate
+> Task :26.1.2-fabric:compileJava
+> Task :26.1.2-fabric:processResources
+> Task :26.1.2-fabric:classes
+> Task :26.1.2-fabric:processIncludeJars UP-TO-DATE
+> Task :26.1.2-fabric:jar
+> Task :26.1.2-fabric:sourcesJar
+> Task :26.1.2-fabric:assemble
+> Task :26.1.2-fabric:validateAccessWidener NO-SOURCE
+> Task :26.1.2-fabric:check
+> Task :26.1.2-fabric:build
+> Task :26.1.2-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :26.1.2-neoforge:stonecutterPrepare
+> Task :26.1.2-neoforge:stonecutterGenerate
+> Task :26.1.2-neoforge:compileJava
+> Task :26.1.2-neoforge:processResources
+> Task :26.1.2-neoforge:classes
+> Task :26.1.2-neoforge:jarJar NO-SOURCE
+> Task :26.1.2-neoforge:jar
+> Task :26.1.2-neoforge:sourcesJar
+> Task :26.1.2-neoforge:assemble
+> Task :26.1.2-neoforge:check
+> Task :26.1.2-neoforge:build
+> Task :26.2-fabric:stonecutterPrepare
+> Task :26.2-fabric:stonecutterGenerate
+> Task :26.2-fabric:compileJava
+> Task :26.2-fabric:processResources
+> Task :26.2-fabric:classes
+> Task :26.2-fabric:processIncludeJars UP-TO-DATE
+> Task :26.2-fabric:jar
+> Task :26.2-fabric:sourcesJar
+> Task :26.2-fabric:assemble
+> Task :26.2-fabric:validateAccessWidener NO-SOURCE
+> Task :26.2-fabric:check
+> Task :26.2-fabric:build
+> Task :26.2-neoforge:createMinecraftArtifacts UP-TO-DATE
+> Task :26.2-neoforge:stonecutterPrepare
+> Task :26.2-neoforge:stonecutterGenerate
+> Task :26.2-neoforge:compileJava
+> Task :26.2-neoforge:processResources
+> Task :26.2-neoforge:classes
+> Task :26.2-neoforge:jarJar NO-SOURCE
+> Task :26.2-neoforge:jar
+> Task :26.2-neoforge:sourcesJar
+> Task :26.2-neoforge:assemble
+> Task :26.2-neoforge:check
+> Task :26.2-neoforge:build
+> Task :buildAll
+
+BUILD SUCCESSFUL in 1m 52s
+233 actionable tasks: 199 executed, 34 up-to-date

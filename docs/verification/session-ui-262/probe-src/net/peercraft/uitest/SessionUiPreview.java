@@ -17,6 +17,7 @@ public final class SessionUiPreview implements ClientModInitializer {
     private boolean originalHost;
     private final String[] pages = {"OVERVIEW", "NETWORK", "WORLD", "FILES", "PLAYERS", "HOSTS"};
     public void onInitializeClient() {
+        net.peercraft.config.TelemetryConsent.choose(false);
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             try {
                 if (!opened) {
@@ -50,18 +51,38 @@ public final class SessionUiPreview implements ClientModInitializer {
                         var pause = mc.gui.screen();
                         var button = pause.children().stream()
                                 .filter(c -> c instanceof net.minecraft.client.gui.components.Button b
-                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.session.title").getString()))
+                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.handoff.menu.button").getString()))
                                 .map(c -> (net.minecraft.client.gui.components.Button) c).findFirst().orElseThrow();
                         if (button.getY() + button.getHeight() > pause.height) throw new IllegalStateException("Session button outside pause screen");
-                        var handoff = pause.children().stream()
+                        long extra = pause.children().stream()
                                 .filter(c -> c instanceof net.minecraft.client.gui.components.Button b
-                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.handoff.menu.button").getString()))
+                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.handoff.menu.button").getString())).count();
+                        if (extra != 1) throw new IllegalStateException("Expected exactly one handoff entry");
+                        if (button.getWidth() != 204) throw new IllegalStateException("Oversized session control");
+                        var vanilla = pause.children().stream()
+                                .filter(c -> c instanceof net.minecraft.client.gui.components.Button b
+                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("menu.multiplayerOptions.button").getString()))
                                 .map(c -> (net.minecraft.client.gui.components.Button)c).findFirst().orElseThrow();
-                        if (button.getY() != handoff.getY() || button.getX() + button.getWidth() > handoff.getX())
-                            throw new IllegalStateException("Session and handoff overlap");
-                        System.out.println("SESSION_UI_HANDOFF_SEPARATION_PASSED");
+                        vanilla.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                        if (!(mc.gui.screen() instanceof net.minecraft.client.gui.screens.MultiplayerOptionsScreen))
+                            throw new IllegalStateException("Native access control stopped working");
+                        mc.gui.setScreen(pause);
+                        System.out.println("SESSION_UI_VANILLA_ACCESS_PRESERVED_PASSED");
+                        System.out.println("SESSION_UI_COMPACT_HOST_MENU_PASSED");
                         button.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
-                        if (!(mc.gui.screen() instanceof PeerCraftSessionScreen)) throw new IllegalStateException("Pause entry did not open session UI");
+                        if (!(mc.gui.screen() instanceof net.peercraft.client.gui.HandoffPlayerPickerScreen)) throw new IllegalStateException("Pause entry did not open handoff screen");
+                        var handoffScreen = mc.gui.screen();
+                        var monitoring = handoffScreen.children().stream()
+                                .filter(c -> c instanceof net.minecraft.client.gui.components.Button b
+                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.session.monitor_button").getString()))
+                                .map(c -> (net.minecraft.client.gui.components.Button)c).findFirst().orElseThrow();
+                        capture(mc, "handoff");
+                        monitoring.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                        if (!(mc.gui.screen() instanceof PeerCraftSessionScreen)) throw new IllegalStateException("Monitoring did not open from handoff");
+                        mc.gui.screen().onClose();
+                        if (mc.gui.screen() != handoffScreen) throw new IllegalStateException("Back did not return to handoff");
+                        monitoring.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                        System.out.println("SESSION_UI_HANDOFF_MONITOR_NAVIGATION_PASSED");
                         System.out.println("SESSION_UI_PAUSE_ENTRY_PASSED");
                     }
                     if (worldTicks == 110) capture(mc, "live");
@@ -70,6 +91,20 @@ public final class SessionUiPreview implements ClientModInitializer {
                         mc.gui.setScreen(new PeerCraftSessionScreen(new net.minecraft.client.gui.screens.PauseScreen(true)));
                         System.out.println("SESSION_UI_PREVIEW_READY");
                     }
+                    if (worldTicks == 125) {
+                        var panel = mc.gui.screen();
+                        var control = panel.children().stream()
+                                .filter(c -> c instanceof net.minecraft.client.gui.components.Button b
+                                        && b.getMessage().getString().equals(net.minecraft.network.chat.Component.translatable("peercraft.session.handoff").getString()))
+                                .map(c -> (net.minecraft.client.gui.components.Button)c).findFirst().orElseThrow();
+                        if (!control.visible || control.active) throw new IllegalStateException("Offline world needs a visible disabled handoff action");
+                        capture(mc, "host-controls");
+                        System.out.println("SESSION_UI_HANDOFF_DISCOVERABLE_PASSED");
+                    }
+                    if (worldTicks == 130) {
+                        mc.gui.setScreen(new net.peercraft.client.gui.HandoffPlayerPickerScreen(new net.minecraft.client.gui.screens.PauseScreen(true)));
+                    }
+                    if (worldTicks == 135) capture(mc, "handoff");
                     return;
                 }
                 ticks++;

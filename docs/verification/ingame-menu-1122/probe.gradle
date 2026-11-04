@@ -1,0 +1,21 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != 'peercraft-forge-1122') return
+        def fixture = sourceSets.create('ingameMenu')
+        fixture.java.srcDir(project.file('../docs/verification/ingame-menu-1122/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        tasks.named('compileIngameMenuJava').configure { dependsOn tasks.named('classes') }
+        tasks.named('runClient').configure {
+            dependsOn tasks.named('ingameMenuClasses')
+            classpath += fixture.output
+            workingDir = project.file('../build/ingame-menu-1122/game')
+            workingDir.mkdirs()
+            def welcome = new File(workingDir, 'config/peercraft/welcome-seen')
+            welcome.parentFile.mkdirs(); welcome.createNewFile()
+            new File(workingDir, 'options.txt').text = 'lang:ru_ru\nguiScale:2\nrenderDistance:4\npauseOnLostFocus:false\n'
+            extraArgs.addAll(['--width', '1280', '--height', '900'])
+            extraJvmArgs.addAll(['-Dpeercraft.mode=host', '-Dpeercraft.rendezvousHost=127.0.0.1', '-Dpeercraft.rendezvousPort=1'])
+        }
+    }
+}

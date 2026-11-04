@@ -1,0 +1,63 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :extractDependencyATs UP-TO-DATE
+> Task :generateForgeSrgMappings SKIPPED
+> Task :downloadVanillaJars SKIPPED
+> Task :mergeVanillaSidedJars SKIPPED
+> Task :deobfuscateMergedJarToSrg SKIPPED
+> Task :downloadFernflower SKIPPED
+> Task :decompileSrgJar SKIPPED
+> Task :cleanupDecompSrgJar SKIPPED
+> Task :patchDecompiledJar SKIPPED
+> Task :applySourceAccessTransformers SKIPPED
+> Task :remapDecompiledJar SKIPPED
+> Task :decompressDecompiledSources UP-TO-DATE
+> Task :compilePatchedMcJava UP-TO-DATE
+> Task :processPatchedMcResources UP-TO-DATE
+> Task :patchedMcClasses UP-TO-DATE
+> Task :compileApiJava NO-SOURCE
+> Task :processApiResources NO-SOURCE
+> Task :apiClasses UP-TO-DATE
+> Task :injectTags UP-TO-DATE
+> Task :compileInjectedTagsJava NO-SOURCE
+> Task :extractNatives2 UP-TO-DATE
+> Task :createMcLauncherFiles UP-TO-DATE
+> Task :compileMcLauncherJava UP-TO-DATE
+> Task :processInjectedTagsResources NO-SOURCE
+> Task :injectedTagsClasses UP-TO-DATE
+> Task :processMcLauncherResources NO-SOURCE
+> Task :mcLauncherClasses UP-TO-DATE
+> Task :syncSharedJava8 UP-TO-DATE
+> Task :syncSharedMain
+
+> Task :compileJava
+Note: SpongePowered MIXIN Annotation Processor Version=0.8.5
+Note: Supported obfuscation types: ObfuscationServiceMCP supports [searge,notch]
+Note: Loading searge mappings from /home/ikuku/.gradle/caches/minecraft/de/oceanlabs/mcp/mcp_stable/39/rfg_srgs/mcp-srg.srg
+Note: Writing refmap to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/peercraft.mixins.refmap.json
+Note: Writing refmap to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/peercraft.mixins.refmap.json
+Note: Writing searge output SRGs to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/mixins.srg
+Note: Writing refmap to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/peercraft.mixins.refmap.json
+Note: Writing refmap to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/peercraft.mixins.refmap.json
+Note: Writing searge output SRGs to /home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/tmp/mixins/mixins.srg
+/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/shared-main/java/net/peercraft/network/privacy/PrivateNetworkLogger.java:35: error: cannot find symbol
+        if (value == null || value instanceof Number || value instanceof Boolean || value instanceof org.slf4j.Marker) return value;
+                                                                                                              ^
+  symbol:   class Marker
+  location: package org.slf4j
+1 error
+
+> Task :compileJava FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava'.
+> Compilation failed; see the compiler error output for details.
+
+* Try:
+> Run with --info option to get more log output.
+> Run with --scan to get full insights.
+
+BUILD FAILED in 26s
+11 actionable tasks: 2 executed, 9 up-to-date

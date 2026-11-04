@@ -1,0 +1,42 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != 'peercraft-forge-1710') return
+        minecraft.username.set('Developer')
+        def fixture = sourceSets.create('sessionUi')
+        fixture.java.srcDir(project.file('../docs/verification/admission-1710/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        fixture.runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+        tasks.named('compileSessionUiJava').configure { dependsOn tasks.named('classes') }
+        // Hosting manifests hash real JARs; development class directories are not JARs.
+        def bundle = tasks.register('sessionUiBundle', Jar) {
+            dependsOn tasks.named('sessionUiClasses')
+            archiveFileName = 'peercraft-session-ui-probe.jar'
+            destinationDirectory = layout.buildDirectory.dir('session-ui')
+            from sourceSets.main.output
+            from fixture.output
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            manifest.attributes('MixinConfigs': 'peercraft.forge1710.mixins.json',
+                    'FMLCorePlugin': 'net.peercraft.forge1710.PeerCraftCoreMod',
+                    'FMLCorePluginContainsFMLMod': 'true', 'ForceLoadAsMod': 'true')
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def looseOutputs = (sourceSets.main.output.files + fixture.output.files) as Set
+            def originalJar = tasks.named('jar').get().archiveFile.get().asFile
+            classpath = classpath.filter { !looseOutputs.contains(it) && it != originalJar } + files(bundle.flatMap { it.archiveFile })
+            workingDir = project.file('../build/admission-1710/game')
+            workingDir.mkdirs()
+            def welcome = new File(workingDir, 'config/peercraft/welcome-seen')
+            welcome.parentFile.mkdirs(); welcome.createNewFile()
+            new File(workingDir, 'options.txt').text = 'lang:ru_RU\nguiScale:2\nrenderDistance:4\npauseOnLostFocus:false\n'
+            doFirst { println("NETWORK_PROBE_DIRECTORY " + workingDir) }
+            extraArgs.addAll(['--width','1280','--height','900'])
+            extraJvmArgs.addAll(['-Dpeercraft.mode=host','-Dpeercraft.rendezvousHost=127.0.0.1', '-Dpeercraft.rendezvousPort=1'])
+            // Test clients must not size their heaps from the machine's total RAM.
+            maxHeapSize = '768m'
+            minHeapSize = '128m'
+            extraJvmArgs.addAll(['-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2'])
+            extraJvmArgs.addAll(['-Dsun.net.client.defaultConnectTimeout=10000','-Dsun.net.client.defaultReadTimeout=10000'])
+        }
+    }
+}

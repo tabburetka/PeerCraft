@@ -1,0 +1,8 @@
+FIRST_GAP_AFTER_IDLE_REJECTED_IMMEDIATELY=true
+LOST_FIRST_GAME_FRAME_NO_NACK_AND_NO_SESSION=true
+[12:03:03] [main/INFO]: [P2PBridge] Мост и ресурсы остановлены.
+[12:03:03] [main/INFO]: [P2PBridge] Новая клиентская сессия 4344447388189273996 для null
+LOST_NACK_NOT_RETRIED_WITHOUT_NEW_DATA=true
+[12:03:04] [main/INFO]: [P2PBridge] Мост и ресурсы остановлены.
+MODSYNC_ISSUES_SCREEN_CANCELS_ACTIVE_JOIN=true
+[12:03:04] [main/INFO]: [P2PBridge] Мост и ресурсы остановлены.

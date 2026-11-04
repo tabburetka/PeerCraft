@@ -1,0 +1,56 @@
+allprojects { project ->
+    afterEvaluate {
+        if (project.name != '1.16.5-fabric') return
+        def fixture = sourceSets.create('sessionUi')
+        fixture.java.srcDir(rootProject.file('../docs/verification/admission-1165/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        tasks.named('compileSessionUiJava').configure { dependsOn tasks.named('classes'); options.release.set(8) }
+        def resources = layout.buildDirectory.dir('session-ui-resources')
+        def metadata = tasks.register('sessionUiMetadata') {
+            dependsOn tasks.named('processResources')
+            outputs.dir(resources)
+            outputs.upToDateWhen { false }
+            doLast {
+                def json = new groovy.json.JsonSlurper().parse(new File(sourceSets.main.output.resourcesDir, 'fabric.mod.json'))
+                json.entrypoints.client.add('net.peercraft.uitest.AdmissionUiProbe')
+                def dest = new File(resources.get().asFile, 'fabric.mod.json')
+                dest.parentFile.mkdirs()
+                dest.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+            }
+        }
+        def bundle = tasks.register('sessionUiBundle', Jar) {
+            dependsOn tasks.named('sessionUiClasses'), metadata
+            archiveFileName = 'peercraft-session-ui-preview.jar'
+            destinationDirectory = layout.buildDirectory.dir('session-ui-preview')
+            from(sourceSets.main.output) { exclude 'fabric.mod.json' }
+            from fixture.output
+            from resources
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def loose = sourceSets.main.output.files as Set
+            classpath = classpath.filter { !loose.contains(it) } + files(bundle.flatMap { it.archiveFile })
+            workingDir = rootProject.file('../build/admission-1165/game')
+            doFirst {
+                workingDir.mkdirs()
+            def welcome = new File(workingDir, 'config/peercraft/welcome-seen')
+            welcome.parentFile.mkdirs(); welcome.createNewFile()
+                def options = new File(workingDir, 'options.txt')
+                if (!options.exists()) options.text = 'lang:ru_ru\nguiScale:2\nrenderDistance:4\nmaxFps:60\npauseOnLostFocus:false\nskipMultiplayerWarning:true\n'
+                systemProperty('fabric.classPathGroups', bundle.get().archiveFile.get().asFile.absolutePath)
+                def launchArgs = new ArrayList(getArgs())
+                int index = launchArgs.indexOf('--gameDir')
+                if (index >= 0) { launchArgs.remove(index); launchArgs.remove(index) }
+                launchArgs.addAll(['--gameDir', workingDir.absolutePath])
+                setArgs(launchArgs)
+            }
+            args '--username', 'Developer', '--width', '1280', '--height', '900'
+            systemProperty('peercraft.mode', 'host')
+            systemProperty('peercraft.rendezvousHost', '127.0.0.1')
+            systemProperty('peercraft.rendezvousPort', '1')
+            minHeapSize = '256m'; maxHeapSize = '1536m'
+            jvmArgs '-XX:ActiveProcessorCount=4'
+        }
+    }
+}

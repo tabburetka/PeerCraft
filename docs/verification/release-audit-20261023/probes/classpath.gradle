@@ -1,0 +1,6 @@
+gradle.projectsEvaluated {
+    def target = gradle.rootProject.project(':1.21.1-fabric')
+    target.tasks.register('auditRuntimeClasspath') {
+        doLast { new File('/tmp/peercraft-release-audit-20261023/client-classpath.txt').text = target.tasks.getByName('test').classpath.asPath }
+    }
+}

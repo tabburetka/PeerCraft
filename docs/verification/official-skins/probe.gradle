@@ -1,0 +1,53 @@
+allprojects { project ->
+    afterEvaluate {
+        if(project.name != '1.21.1-fabric') return
+        def fixture=sourceSets.create('officialSkinProbe')
+        fixture.java.srcDir(rootProject.file('../docs/verification/official-skins/probe-src'))
+        fixture.compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        tasks.named('compileOfficialSkinProbeJava').configure { dependsOn tasks.named('classes'); options.release.set(21) }
+        def probeResources=layout.buildDirectory.dir('official-skin-probe-resources')
+        def metadata=tasks.register('officialSkinProbeMetadata') {
+            dependsOn tasks.named('processResources')
+            outputs.dir(probeResources)
+            outputs.upToDateWhen { false }
+            doLast {
+                def source=new File(sourceSets.main.output.resourcesDir,'fabric.mod.json')
+                def json=new groovy.json.JsonSlurper().parse(source)
+                json.entrypoints.client.add('net.peercraft.uitest.OfficialSkinProbe')
+                def dest=new File(probeResources.get().asFile,'fabric.mod.json');dest.parentFile.mkdirs()
+                dest.text=groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+            }
+        }
+        def bundle=tasks.register('officialSkinProbeBundle',Jar) {
+            dependsOn tasks.named('officialSkinProbeClasses'),metadata
+            archiveFileName='peercraft-official-skin-probe-dev.jar'
+            destinationDirectory=layout.buildDirectory.dir('official-skin-probe')
+            from(sourceSets.main.output) { exclude 'fabric.mod.json' }
+            from fixture.output
+            from probeResources
+            duplicatesStrategy=DuplicatesStrategy.EXCLUDE
+        }
+        tasks.named('runClient').configure {
+            dependsOn bundle
+            def loose=sourceSets.main.output.files as Set
+            classpath=classpath.filter { !loose.contains(it) }+files(bundle.flatMap { it.archiveFile })
+            doFirst {
+                systemProperty('fabric.classPathGroups',bundle.get().archiveFile.get().asFile.absolutePath)
+                def launchArgs=new ArrayList(getArgs())
+                int gameDirIndex=launchArgs.indexOf('--gameDir')
+                if(gameDirIndex>=0) { launchArgs.remove(gameDirIndex); launchArgs.remove(gameDirIndex) }
+                launchArgs.addAll(['--gameDir',workingDir.absolutePath])
+                setArgs(launchArgs)
+                systemProperty('peercraft.probe.gameDir',workingDir.absolutePath)
+                println('NETWORK_PROBE_DIRECTORY '+workingDir)
+            }
+            workingDir=rootProject.file('../build/official-skin-runs/game-'+UUID.randomUUID())
+            workingDir.mkdirs()
+            new File(workingDir,'options.txt').text='renderDistance:4\npauseOnLostFocus:false\n'
+            args '--username','SkinProbe','--width','640','--height','480'
+            systemProperty('peercraft.mode','disabled')
+            minHeapSize='128m';maxHeapSize='768m'
+            jvmArgs '-XX:MaxDirectMemorySize=640m','-XX:ActiveProcessorCount=2','-Dsun.net.client.defaultConnectTimeout=10000','-Dsun.net.client.defaultReadTimeout=10000'
+        }
+    }
+}

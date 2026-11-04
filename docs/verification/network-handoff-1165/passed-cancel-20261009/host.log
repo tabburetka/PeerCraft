@@ -1,0 +1,335 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Running Stonecutter 0.9.7
+
+> Configure project :1.16.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.10-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.11-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.3-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.4-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.6-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.7-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.8-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.9-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.2-fabric
+Fabric Loom: 1.17.21
+
+> Task :1.16.5-fabric:stonecutterPrepare UP-TO-DATE
+> Task :1.16.5-fabric:stonecutterGenerate
+> Task :1.16.5-fabric:processResources UP-TO-DATE
+> Task :1.16.5-fabric:stripBackportTwins
+> Task :1.16.5-fabric:compileJava UP-TO-DATE
+> Task :1.16.5-fabric:classes UP-TO-DATE
+> Task :1.16.5-fabric:generateLog4jConfig UP-TO-DATE
+> Task :1.16.5-fabric:generateRemapClasspath UP-TO-DATE
+> Task :1.16.5-fabric:generateDLIConfig UP-TO-DATE
+> Task :1.16.5-fabric:configureLaunch UP-TO-DATE
+> Task :1.16.5-fabric:downloadAssets UP-TO-DATE
+> Task :1.16.5-fabric:extractNatives UP-TO-DATE
+> Task :1.16.5-fabric:configureClientLaunch UP-TO-DATE
+> Task :1.16.5-fabric:stonecutterPrepareHandoffProbe UP-TO-DATE
+> Task :1.16.5-fabric:stonecutterGenerateHandoffProbe NO-SOURCE
+
+> Task :1.16.5-fabric:compileHandoffProbeJava
+warning: [options] source value 8 is obsolete and will be removed in a future release
+warning: [options] target value 8 is obsolete and will be removed in a future release
+warning: [options] To suppress warnings about obsolete options, use -Xlint:-options.
+3 warnings
+
+> Task :1.16.5-fabric:processHandoffProbeResources NO-SOURCE
+> Task :1.16.5-fabric:handoffProbeClasses
+> Task :1.16.5-fabric:handoffProbeMetadata UP-TO-DATE
+> Task :1.16.5-fabric:handoffProbeBundle
+
+> Task :1.16.5-fabric:runClient
+NETWORK_PROBE_DIRECTORY /home/ikuku/desktop/PeerCraft/build/handoff-runs-1165/game-af34b636-c88b-42bb-b854-54dc73cee43a
+2026-10-09 20:52:24,537 main ERROR Error processing element Queue ([Appenders: null]): CLASS_NOT_FOUND
+2026-10-09 20:52:24,636 main ERROR Unable to locate appender "ServerGuiConsole" for logger config "root"
+[34m[20:52:24][m [32m[main/INFO][m [36m(FabricLoader/GameProvider)[m [0mLoading Minecraft 1.16.5 with Fabric Loader 0.19.4
+[m[34m[20:52:24][m [32m[main/INFO][m [36m(FabricLoader)[m [0mLoading 50 mods:
+	- fabric 0.42.0+1.16
+	- fabric-api-base 0.4.0+3cc0f0907d
+	- fabric-api-lookup-api-v1 1.3.1+3cc0f0907d
+	- fabric-biome-api-v1 3.1.13+3cc0f0907d
+	- fabric-blockrenderlayer-v1 1.1.6+3cc0f0907d
+	- fabric-command-api-v1 1.1.3+3cc0f0907d
+	- fabric-commands-v0 0.2.3+3cc0f0907d
+	- fabric-containers-v0 0.1.12+3cc0f0907d
+	- fabric-content-registries-v0 0.2.5+3cc0f0907d
+	- fabric-crash-report-info-v1 0.1.4+3cc0f0907d
+	- fabric-dimensions-v1 2.0.8+3cc0f0907d
+	- fabric-entity-events-v1 1.2.4+3cc0f0907d
+	- fabric-events-interaction-v0 0.4.5+3cc0f0907d
+	- fabric-events-lifecycle-v0 0.2.2+3cc0f0907d
+	- fabric-game-rule-api-v1 1.0.7+3cc0f0907d
+	- fabric-item-api-v1 1.2.2+3cc0f0907d
+	- fabric-item-groups-v0 0.3.1+3cc0f0907d
+	- fabric-key-binding-api-v1 1.0.5+3cc0f0907d
+	- fabric-keybindings-v0 0.2.2+3cc0f0907d
+	- fabric-lifecycle-events-v1 1.2.2+3cc0f0907d
+	- fabric-loot-tables-v1 1.0.3+3cc0f0907d
+	- fabric-mining-levels-v0 0.1.4+3cc0f0907d
+	- fabric-models-v0 0.3.1+3cc0f0907d
+	- fabric-networking-api-v1 1.0.5+3cc0f0907d
+	- fabric-networking-blockentity-v0 0.2.9+3cc0f0907d
+	- fabric-networking-v0 0.3.3+3cc0f0907d
+	- fabric-object-builder-api-v1 1.9.6+3cc0f0907d
+	- fabric-object-builders-v0 0.7.3+3cc0f0907d
+	- fabric-particles-v1 0.2.5+3cc0f0907d
+	- fabric-registry-sync-v0 0.7.6+3cc0f0907d
+	- fabric-renderer-api-v1 0.4.5+3cc0f0907d
+	- fabric-renderer-indigo 0.4.5+3cc0f0907d
+	- fabric-renderer-registries-v1 2.3.1+3cc0f0907d
+	- fabric-rendering-data-attachment-v1 0.1.6+3cc0f0907d
+	- fabric-rendering-fluids-v1 0.1.15+3cc0f0907d
+	- fabric-rendering-v0 1.1.3+3cc0f0907d
+	- fabric-rendering-v1 1.6.1+3cc0f0907d
+	- fabric-resource-loader-v0 0.4.8+3cc0f0907d
+	- fabric-screen-api-v1 1.0.1+3cc0f0907d
+	- fabric-screen-handler-api-v1 1.1.6+3cc0f0907d
+	- fabric-structure-api-v1 1.1.12+3cc0f0907d
+	- fabric-tag-extensions-v0 1.1.2+3cc0f0907d
+	- fabric-textures-v0 1.0.7+3cc0f0907d
+	- fabric-tool-attribute-api-v1 1.2.8+3cc0f0907d
+	- fabric-transfer-api-v1 1.5.0+3cc0f0907d
+	- fabricloader 0.19.4
+	- java 21
+	- minecraft 1.16.5
+	- mixinextras 0.5.4
+	- peercraft 2.1.0
+[m[34m[20:52:24][m [32m[main/INFO][m [36m(FabricLoader/Mixin)[m [0mSpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[m[34m[20:52:24][m [32m[main/INFO][m [36m(FabricLoader/Mixin)[m [0mLoaded Fabric development mappings for mixin remapper!
+[m[34m[20:52:25][m [32m[main/INFO][m [36m(FabricLoader/MixinExtras|Service)[m [0mInitializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[mSLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+[34m[20:52:28][m [32m[main/INFO][m [36m(Minecraft)[m [0mEnvironment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
+[m[34m[20:52:29][m [32m[main/INFO][m [36m(Minecraft)[m [0mSetting user: Developer
+[m[34m[20:52:29][m [32m[main/INFO][m [36m(Indigo)[m [0m[Indigo] Registering Indigo renderer!
+[m[34m[20:52:30][m [32m[main/INFO][m [36m(Minecraft)[m [0mBackend library: LWJGL version 3.3.2-snapshot
+[m[34m[20:52:30][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDERR]: [LWJGL] [ThreadLocalUtil] Unsupported JNI version detected, this may result in a crash. Please inform LWJGL developers.
+[m[34m[20:52:31][m [33m[main/WARN][m [36m(Minecraft)[m [0mERROR : Couldn't load Narrator library : Unable to load library 'fliteWrapper': Native library (linux-x86-64/libfliteWrapper.so) not found in resource path (/home/ikuku/.gradle/caches/fabric-loom/1.16.5/loom.mappings.1_16_5.layered+hash.2198-v2/mappings.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.10.1/ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236/asm-9.10.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-analysis/9.10.1/8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b/asm-analysis-9.10.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-commons/9.10.1/4229e4c55fd8e01c23f9fe9884075cc628aacc50/asm-commons-9.10.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.10.1/e244332a17564c1d1572449399a842de35881be2/asm-tree-9.10.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-util/9.10.1/7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15/asm-util-9.10.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.4/5e167154bcb9942111313a5e186e16cd7265f858/mixinextras-fabric-0.5.4.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/dev-launch-injector/0.2.1+build.8/da8bef7e6e2f952da707f282bdb46882a0fce5e3/dev-launch-injector-0.2.1+build.8.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-log4j-util/1.0.2/ef0b3fb613356feb75a67d54f2fad6f03a006648/fabric-log4j-util-1.0.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/patchy/1.3.9/eb8bb7b66fa0e2152b1b40b3856e82f7619439ee/patchy-1.3.9.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/oshi-project/oshi-core/1.1/9ddf7b048a8d701be231c0f4f95fd986198fd2d8/oshi-core-1.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/4.4.0/cb208278274bf12ebdb56c61bd7407e6f774d65a/jna-4.4.0.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/platform/3.4.0/e3f70017be8100d3d6923f50b3d2ee17714e9c13/platform-3.4.0.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.ibm.icu/icu4j/66.1/72c7519b6d91f7a1f993bd44a99fe95d67211b27/icu4j-66.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/javabridge/1.0.22/6aa6453aa99a52a5cd91749da1af6ab70e082ab3/javabridge-1.0.22.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.sf.jopt-simple/jopt-simple/5.0.3/cdd846cfc4e0f7eefafc02c0f5dce32b9303aa2a/jopt-simple-5.0.3.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/io.netty/netty-all/4.1.25.Final/d0626cd3108294d1d58c05859add27b4ef21f83b/netty-all-4.1.25.Final.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/21.0/3a3d111be1be1b745edfa7d91678a12d7ed38709/guava-21.0.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.5/6c6c702c89bfff3cd9e80b04d668c5e190d588c6/commons-lang3-3.5.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.5/2852e6e05fbb95076fc091f6d1780f1f8fe35e0f/commons-io-2.5.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.10/4b95f4897fa13f2cd904aee711aeafc0c5295cd8/commons-codec-1.10.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.java.jinput/jinput/2.0.5/39c7796b469a600f72380316f6b1f11db6c2c7c4/jinput-2.0.5.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.java.jutils/jutils/1.0.0/e12fe1fda814bd348c1579329c86943d2cd3c6a6/jutils-1.0.0.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/brigadier/1.0.17/c6b7dc51dd44379cc751b7504816006e9be4b1e6/brigadier-1.0.17.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/datafixerupper/4.0.26/ebd6690f33871ccee9b6132c6480668ee2e35020/datafixerupper-4.0.26.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.8.0/c4ba5371a29ac9b2ad6129b1d39ea38750043eff/gson-2.8.0.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/authlib/2.1.28/ad54da276bf59983d02d5ed16fc14541354c71fd/authlib-2.1.28.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.8.1/a698750c16740fd5b3871425f4cb3bbaa87f529d/commons-compress-1.8.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpclient/4.3.3/18f4247ff4572a074444572cee34647c43e7c9c7/httpclient-4.3.3.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/commons-logging/commons-logging/1.1.3/f6f66e966c70a83ffbdb6f17a0919eaf7c8aca7f/commons-logging-1.1.3.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents/httpcore/4.3.2/31fbbff1ddbf98f3aa7377c94d33b0447c646b6e/httpcore-4.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.2.1/5ad88f325e424f8dbc2be5459e21ea5cab3864e9/fastutil-8.2.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.8.1/e801d13612e22cad62a3f4f3fe7fdbe6334a8e72/log4j-api-2.8.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.8.1/4ac28ff2f1ddf05dae3043a190451e8c46b73c31/log4j-core-2.8.1.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.3.2/4421d94af68e35dcaa31737a6fc59136a1e61b94/lwjgl-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.3.2/877e17e39ebcd58a9c956dc3b5b777813de0873a/lwjgl-jemalloc-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.3.2/ae5357ed6d934546d3533993ea84c0cfb75eed95/lwjgl-openal-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.3.2/ee8e95be0b438602038bc1f02dc5e3d011b1b216/lwjgl-opengl-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-glfw/3.3.2/757920418805fb90bfebb3d46b1d9e7669fca2eb/lwjgl-glfw-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.3.2/a2550795014d622b686e9caac50b14baa87d2c70/lwjgl-stb-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-tinyfd/3.3.2/9f65c248dd77934105274fcf8351abb75b34327c/lwjgl-tinyfd-3.3.2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/com.mojang/text2speech/1.11.3/f378f889797edd7df8d32272c06ca80a1b6b0f58/text2speech-1.11.3.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-merged-15d0b954df/1.16.5-loom.mappings.1_16_5.layered+hash.2198-v2/minecraft-merged-15d0b954df-1.16.5-loom.mappings.1_16_5.layered+hash.2198-v2.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.4/73dc5ebef9b7744c770af1bf2cc3327f9bdcb049/fabric-loader-0.19.4.jar:/home/ikuku/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.36/6c62681a2f655b49963a5983b8b0950a6120ae14/slf4j-api-1.7.36.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-42f6222f/0.42.0+1.16/fabric-api-42f6222f-0.42.0+1.16.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-transfer-api-v1-42f6222f/1.5.0+3cc0f0907d/fabric-transfer-api-v1-42f6222f-1.5.0+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-lookup-api-v1-42f6222f/1.3.1+3cc0f0907d/fabric-api-lookup-api-v1-42f6222f-1.3.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-blockrenderlayer-v1-42f6222f/1.1.6+3cc0f0907d/fabric-blockrenderlayer-v1-42f6222f-1.1.6+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-commands-v0-42f6222f/0.2.3+3cc0f0907d/fabric-commands-v0-42f6222f-0.2.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-command-api-v1-42f6222f/1.1.3+3cc0f0907d/fabric-command-api-v1-42f6222f-1.1.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-containers-v0-42f6222f/0.1.12+3cc0f0907d/fabric-containers-v0-42f6222f-0.1.12+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-content-registries-v0-42f6222f/0.2.5+3cc0f0907d/fabric-content-registries-v0-42f6222f-0.2.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-dimensions-v1-42f6222f/2.0.8+3cc0f0907d/fabric-dimensions-v1-42f6222f-2.0.8+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-entity-events-v1-42f6222f/1.2.4+3cc0f0907d/fabric-entity-events-v1-42f6222f-1.2.4+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-events-interaction-v0-42f6222f/0.4.5+3cc0f0907d/fabric-events-interaction-v0-42f6222f-0.4.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-events-lifecycle-v0-42f6222f/0.2.2+3cc0f0907d/fabric-events-lifecycle-v0-42f6222f-0.2.2+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-item-api-v1-42f6222f/1.2.2+3cc0f0907d/fabric-item-api-v1-42f6222f-1.2.2+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-item-groups-v0-42f6222f/0.3.1+3cc0f0907d/fabric-item-groups-v0-42f6222f-0.3.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-structure-api-v1-42f6222f/1.1.12+3cc0f0907d/fabric-structure-api-v1-42f6222f-1.1.12+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-lifecycle-events-v1-42f6222f/1.2.2+3cc0f0907d/fabric-lifecycle-events-v1-42f6222f-1.2.2+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-loot-tables-v1-42f6222f/1.0.3+3cc0f0907d/fabric-loot-tables-v1-42f6222f-1.0.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-mining-levels-v0-42f6222f/0.1.4+3cc0f0907d/fabric-mining-levels-v0-42f6222f-0.1.4+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-models-v0-42f6222f/0.3.1+3cc0f0907d/fabric-models-v0-42f6222f-0.3.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-v0-42f6222f/0.3.3+3cc0f0907d/fabric-networking-v0-42f6222f-0.3.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-registry-sync-v0-42f6222f/0.7.6+3cc0f0907d/fabric-registry-sync-v0-42f6222f-0.7.6+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-screen-handler-api-v1-42f6222f/1.1.6+3cc0f0907d/fabric-screen-handler-api-v1-42f6222f-1.1.6+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-api-v1-42f6222f/1.0.5+3cc0f0907d/fabric-networking-api-v1-42f6222f-1.0.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-blockentity-v0-42f6222f/0.2.9+3cc0f0907d/fabric-networking-blockentity-v0-42f6222f-0.2.9+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-object-builders-v0-42f6222f/0.7.3+3cc0f0907d/fabric-object-builders-v0-42f6222f-0.7.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-object-builder-api-v1-42f6222f/1.9.6+3cc0f0907d/fabric-object-builder-api-v1-42f6222f-1.9.6+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-particles-v1-42f6222f/0.2.5+3cc0f0907d/fabric-particles-v1-42f6222f-0.2.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-indigo-42f6222f/0.4.5+3cc0f0907d/fabric-renderer-indigo-42f6222f-0.4.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-api-v1-42f6222f/0.4.5+3cc0f0907d/fabric-renderer-api-v1-42f6222f-0.4.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-registries-v1-42f6222f/2.3.1+3cc0f0907d/fabric-renderer-registries-v1-42f6222f-2.3.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-data-attachment-v1-42f6222f/0.1.6+3cc0f0907d/fabric-rendering-data-attachment-v1-42f6222f-0.1.6+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-fluids-v1-42f6222f/0.1.15+3cc0f0907d/fabric-rendering-fluids-v1-42f6222f-0.1.15+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-v0-42f6222f/1.1.3+3cc0f0907d/fabric-rendering-v0-42f6222f-1.1.3+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-v1-42f6222f/1.6.1+3cc0f0907d/fabric-rendering-v1-42f6222f-1.6.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-screen-api-v1-42f6222f/1.0.1+3cc0f0907d/fabric-screen-api-v1-42f6222f-1.0.1+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-tool-attribute-api-v1-42f6222f/1.2.8+3cc0f0907d/fabric-tool-attribute-api-v1-42f6222f-1.2.8+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-tag-extensions-v0-42f6222f/1.1.2+3cc0f0907d/fabric-tag-extensions-v0-42f6222f-1.1.2+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-textures-v0-42f6222f/1.0.7+3cc0f0907d/fabric-textures-v0-42f6222f-1.0.7+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-base-42f6222f/0.4.0+3cc0f0907d/fabric-api-base-42f6222f-0.4.0+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-biome-api-v1-42f6222f/3.1.13+3cc0f0907d/fabric-biome-api-v1-42f6222f-3.1.13+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-crash-report-info-v1-42f6222f/0.1.4+3cc0f0907d/fabric-crash-report-info-v1-42f6222f-0.1.4+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-game-rule-api-v1-42f6222f/1.0.7+3cc0f0907d/fabric-game-rule-api-v1-42f6222f-1.0.7+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-keybindings-v0-42f6222f/0.2.2+3cc0f0907d/fabric-keybindings-v0-42f6222f-0.2.2+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-key-binding-api-v1-42f6222f/1.0.5+3cc0f0907d/fabric-key-binding-api-v1-42f6222f-1.0.5+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-resource-loader-v0-42f6222f/0.4.8+3cc0f0907d/fabric-resource-loader-v0-42f6222f-0.4.8+3cc0f0907d.jar:/home/ikuku/desktop/PeerCraft/peercraft/versions/1.16.5-fabric/build/handoff-probe/peercraft-handoff-probe-dev.jar)
+[m[34m[20:52:31][m [32m[main/INFO][m [36m(Minecraft)[m [0mReloading ResourceManager: Default, Fabric Mods (Fabric Events Lifecycle (v0), Fabric Rendering (v1), Fabric Textures (v0), Fabric Networking (v0), Fabric Content Registries (v0), Fabric Crash Report Info (v1), Fabric Events Interaction (v0), Fabric Rendering (v0), PeerCraft, Fabric Containers (v0), Fabric Loader, Fabric API, Fabric Command API (v1), Fabric Renderer - Indigo, Fabric Key Bindings (v0), Fabric Rendering Data Attachment (v1), Fabric Particles (v1), Fabric Networking Block Entity (v0), Fabric Screen Handler API (v1), Fabric Transfer API (v1), Fabric Commands (v0), Fabric Renderer Registries (v1), Fabric Item Groups (v0), Fabric API Lookup API (v1), Fabric Rendering Fluids (v1), Fabric Renderer API (v1), Fabric Item API (v1), Fabric Object Builder API (v1), Fabric Object Builders (v0), Fabric Dimensions API (v1), Fabric Tool Attribute API (v1), Fabric Tag Extensions (v0), Fabric Networking API (v1), Fabric API Base, Fabric Loot Tables (v1), Fabric Game Rule API (v1), Fabric Key Binding API (v1), Fabric Registry Sync (v0), Fabric Models (v0), Fabric Mining Levels (v0), Fabric Entity Events (v1), Fabric Resource Loader (v0), Fabric Structure API (v1), Fabric Biome API (v1), Fabric Lifecycle Events (v1), Fabric BlockRenderLayer Registration (v1), Fabric Screen API (v1))
+[m[34m[20:52:31][m [32m[Realms Notification Availability checker #1/INFO][m [36m(Minecraft)[m [0mCould not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[m[W][20:52:33.161740] pw.conf      | [          conf.c: 1209 pw_conf_load_conf_for_context()] setting config.name to client-rt.conf is deprecated, using client.conf
+[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mOpenAL initialized.
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mSound engine started
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 1024x1024x4 minecraft:textures/atlas/blocks.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 256x128x4 minecraft:textures/atlas/signs.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 1024x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 1024x512x4 minecraft:textures/atlas/shield_patterns.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 256x256x4 minecraft:textures/atlas/chest.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 512x256x4 minecraft:textures/atlas/beds.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 256x256x0 minecraft:textures/atlas/particles.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 256x256x0 minecraft:textures/atlas/paintings.png-atlas
+[m[34m[20:52:33][m [32m[main/INFO][m [36m(Minecraft)[m [0mCreated: 256x128x0 minecraft:textures/atlas/mob_effects.png-atlas
+[m[34m[20:52:36][m [31m[main/ERROR][m [36m(Minecraft)[m [31mNo key layers in MapLike[{}]; No key structures in MapLike[{}]; Not a registry ops
+[m[34m[20:52:36][m [32m[main/INFO][m [36m(Minecraft)[m [0mFound new data pack Fabric Mods, loading it automatically
+[m[34m[20:52:36][m [33m[main/WARN][m [36m(Minecraft)[m [0mAmbiguity between arguments [teleport, destination] and [teleport, targets] with inputs: [Player, 0123, @e, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[m[34m[20:52:36][m [33m[main/WARN][m [36m(Minecraft)[m [0mAmbiguity between arguments [teleport, location] and [teleport, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[m[34m[20:52:36][m [33m[main/WARN][m [36m(Minecraft)[m [0mAmbiguity between arguments [teleport, location] and [teleport, targets] with inputs: [0.1 -0.5 .9, 0 0 0]
+[m[34m[20:52:36][m [33m[main/WARN][m [36m(Minecraft)[m [0mAmbiguity between arguments [teleport, targets] and [teleport, destination] with inputs: [Player, 0123, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[m[34m[20:52:36][m [33m[main/WARN][m [36m(Minecraft)[m [0mAmbiguity between arguments [teleport, targets, location] and [teleport, targets, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[m[34m[20:52:36][m [32m[main/INFO][m [36m(Minecraft)[m [0mReloading ResourceManager: Default, Fabric Mods (Fabric Tool Attribute API (v1))
+[m[34m[20:52:36][m [32m[main/INFO][m [36m(Minecraft)[m [0mLoaded 7 recipes
+[m[34m[20:52:37][m [32m[main/INFO][m [36m(Minecraft)[m [0mLoaded 927 advancements
+[m[34m[20:52:37][m [32m[main/INFO][m [36m(BiomeModificationImpl)[m [0mApplied 0 biome modifications to 0 of 79 new biomes in 1.486 ms
+[m[34m[20:52:38][m [32m[main/INFO][m [36m(Minecraft)[m [0mEnvironment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
+[m[34m[20:52:38][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mStarting integrated minecraft server version 1.16.5
+[m[34m[20:52:38][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGenerating keypair
+[m[34m[20:52:38][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mPreparing start region for dimension minecraft:overworld
+[m[34m[20:52:38][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 0%
+[m[34m[20:52:39][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 1%
+[m[34m[20:52:39][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 8%
+[m[34m[20:52:40][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 15%
+[m[34m[20:52:41][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 22%
+[m[34m[20:52:41][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 28%
+[m[34m[20:52:41][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 34%
+[m[34m[20:52:42][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 40%
+[m[34m[20:52:42][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 47%
+[m[34m[20:52:43][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 54%
+[m[34m[20:52:43][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 60%
+[m[34m[20:52:44][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 68%
+[m[34m[20:52:44][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 77%
+[m[34m[20:52:45][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 85%
+[m[34m[20:52:45][m [32m[main/INFO][m [36m(Minecraft)[m [0mPreparing spawn area: 95%
+[m[34m[20:52:46][m [32m[main/INFO][m [36m(Minecraft)[m [0mTime elapsed: 7225 ms
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mChanging view distance to 3, from 10
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mDeveloper[local:E:af706b3f] logged in with entity id 28 at (138.5, 4.0, -55.5)
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mDeveloper joined the game
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving and pausing game...
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:overworld
+[m[34m[20:52:46][m [32m[main/INFO][m [36m(Minecraft)[m [0mLoaded 0 advancements
+[m[34m[20:52:46][m [32m[main/INFO][m [36m(Minecraft)[m [0mUsing default channel type
+[m[34m[20:52:46][m [32m[main/INFO][m [36m(Minecraft)[m [0mStarted serving on 33615
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:the_nether
+[m[34m[20:52:46][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:the_end
+[m[34m[20:52:46][m [32m[main/INFO][m [36m(Minecraft)[m [0m[CHAT] PeerCraft: room code for the second player — 9P9KFV
+[m[34m[20:53:01][m [33m[Worker-Main-5/WARN][m [36m(Minecraft)[m [0mCouldn't look up profile properties for com.mojang.authlib.GameProfile@71445bab[id=286ed8e8-9c27-4936-89eb-6dca36323453,name=Developer,properties={},legacy=false]
+[m com.mojang.authlib.exceptions.AuthenticationUnavailableException: Cannot contact authentication server
+	at com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService.makeRequest(YggdrasilAuthenticationService.java:125) ~[authlib-2.1.28.jar:?]
+	at com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService.makeRequest(YggdrasilAuthenticationService.java:99) ~[authlib-2.1.28.jar:?]
+	at com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService.fillGameProfile(YggdrasilMinecraftSessionService.java:186) ~[authlib-2.1.28.jar:?]
+	at com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService.fillProfileProperties(YggdrasilMinecraftSessionService.java:179) ~[authlib-2.1.28.jar:?]
+	at net.minecraft.client.resources.SkinManager.method_4653(SkinManager.java:101) ~[minecraft-merged-15d0b954df-1.16.5-loom.mappings.1_16_5.layered+hash.2198-v2.jar:?]
+	at java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423) [?:?]
+	at java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387) [?:?]
+	at java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312) [?:?]
+	at java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843) [?:?]
+	at java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808) [?:?]
+	at java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188) [?:?]
+Caused by: java.net.SocketTimeoutException: Connect timed out
+	at sun.nio.ch.NioSocketImpl.timedFinishConnect(NioSocketImpl.java:546) ~[?:?]
+	at sun.nio.ch.NioSocketImpl.connect(NioSocketImpl.java:592) ~[?:?]
+	at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:327) ~[?:?]
+	at java.net.Socket.connect(Socket.java:751) ~[?:?]
+	at sun.security.ssl.SSLSocketImpl.connect(SSLSocketImpl.java:304) ~[?:?]
+	at sun.net.NetworkClient.doConnect(NetworkClient.java:178) ~[?:?]
+	at sun.net.www.http.HttpClient.openServer(HttpClient.java:539) ~[?:?]
+	at sun.net.www.http.HttpClient.openServer(HttpClient.java:644) ~[?:?]
+	at sun.net.www.protocol.https.HttpsClient.<init>(HttpsClient.java:265) ~[?:?]
+	at sun.net.www.protocol.https.HttpsClient.New(HttpsClient.java:378) ~[?:?]
+	at sun.net.www.protocol.https.AbstractDelegateHttpsURLConnection.getNewHttpClient(AbstractDelegateHttpsURLConnection.java:196) ~[?:?]
+	at sun.net.www.protocol.http.HttpURLConnection.plainConnect0(HttpURLConnection.java:1305) ~[?:?]
+	at sun.net.www.protocol.http.HttpURLConnection.plainConnect(HttpURLConnection.java:1146) ~[?:?]
+	at sun.net.www.protocol.http.HttpURLConnection.connect(HttpURLConnection.java:1075) ~[?:?]
+	at sun.net.www.protocol.https.AbstractDelegateHttpsURLConnection.connect(AbstractDelegateHttpsURLConnection.java:181) ~[?:?]
+	at sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1707) ~[?:?]
+	at sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1632) ~[?:?]
+	at sun.net.www.protocol.https.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java:223) ~[?:?]
+	at com.mojang.authlib.HttpAuthenticationService.performGetRequest(HttpAuthenticationService.java:140) ~[authlib-2.1.28.jar:?]
+	at com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService.makeRequest(YggdrasilAuthenticationService.java:104) ~[authlib-2.1.28.jar:?]
+	... 10 more
+[34m[20:53:26][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper[/127.0.0.1:55882] logged in with entity id 42 at (137.5, 4.0, -42.5)
+[m[34m[20:53:26][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper joined the game
+[m[34m[20:53:26][m [32m[main/INFO][m [36m(Minecraft)[m [0m[CHAT] GuestDeveloper joined the game
+[m[34m[20:53:28][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mDeveloper has made the advancement [Diamonds!]
+[m[34m[20:53:28][m [32m[main/INFO][m [36m(Minecraft)[m [0m[CHAT] Developer has made the advancement [Diamonds!]
+[m[34m[20:53:28][m [32m[main/INFO][m [36m(Minecraft)[m [0mLoaded 20 advancements
+[m[34m[20:53:28][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper lost connection: Disconnected
+[m[34m[20:53:28][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper left the game
+[m[34m[20:53:28][m [32m[main/INFO][m [36m(Minecraft)[m [0m[CHAT] GuestDeveloper left the game
+[m[34m[20:53:28][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper[/127.0.0.1:55892] logged in with entity id 46 at (137.5, 4.0, -42.5)
+[m[34m[20:53:28][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mGuestDeveloper joined the game
+[m[34m[20:53:28][m [32m[main/INFO][m [36m(Minecraft)[m [0m[CHAT] GuestDeveloper joined the game
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-events-lifecycle-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-events-lifecycle-v0-42f6222f/0.2.2+3cc0f0907d/fabric-events-lifecycle-v0-42f6222f-0.2.2+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-rendering-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-v1-42f6222f/1.6.1+3cc0f0907d/fabric-rendering-v1-42f6222f-1.6.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-textures-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-textures-v0-42f6222f/1.0.7+3cc0f0907d/fabric-textures-v0-42f6222f-1.0.7+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-networking-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-v0-42f6222f/0.3.3+3cc0f0907d/fabric-networking-v0-42f6222f-0.3.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-content-registries-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-content-registries-v0-42f6222f/0.2.5+3cc0f0907d/fabric-content-registries-v0-42f6222f-0.2.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-crash-report-info-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-crash-report-info-v1-42f6222f/0.1.4+3cc0f0907d/fabric-crash-report-info-v1-42f6222f-0.1.4+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-events-interaction-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-events-interaction-v0-42f6222f/0.4.5+3cc0f0907d/fabric-events-interaction-v0-42f6222f-0.4.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-rendering-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-v0-42f6222f/1.1.3+3cc0f0907d/fabric-rendering-v0-42f6222f-1.1.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=peercraft parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/versions/1.16.5-fabric/build/handoff-probe/peercraft-handoff-probe-dev.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-containers-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-containers-v0-42f6222f/0.1.12+3cc0f0907d/fabric-containers-v0-42f6222f-0.1.12+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabricloader parent= jar=/home/ikuku/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.4/73dc5ebef9b7744c770af1bf2cc3327f9bdcb049/fabric-loader-0.19.4.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=mixinextras parent= jar=/home/ikuku/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.4/5e167154bcb9942111313a5e186e16cd7265f858/mixinextras-fabric-0.5.4.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-42f6222f/0.42.0+1.16/fabric-api-42f6222f-0.42.0+1.16.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-command-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-command-api-v1-42f6222f/1.1.3+3cc0f0907d/fabric-command-api-v1-42f6222f-1.1.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-renderer-indigo parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-indigo-42f6222f/0.4.5+3cc0f0907d/fabric-renderer-indigo-42f6222f-0.4.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-keybindings-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-keybindings-v0-42f6222f/0.2.2+3cc0f0907d/fabric-keybindings-v0-42f6222f-0.2.2+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-rendering-data-attachment-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-data-attachment-v1-42f6222f/0.1.6+3cc0f0907d/fabric-rendering-data-attachment-v1-42f6222f-0.1.6+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-particles-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-particles-v1-42f6222f/0.2.5+3cc0f0907d/fabric-particles-v1-42f6222f-0.2.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-networking-blockentity-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-blockentity-v0-42f6222f/0.2.9+3cc0f0907d/fabric-networking-blockentity-v0-42f6222f-0.2.9+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-screen-handler-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-screen-handler-api-v1-42f6222f/1.1.6+3cc0f0907d/fabric-screen-handler-api-v1-42f6222f-1.1.6+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-transfer-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-transfer-api-v1-42f6222f/1.5.0+3cc0f0907d/fabric-transfer-api-v1-42f6222f-1.5.0+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-commands-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-commands-v0-42f6222f/0.2.3+3cc0f0907d/fabric-commands-v0-42f6222f-0.2.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-renderer-registries-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-registries-v1-42f6222f/2.3.1+3cc0f0907d/fabric-renderer-registries-v1-42f6222f-2.3.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-item-groups-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-item-groups-v0-42f6222f/0.3.1+3cc0f0907d/fabric-item-groups-v0-42f6222f-0.3.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-api-lookup-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-lookup-api-v1-42f6222f/1.3.1+3cc0f0907d/fabric-api-lookup-api-v1-42f6222f-1.3.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-rendering-fluids-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-rendering-fluids-v1-42f6222f/0.1.15+3cc0f0907d/fabric-rendering-fluids-v1-42f6222f-0.1.15+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-renderer-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-renderer-api-v1-42f6222f/0.4.5+3cc0f0907d/fabric-renderer-api-v1-42f6222f-0.4.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-item-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-item-api-v1-42f6222f/1.2.2+3cc0f0907d/fabric-item-api-v1-42f6222f-1.2.2+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-object-builder-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-object-builder-api-v1-42f6222f/1.9.6+3cc0f0907d/fabric-object-builder-api-v1-42f6222f-1.9.6+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-object-builders-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-object-builders-v0-42f6222f/0.7.3+3cc0f0907d/fabric-object-builders-v0-42f6222f-0.7.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-dimensions-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-dimensions-v1-42f6222f/2.0.8+3cc0f0907d/fabric-dimensions-v1-42f6222f-2.0.8+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-tool-attribute-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-tool-attribute-api-v1-42f6222f/1.2.8+3cc0f0907d/fabric-tool-attribute-api-v1-42f6222f-1.2.8+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-tag-extensions-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-tag-extensions-v0-42f6222f/1.1.2+3cc0f0907d/fabric-tag-extensions-v0-42f6222f-1.1.2+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-networking-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-networking-api-v1-42f6222f/1.0.5+3cc0f0907d/fabric-networking-api-v1-42f6222f-1.0.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-api-base parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-api-base-42f6222f/0.4.0+3cc0f0907d/fabric-api-base-42f6222f-0.4.0+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-loot-tables-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-loot-tables-v1-42f6222f/1.0.3+3cc0f0907d/fabric-loot-tables-v1-42f6222f-1.0.3+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-game-rule-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-game-rule-api-v1-42f6222f/1.0.7+3cc0f0907d/fabric-game-rule-api-v1-42f6222f-1.0.7+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-key-binding-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-key-binding-api-v1-42f6222f/1.0.5+3cc0f0907d/fabric-key-binding-api-v1-42f6222f-1.0.5+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-registry-sync-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-registry-sync-v0-42f6222f/0.7.6+3cc0f0907d/fabric-registry-sync-v0-42f6222f-0.7.6+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-models-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-models-v0-42f6222f/0.3.1+3cc0f0907d/fabric-models-v0-42f6222f-0.3.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-mining-levels-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-mining-levels-v0-42f6222f/0.1.4+3cc0f0907d/fabric-mining-levels-v0-42f6222f-0.1.4+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-entity-events-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-entity-events-v1-42f6222f/1.2.4+3cc0f0907d/fabric-entity-events-v1-42f6222f-1.2.4+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-resource-loader-v0 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-resource-loader-v0-42f6222f/0.4.8+3cc0f0907d/fabric-resource-loader-v0-42f6222f-0.4.8+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-structure-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-structure-api-v1-42f6222f/1.1.12+3cc0f0907d/fabric-structure-api-v1-42f6222f-1.1.12+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=minecraft parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-merged-15d0b954df/1.16.5-loom.mappings.1_16_5.layered+hash.2198-v2/minecraft-merged-15d0b954df-1.16.5-loom.mappings.1_16_5.layered+hash.2198-v2.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-biome-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-biome-api-v1-42f6222f/3.1.13+3cc0f0907d/fabric-biome-api-v1-42f6222f-3.1.13+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=java parent= jar=null
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-lifecycle-events-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-lifecycle-events-v1-42f6222f/1.2.2+3cc0f0907d/fabric-lifecycle-events-v1-42f6222f-1.2.2+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-blockrenderlayer-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-blockrenderlayer-v1-42f6222f/1.1.6+3cc0f0907d/fabric-blockrenderlayer-v1-42f6222f-1.1.6+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=fabric-screen-api-v1 parent= jar=/home/ikuku/desktop/PeerCraft/peercraft/.gradle/loom-cache/remapped_mods/remapped/net/fabricmc/fabric-api/fabric-screen-api-v1-42f6222f/1.0.1+3cc0f0907d/fabric-screen-api-v1-42f6222f-1.0.1+3cc0f0907d.jar
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_CAPTURE_SOURCE file:/home/ikuku/desktop/PeerCraft/peercraft/versions/1.16.5-fabric/build/handoff-probe/peercraft-handoff-probe-dev.jar
+[m[34m[20:53:29][m [32m[PeerCraft-Handoff-Source/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[m[34m[20:53:29][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_CANCEL_SENT
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (network-progress): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mStopping server
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving players
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mDeveloper lost connection: Disconnected
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mDeveloper left the game
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mStopping singleplayer server as player logged out
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving worlds
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:overworld
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (network-progress): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:the_nether
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mSaving chunks for level 'ServerLevel[Network progress]'/minecraft:the_end
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (network-progress): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[m[34m[20:53:29][m [32m[Server thread/INFO][m [36m(Minecraft)[m [0mThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[m[34m[20:53:30][m [32m[main/INFO][m [36m(Minecraft)[m [0m[STDOUT]: NETWORK_HANDOFF_PROBE_DONE role=host account=286ed8e8-9c27-4936-89eb-6dca36323453
+[m[34m[20:53:30][m [32m[main/INFO][m [36m(Minecraft)[m [0mStopping!
+[m
+[Incubating] Problems report is available at: file:///home/ikuku/desktop/PeerCraft/peercraft/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 23s
+15 actionable tasks: 5 executed, 10 up-to-date

@@ -1,0 +1,31 @@
+{
+  "client": {
+    "tests": 406,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 8,
+    "passed": 398,
+    "skipped_cases": [
+      "net.peercraft.network.modsync.ModSyncLoopbackIntegrationTest.transfersRealAppleSkinJarWhenAvailable(Path)",
+      "net.peercraft.network.relay.CoturnIntegrationTest.wrongSecretCannotAllocate()",
+      "net.peercraft.network.relay.CoturnIntegrationTest.encryptedBidirectionalDatagramsRotationRetentionAndShutdown()",
+      "net.peercraft.network.relay.RelayModSyncIntegrationTest.missingModIsVerifiedThroughActualCoturn(Path)",
+      "net.peercraft.network.relay.RelayWorldTransferIntegrationTest.interruptedActualCoturnTransferPreservesSource(Path)",
+      "net.peercraft.network.relay.RelayWorldTransferIntegrationTest.verifiedWorldTravelsThroughActualCoturn(Path)",
+      "net.peercraft.network.rendezvous.RendezvousEndToEndTest.hostAndTwoJoinersPunchThroughConcurrently()",
+      "net.peercraft.network.rendezvous.RendezvousEndToEndTest.hostAndJoinerPunchThroughToEachOther()"
+    ]
+  },
+  "server": {
+    "tests": 268,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 3,
+    "passed": 265,
+    "skipped_cases": [
+      "net.peercraft.rendezvous.RelayServerIntegrationTest.actualMatchAdmitsBothRolesAndRejectsForgedAndAnonymousRequests()",
+      "net.peercraft.rendezvous.RelayServerIntegrationTest.hostWithoutConsentStillGetsAuthenticatedDirectOfferButCannotUseRelay()",
+      "net.peercraft.rendezvous.relay.CoturnCredentialIntegrationTest.productionCredentialsAuthenticateBothAllocationsAndCarryData()"
+    ]
+  }
+}

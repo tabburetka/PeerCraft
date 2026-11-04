@@ -1,0 +1,70 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Running Stonecutter 0.9.7
+
+> Configure project :1.16.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.10-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.11-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.3-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.4-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.5-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.6-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.7-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.8-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :1.21.9-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.1-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.1.2-fabric
+Fabric Loom: 1.17.21
+
+> Configure project :26.2-fabric
+Fabric Loom: 1.17.21
+
+> Task :1.21.1-fabric:compileModSyncHelper
+> Task :1.21.1-fabric:modSyncHelperJar
+
+> Task :1.21.1-fabric:compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :1.21.1-fabric:processResources
+> Task :1.21.1-fabric:classes
+> Task :1.21.1-fabric:compileTestJava
+> Task :1.21.1-fabric:processTestResources NO-SOURCE
+> Task :1.21.1-fabric:testClasses
+> Task :1.21.1-fabric:test
+
+[Incubating] Problems report is available at: file:///home/ikuku/desktop/PeerCraft/peercraft/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 48s
+6 actionable tasks: 6 executed

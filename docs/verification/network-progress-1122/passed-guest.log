@@ -1,0 +1,402 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :extractDependencyATs UP-TO-DATE
+> Task :generateForgeSrgMappings SKIPPED
+> Task :downloadVanillaJars SKIPPED
+> Task :mergeVanillaSidedJars SKIPPED
+> Task :deobfuscateMergedJarToSrg SKIPPED
+> Task :downloadFernflower SKIPPED
+> Task :decompileSrgJar SKIPPED
+> Task :cleanupDecompSrgJar SKIPPED
+> Task :patchDecompiledJar SKIPPED
+> Task :applySourceAccessTransformers SKIPPED
+> Task :remapDecompiledJar SKIPPED
+> Task :decompressDecompiledSources UP-TO-DATE
+> Task :compilePatchedMcJava UP-TO-DATE
+> Task :processPatchedMcResources UP-TO-DATE
+> Task :patchedMcClasses UP-TO-DATE
+> Task :compileApiJava NO-SOURCE
+> Task :processApiResources NO-SOURCE
+> Task :apiClasses UP-TO-DATE
+> Task :injectTags UP-TO-DATE
+> Task :compileInjectedTagsJava NO-SOURCE
+> Task :extractNatives2 UP-TO-DATE
+> Task :createMcLauncherFiles UP-TO-DATE
+> Task :compileMcLauncherJava UP-TO-DATE
+> Task :processInjectedTagsResources NO-SOURCE
+> Task :injectedTagsClasses UP-TO-DATE
+> Task :processMcLauncherResources NO-SOURCE
+> Task :mcLauncherClasses UP-TO-DATE
+> Task :syncSharedJava8 UP-TO-DATE
+> Task :syncSharedMain UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateLang UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileNetworkProbeJava UP-TO-DATE
+> Task :downloadAssetManifest SKIPPED
+> Task :downloadVanillaAssets UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :processNetworkProbeResources NO-SOURCE
+> Task :networkProbeClasses UP-TO-DATE
+> Task :packageMcLauncher UP-TO-DATE
+> Task :packagePatchedMc UP-TO-DATE
+
+> Task :runClient
+NETWORK_PROBE_DIRECTORY /tmp/peercraft-network-probe/game-c1bf8e1e-f11b-4356-84b2-16b3881a67c4
+[17:11:52] [main/INFO] [GradleStart]: userProperties: {}
+[17:11:52] [main/INFO] [GradleStart]: assetsDir: /home/ikuku/.gradle/caches/retro_futura_gradle/assets
+[17:11:52] [main/INFO] [GradleStart]: assetIndex: 1.12.2
+[17:11:52] [main/INFO] [GradleStart]: version: FML_DEV
+[17:11:52] [main/INFO] [GradleStart]: username: GuestDeveloper
+[17:11:52] [main/INFO] [GradleStart]: Extra: [--gameDir, /tmp/peercraft-network-probe/game-c1bf8e1e-f11b-4356-84b2-16b3881a67c4, --uuid, 2c78cec4-5c3d-3831-ad62-88cca3c9ed9b, --width, 640, --height, 480]
+[17:11:52] [main/INFO] [GradleStart]: Found and added coremod: net.peercraft.forge1122.PeerCraftCoreMod
+[17:11:52] [main/INFO] [GradleStart]: Found and added coremod: zone.rong.mixinbooter.MixinBooterPlugin
+[17:11:52] [main/INFO] [GradleStart]: Found and added cascading tweaker: org.spongepowered.asm.launch.MixinTweaker
+[17:11:52] [main/INFO] [GradleStart]: Running with arguments: [--userProperties, {}, --assetsDir, /home/ikuku/.gradle/caches/retro_futura_gradle/assets, --assetIndex, 1.12.2, --accessToken{REDACTED}, --version, FML_DEV, --username, GuestDeveloper, --tweakClass, net.minecraftforge.fml.common.launcher.FMLTweaker, --gameDir, /tmp/peercraft-network-probe/game-c1bf8e1e-f11b-4356-84b2-16b3881a67c4, --uuid, 2c78cec4-5c3d-3831-ad62-88cca3c9ed9b, --width, 640, --height, 480, --tweakClass, org.spongepowered.asm.launch.MixinTweaker, --tweakClass, net.minecraftforge.gradle.tweakers.CoremodTweaker]
+[17:11:52] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:11:52] [main/INFO] [LaunchWrapper]: Using primary tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:11:52] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.launch.MixinTweaker
+[17:11:52] [main/INFO] [mixin]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=file:/home/ikuku/.gradle/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar Service=LaunchWrapper Env=CLIENT
+/****************************************************************************************************************************************************************************************************/
+/*                                                                         SpongePowered MIXIN (Verbose debugging enabled)                                                                          */
+/****************************************************************************************************************************************************************************************************/
+/*                                         Code source : file:/home/ikuku/.gradle/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar */
+/*                                    Internal Version : 0.8.5                                                                                                                                      */
+/*                                        Java Version : 1.8 (supports compatibility 6-8)                                                                                                           */
+/*                         Default Compatibility Level : JAVA_6                                                                                                                                     */
+/*                                Detected ASM Version : ASM 5.2 (ASM5)                                                                                                                             */
+/*                          Detected ASM Supports Java : Up to Java 1.8 (class file version 52.0)                                                                                                   */
+/****************************************************************************************************************************************************************************************************/
+/*                                        Service Name : LaunchWrapper                                                                                                                              */
+/*                                 Mixin Service Class : org.spongepowered.asm.service.mojang.MixinServiceLaunchWrapper                                                                             */
+/*                       Global Property Service Class : org.spongepowered.asm.service.mojang.Blackboard                                                                                            */
+/*                                 Logger Adapter Type : Log4j2 (via LaunchWrapper)                                                                                                                 */
+/****************************************************************************************************************************************************************************************************/
+/*                                         mixin.debug : <true>                                                                                                                                     */
+/*                                  mixin.debug.export : - <true>                                                                                                                                   */
+/*                           mixin.debug.export.filter : - - <null>                                                                                                                                 */
+/*                        mixin.debug.export.decompile : - - <true>                                                                                                                                 */
+/*                  mixin.debug.export.decompile.async : - - - <true>                                                                                                                               */
+/* mixin.debug.export.decompile.mergeGenericSignatures : - - - <true>                                                                                                                               */
+/*                                  mixin.debug.verify : - <true>                                                                                                                                   */
+/*                                 mixin.debug.verbose : - <true>                                                                                                                                   */
+/*                         mixin.debug.countInjections : - <true>                                                                                                                                   */
+/*                                  mixin.debug.strict : - <false>                                                                                                                                  */
+/*                           mixin.debug.strict.unique : - - <false>                                                                                                                                */
+/*                          mixin.debug.strict.targets : - - <false>                                                                                                                                */
+/*                                mixin.debug.profiler : - <true>                                                                                                                                   */
+/*                           mixin.dumpTargetOnFailure : <false>                                                                                                                                    */
+/*                                        mixin.checks : <false>                                                                                                                                    */
+/*                             mixin.checks.interfaces : - <false>                                                                                                                                  */
+/*                      mixin.checks.interfaces.strict : - - <false>                                                                                                                                */
+/*                             mixin.ignoreConstraints : <false>                                                                                                                                    */
+/*                                       mixin.hotSwap : <true>                                                                                                                                     */
+/*                                           mixin.env : <false>                                                                                                                                    */
+/*                                       mixin.env.obf : - <false>                                                                                                                                  */
+/*                             mixin.env.disableRefMap : - <false>                                                                                                                                  */
+/*                               mixin.env.remapRefMap : - <true>                                                                                                                                   */
+/*                       mixin.env.refMapRemappingFile : - <>                                                                                                                                       */
+/*                        mixin.env.refMapRemappingEnv : - <searge>                                                                                                                                 */
+/*                      mixin.env.allowPermissiveMatch : - <false>                                                                                                                                  */
+/*                            mixin.env.ignoreRequired : - <false>                                                                                                                                  */
+/*                               mixin.env.compatLevel : - <false>                                                                                                                                  */
+/*                          mixin.env.shiftByViolation : - <warn>                                                                                                                                   */
+/*                      mixin.initialiserInjectionMode : <default>                                                                                                                                  */
+/****************************************************************************************************************************************************************************************************/
+/*                                       Detected Side : CLIENT                                                                                                                                     */
+/****************************************************************************************************************************************************************************************************/
+[17:11:52] [main/INFO] [mixin]: Attempting to load Hot-Swap agent
+[17:11:52] [main/INFO] [mixin]: Attempting to load Fernflower decompiler (Threaded mode)
+[17:11:52] [main/INFO] [mixin]: Fernflower could not be loaded, exported classes will not be decompiled. NoClassDefFoundError: org/jetbrains/java/decompiler/main/extern/IResultSaver
+[17:11:52] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.CoremodTweaker
+[17:11:52] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:11:52] [main/INFO] [FML]: Forge Mod Loader version 14.23.5.2847 for Minecraft 1.12.2 loading
+[17:11:52] [main/INFO] [FML]: Java is OpenJDK 64-Bit Server VM, version 1.8.0_504, running on Linux:amd64:7.2.9-1-cachyos, installed at /home/ikuku/.gradle/jdks/temurin-8-amd64-linux.2/jre
+[17:11:52] [main/ERROR] [FML]: Apache Maven library folder was not in the format expected. Using default libraries directory.
+[17:11:52] [main/ERROR] [FML]: Full: /home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/7dc72b6d6d8a6dced3d294ed54c2cc3515ade9f4/maven-artifact-3.5.3.jar
+[17:11:52] [main/ERROR] [FML]: Trimmed: /home/ikuku/.gradle/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/
+[17:11:52] [main/INFO] [FML]: Managed to load a deobfuscated Minecraft name- we are in a deobfuscated environment. Skipping runtime deobfuscation
+[17:11:52] [main/INFO] [FML]: Detected deobfuscated environment, loading log configs for colored console logs.
+[17:11:52] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[PREINIT]
+2026-10-07 17:11:53,100 main WARN Disabling terminal, you're running in an unsupported environment.
+[17:11:53] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLCorePlugin (net.minecraftforge.fml.relauncher.FMLCorePlugin), we are in deobf and it's a forge core plugin
+[17:11:53] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLForgePlugin (net.minecraftforge.classloading.FMLForgePlugin), we are in deobf and it's a forge core plugin
+[17:11:53] [main/INFO] [FML]: Found a command line coremod : net.peercraft.forge1122.PeerCraftCoreMod
+[17:11:53] [main/INFO] [FML]: Ignoring missing certificate for coremod PeerCraft (net.peercraft.forge1122.PeerCraftCoreMod), as this is probably a dev workspace
+[17:11:53] [main/INFO] [FML]: Found a command line coremod : zone.rong.mixinbooter.MixinBooterPlugin
+[17:11:53] [main/WARN] [FML]: The coremod zone.rong.mixinbooter.MixinBooterPlugin does not have a MCVersion annotation, it may cause issues with this version of Minecraft
+[17:11:53] [main/INFO] [FML]: Ignoring missing certificate for coremod MixinBooter (zone.rong.mixinbooter.MixinBooterPlugin), as this is probably a dev workspace
+[17:11:53] [main/INFO] [MixinBooter]: Initializing Mixins...
+[17:11:53] [main/INFO] [mixin]: Compatibility level set to JAVA_8
+[17:11:53] [main/INFO] [MixinBooter]: Initializing MixinExtras...
+[17:11:53] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[17:11:53] [main/INFO] [FML]: Searching /tmp/peercraft-network-probe/game-c1bf8e1e-f11b-4356-84b2-16b3881a67c4/mods for mods
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.launch.MixinTweaker
+[17:11:53] [main/INFO] [mixin]: Initialised Mixin FML Remapper Adapter with net.minecraftforge.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper@13e547a9
+[17:11:53] [main/INFO] [mixin]: Initialised Legacy FML Dev Remapper
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.CoremodTweaker
+[17:11:53] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.fml.relauncher.FMLCorePlugin
+[17:11:53] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.classloading.FMLForgePlugin
+[17:11:53] [main/INFO] [GradleStart]: Injecting location in coremod net.peercraft.forge1122.PeerCraftCoreMod
+[17:11:53] [main/INFO] [GradleStart]: Injecting location in coremod zone.rong.mixinbooter.MixinBooterPlugin
+[17:11:53] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:11:53] [main/INFO] [MixinBooter]: Grabbing class net.peercraft.forge1122.PeerCraftCoreMod for its mixins.
+[17:11:53] [main/INFO] [MixinBooter]: Adding peercraft.forge.mixins.json mixin configuration.
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:11:53] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[17:11:53] [main/ERROR] [FML]: FML appears to be missing any signature data. This is not a good thing
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[17:11:53] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[17:11:54] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:11:54] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[17:11:54] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.TerminalTweaker
+[17:11:54] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.TerminalTweaker
+[17:11:54] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[DEFAULT]
+[17:11:54] [main/INFO] [mixin]: Selecting config mixin.mixinbooter.init.json
+[17:11:54] [main/INFO] [mixin]: Selecting config peercraft.forge.mixins.json
+[17:11:54] [main/INFO] [mixin]: Preparing mixin.mixinbooter.init.json (2)
+[17:11:54] [main/INFO] [mixin]: Preparing peercraft.forge.mixins.json (9)
+[17:11:54] [main/INFO] [LaunchWrapper]: Launching wrapped minecraft {net.minecraft.client.main.Main}
+[17:11:54] [main/INFO] [MixinExtras|Service]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.2.1-beta.2).
+[17:11:54] [main/INFO] [mixin]: Mixing WorldOpenFlowsMixin from peercraft.forge.mixins.json into net.minecraft.client.Minecraft
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$6(Lnet/minecraft/client/Minecraft;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$6$0 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$5(Ljava/lang/String;Lnet/minecraft/client/Minecraft;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$5$1 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$4(Lnet/minecraft/client/Minecraft;Ljava/lang/Throwable;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$4$2 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$3(Lnet/minecraft/client/Minecraft;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$3$3 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$2(Ljava/lang/Throwable;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$2$4 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$1(Lnet/minecraft/client/Minecraft;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to mdf55d91$lambda$peercraft$warnStaleHandoff$1$5 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$static$0()Ljava/lang/Boolean; to mdf55d91$lambda$static$0$6 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Mixing OpenToLanMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method lambda$sendChat$0(Lnet/minecraft/util/text/ITextComponent;)V to mdf55d91$lambda$sendChat$0$0 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[17:11:54] [main/INFO] [mixin]: Renaming synthetic method access$000(Lnet/minecraft/util/text/ITextComponent;)V to mdf55d91$access$000$1 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[17:11:55] [main/INFO] [mixin]: Mixing PlayerDataMigrationMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[17:11:55] [Client thread/INFO] [minecraft/Minecraft]: Setting user: GuestDeveloper
+[17:11:57] [Client thread/INFO] [minecraft/Minecraft]: LWJGL Version: 2.9.4
+[17:11:57] [Client thread/INFO] [FML]: Could not load splash.properties, will create a default one
+[17:11:57] [Client thread/INFO] [mixin]: Mixing CrashReportMixin from mixin.mixinbooter.init.json into net.minecraft.crash.CrashReport
+[17:11:57] [Client thread/INFO] [FML]: -- System Details --
+Details:
+	Minecraft Version: 1.12.2
+	Operating System: Linux (amd64) version 7.2.9-1-cachyos
+	Java Version: 1.8.0_504, Temurin
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode), Temurin
+	Memory: 227402592 bytes (216 MB) / 337117184 bytes (321 MB) up to 716177408 bytes (683 MB)
+	JVM Flags: 4 total; -XX:MaxDirectMemorySize=640m -XX:ActiveProcessorCount=2 -Xms128m -Xmx768m
+	IntCache: cache: 0, tcache: 0, allocated: 0, tallocated: 0
+	FML: 
+	Loaded coremods (and transformers): 
+MixinBooter (mixinbooter-8.9.jar)
+  
+PeerCraft (peercraft-forge-1.12.2-2.1.0-dev.jar)
+  
+	GL info: ' Vendor: 'AMD' Version: '4.6 (Compatibility Profile) Mesa 26.2.4-arch3.1' Renderer: 'AMD Radeon Graphics (radeonsi, renoir, ACO, DRM 3.64, 7.2.9-1-cachyos)'
+[17:11:57] [Client thread/INFO] [FML]: MinecraftForge v14.23.5.2847 Initialized
+[17:11:57] [Client thread/INFO] [FML]: Starts to replace vanilla recipe ingredients with ore ingredients.
+[17:11:57] [Client thread/INFO] [FML]: Invalid recipe found with multiple oredict ingredients in the same ingredient...
+[17:11:58] [Client thread/INFO] [FML]: Replaced 1227 ore ingredients
+[17:11:58] [Client thread/INFO] [mixin]: Mixing LoadControllerMixin from mixin.mixinbooter.init.json into net.minecraftforge.fml.common.LoadController
+[17:11:58] [Client thread/INFO] [MixinBooter]: Initializing MixinBooter's Mod Container.
+[17:11:58] [Client thread/INFO] [FML]: Searching /tmp/peercraft-network-probe/game-c1bf8e1e-f11b-4356-84b2-16b3881a67c4/mods for mods
+[17:11:59] [Client thread/INFO] [FML]: Forge Mod Loader has identified 7 mods to load
+[17:11:59] [Client thread/INFO] [mixin]: Ending MixinEnvironment[DEFAULT], applied 4 mixins
+[17:11:59] [Client thread/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[DEFAULT]
+[17:11:59] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft, peercraft_network_progress_probe] at CLIENT
+[17:11:59] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft, peercraft_network_progress_probe] at SERVER
+[17:11:59] [Client thread/INFO] [minecraft/SimpleReloadableResourceManager]: Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:PeerCraft, FMLFileResourcePack:PeerCraft network progress probe
+[17:11:59] [Client thread/INFO] [FML]: Processing ObjectHolder annotations
+[17:11:59] [Client thread/INFO] [FML]: Found 1168 ObjectHolder annotations
+[17:11:59] [Client thread/INFO] [FML]: Identifying ItemStackHolder annotations
+[17:11:59] [Client thread/INFO] [FML]: Found 0 ItemStackHolder annotations
+[17:11:59] [Client thread/INFO] [FML]: Configured a dormant chunk cache size of 0
+[17:11:59] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Starting version check at http://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+[17:11:59] [Client thread/INFO] [peercraft]: Hello PeerCraft world!
+[17:11:59] [Client thread/INFO] [FML]: Applying holder lookups
+[17:11:59] [Client thread/INFO] [FML]: Holder lookups applied
+[17:11:59] [Client thread/INFO] [FML]: Applying holder lookups
+[17:11:59] [Client thread/INFO] [FML]: Holder lookups applied
+[17:11:59] [Client thread/INFO] [FML]: Applying holder lookups
+[17:11:59] [Client thread/INFO] [FML]: Holder lookups applied
+[17:11:59] [Client thread/INFO] [FML]: Applying holder lookups
+[17:11:59] [Client thread/INFO] [FML]: Holder lookups applied
+[17:11:59] [Client thread/INFO] [FML]: Injecting itemstacks
+[17:11:59] [Client thread/INFO] [FML]: Itemstack injection complete
+[17:12:00] [Thread-3/INFO] [FML]: Using sync timing. 200 frames of Display.update took 149549201 nanos
+[17:12:00] [Sound Library Loader/INFO] [minecraft/SoundManager]: Starting up SoundSystem...
+[17:12:00] [Thread-4/INFO] [minecraft/SoundManager]: Initializing LWJGL OpenAL
+[17:12:00] [Thread-4/INFO] [minecraft/SoundManager]: (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+[17:12:00] [Thread-4/INFO] [minecraft/SoundManager]: OpenAL initialized.
+[17:12:00] [Sound Library Loader/INFO] [minecraft/SoundManager]: Sound engine started
+[17:12:01] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Found status: OUTDATED Target: 14.23.5.2859
+[17:12:01] [Client thread/INFO] [FML]: Max texture size: 16384
+[17:12:01] [Client thread/INFO] [minecraft/TextureMap]: Created: 512x512 textures-atlas
+[17:12:03] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:03] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:03] [Client thread/INFO] [peercraft]: [PeerCraft] Клиентский прокси не запускается в режиме disabled
+[17:12:03] [Client thread/INFO] [FML]: Injecting itemstacks
+[17:12:03] [Client thread/INFO] [FML]: Itemstack injection complete
+[17:12:03] [Client thread/INFO] [FML]: Forge Mod Loader has successfully loaded 7 mods
+[17:12:03] [Client thread/WARN] [mojang/NarratorLinux]: ERROR : Couldn't load Narrator library : Unable to load library 'fliteWrapper': Can't obtain InputStream for linux-x86-64/libfliteWrapper.so
+[17:12:04] [Realms Notification Availability checker #1/INFO] [mojang/RealmsClient]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[17:12:04] [Client thread/INFO] [peercraft]: [P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:0
+[17:12:04] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:39567
+[17:12:04] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Во втором Minecraft-клиенте подключайся к адресу 127.0.0.1:39567
+[17:12:04] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:54102 (буфер приёма: 4194304 байт)
+[17:12:04] [Client thread/INFO] [minecraft/GuiConnecting]: Connecting to 127.0.0.1, 39567
+[17:12:05] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Новое подключение от Minecraft клиента: /127.0.0.1:43138
+[17:12:05] [PeerCraft-LocalProxy/INFO] [peercraft]: [P2PBridge] Новая клиентская сессия 6539510984932029118 для /127.0.0.1:43138
+[17:12:05] [Netty Epoll Client IO #0/INFO] [FML]: Server protocol version 2
+[17:12:05] [Client thread/INFO] [FML]: Injecting existing registry data into this client instance
+[17:12:06] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:06] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:06] [Netty Epoll Client IO #0/INFO] [FML]: [Netty Epoll Client IO #0] Client side modded connection established
+[17:12:06] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] PeerCraft: direct connection
+[17:12:07] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] Developer has made the advancement [Diamonds!]
+[17:12:07] [Client thread/INFO] [minecraft/AdvancementList]: Loaded 13 advancements
+[17:12:07] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:07] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:07] [Client thread/FATAL] [minecraft/Minecraft]: Error executing task
+java.util.concurrent.ExecutionException: java.lang.NullPointerException
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.get(FutureTask.java:192) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:51) [Util.class:?]
+	at net.minecraft.client.Minecraft.runGameLoop(Minecraft.java:1178) [Minecraft.class:?]
+	at net.minecraft.client.Minecraft.run(Minecraft.java:442) [Minecraft.class:?]
+	at net.minecraft.client.main.Main.main(Main.java:118) [Main.class:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraft.launchwrapper.Launch.launch(Launch.java:135) [launchwrapper-1.12.jar:?]
+	at net.minecraft.launchwrapper.Launch.main(Launch.java:28) [launchwrapper-1.12.jar:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraftforge.gradle.GradleStartCommon.launch(GradleStartCommon.java:87) [mclauncher-1.12.2.jar:?]
+	at GradleStart.main(GradleStart.java:19) [mclauncher-1.12.2.jar:?]
+Caused by: java.lang.NullPointerException
+	at net.minecraft.client.network.NetHandlerPlayClient.handleEntityVelocity(NetHandlerPlayClient.java:571) ~[NetHandlerPlayClient.class:?]
+	at net.minecraft.network.play.server.SPacketEntityVelocity.processPacket(SPacketEntityVelocity.java:94) ~[SPacketEntityVelocity.class:?]
+	at net.minecraft.network.play.server.SPacketEntityVelocity.processPacket(SPacketEntityVelocity.java:11) ~[SPacketEntityVelocity.class:?]
+	at net.minecraft.network.PacketThreadUtil$1.run(PacketThreadUtil.java:15) ~[PacketThreadUtil$1.class:?]
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:50) ~[Util.class:?]
+	... 15 more
+[17:12:07] [Client thread/FATAL] [minecraft/Minecraft]: Error executing task
+java.util.concurrent.ExecutionException: java.lang.NullPointerException
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.get(FutureTask.java:192) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:51) [Util.class:?]
+	at net.minecraft.client.Minecraft.runGameLoop(Minecraft.java:1178) [Minecraft.class:?]
+	at net.minecraft.client.Minecraft.run(Minecraft.java:442) [Minecraft.class:?]
+	at net.minecraft.client.main.Main.main(Main.java:118) [Main.class:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraft.launchwrapper.Launch.launch(Launch.java:135) [launchwrapper-1.12.jar:?]
+	at net.minecraft.launchwrapper.Launch.main(Launch.java:28) [launchwrapper-1.12.jar:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraftforge.gradle.GradleStartCommon.launch(GradleStartCommon.java:87) [mclauncher-1.12.2.jar:?]
+	at GradleStart.main(GradleStart.java:19) [mclauncher-1.12.2.jar:?]
+Caused by: java.lang.NullPointerException
+	at net.minecraft.network.play.server.SPacketEntity.getEntity(SPacketEntity.java:64) ~[SPacketEntity.class:?]
+	at net.minecraft.client.network.NetHandlerPlayClient.handleEntityMovement(NetHandlerPlayClient.java:678) ~[NetHandlerPlayClient.class:?]
+	at net.minecraft.network.play.server.SPacketEntity.processPacket(SPacketEntity.java:53) ~[SPacketEntity.class:?]
+	at net.minecraft.network.play.server.SPacketEntity$S15PacketEntityRelMove.processPacket(SPacketEntity.java:109) ~[SPacketEntity$S15PacketEntityRelMove.class:?]
+	at net.minecraft.network.PacketThreadUtil$1.run(PacketThreadUtil.java:15) ~[PacketThreadUtil$1.class:?]
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:50) ~[Util.class:?]
+	... 15 more
+[17:12:07] [Client thread/FATAL] [minecraft/Minecraft]: Error executing task
+java.util.concurrent.ExecutionException: java.lang.NullPointerException
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.get(FutureTask.java:192) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:51) [Util.class:?]
+	at net.minecraft.client.Minecraft.runGameLoop(Minecraft.java:1178) [Minecraft.class:?]
+	at net.minecraft.client.Minecraft.run(Minecraft.java:442) [Minecraft.class:?]
+	at net.minecraft.client.main.Main.main(Main.java:118) [Main.class:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraft.launchwrapper.Launch.launch(Launch.java:135) [launchwrapper-1.12.jar:?]
+	at net.minecraft.launchwrapper.Launch.main(Launch.java:28) [launchwrapper-1.12.jar:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraftforge.gradle.GradleStartCommon.launch(GradleStartCommon.java:87) [mclauncher-1.12.2.jar:?]
+	at GradleStart.main(GradleStart.java:19) [mclauncher-1.12.2.jar:?]
+Caused by: java.lang.NullPointerException
+	at net.minecraft.client.network.NetHandlerPlayClient.handleEntityVelocity(NetHandlerPlayClient.java:571) ~[NetHandlerPlayClient.class:?]
+	at net.minecraft.network.play.server.SPacketEntityVelocity.processPacket(SPacketEntityVelocity.java:94) ~[SPacketEntityVelocity.class:?]
+	at net.minecraft.network.play.server.SPacketEntityVelocity.processPacket(SPacketEntityVelocity.java:11) ~[SPacketEntityVelocity.class:?]
+	at net.minecraft.network.PacketThreadUtil$1.run(PacketThreadUtil.java:15) ~[PacketThreadUtil$1.class:?]
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:50) ~[Util.class:?]
+	... 15 more
+[17:12:07] [Client thread/FATAL] [minecraft/Minecraft]: Error executing task
+java.util.concurrent.ExecutionException: java.lang.NullPointerException
+	at java.util.concurrent.FutureTask.report(FutureTask.java:122) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.get(FutureTask.java:192) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:51) [Util.class:?]
+	at net.minecraft.client.Minecraft.runGameLoop(Minecraft.java:1178) [Minecraft.class:?]
+	at net.minecraft.client.Minecraft.run(Minecraft.java:442) [Minecraft.class:?]
+	at net.minecraft.client.main.Main.main(Main.java:118) [Main.class:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraft.launchwrapper.Launch.launch(Launch.java:135) [launchwrapper-1.12.jar:?]
+	at net.minecraft.launchwrapper.Launch.main(Launch.java:28) [launchwrapper-1.12.jar:?]
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:1.8.0_504]
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[?:1.8.0_504]
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:1.8.0_504]
+	at java.lang.reflect.Method.invoke(Method.java:498) ~[?:1.8.0_504]
+	at net.minecraftforge.gradle.GradleStartCommon.launch(GradleStartCommon.java:87) [mclauncher-1.12.2.jar:?]
+	at GradleStart.main(GradleStart.java:19) [mclauncher-1.12.2.jar:?]
+Caused by: java.lang.NullPointerException
+	at net.minecraft.client.network.NetHandlerPlayClient.handleEntityTeleport(NetHandlerPlayClient.java:629) ~[NetHandlerPlayClient.class:?]
+	at net.minecraft.network.play.server.SPacketEntityTeleport.processPacket(SPacketEntityTeleport.java:69) ~[SPacketEntityTeleport.class:?]
+	at net.minecraft.network.play.server.SPacketEntityTeleport.processPacket(SPacketEntityTeleport.java:11) ~[SPacketEntityTeleport.class:?]
+	at net.minecraft.network.PacketThreadUtil$1.run(PacketThreadUtil.java:15) ~[PacketThreadUtil$1.class:?]
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511) ~[?:1.8.0_504]
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266) ~[?:1.8.0_504]
+	at net.minecraft.util.Util.runTask(Util.java:50) ~[Util.class:?]
+	... 15 more
+[17:12:07] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:43793 (буфер приёма: 4194304 байт)
+[17:12:07] [Client thread/INFO] [minecraft/GuiConnecting]: Connecting to 127.0.0.1, 39567
+[17:12:07] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Новое подключение от Minecraft клиента: /127.0.0.1:43150
+[17:12:07] [PeerCraft-LocalProxy/INFO] [peercraft]: [P2PBridge] Новая клиентская сессия -1700430510567621158 для /127.0.0.1:43150
+[17:12:08] [Netty Epoll Client IO #1/INFO] [FML]: Server protocol version 2
+[17:12:08] [Client thread/INFO] [FML]: Injecting existing registry data into this client instance
+[17:12:08] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:08] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:08] [Netty Epoll Client IO #1/INFO] [FML]: [Netty Epoll Client IO #1] Client side modded connection established
+[17:12:08] [Client thread/INFO] [minecraft/AdvancementList]: Loaded 13 advancements
+[17:12:08] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] PeerCraft: direct connection
+[17:12:08] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:08] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:09] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkProgressProbe:done:164]: NETWORK_PROGRESS_PROBE_DONE role=guest account=f7856539-08db-43a9-b12c-ec29d6380cf1
+[17:12:09] [Client thread/INFO] [peercraft]: [P2PBridge] Мост и ресурсы остановлены.
+[17:12:09] [Client thread/INFO] [minecraft/Minecraft]: Stopping!
+[17:12:09] [Client thread/INFO] [minecraft/SoundManager]: SoundSystem shutting down...
+[17:12:09] [Client thread/WARN] [minecraft/SoundManager]: Author: Paul Lamb, www.paulscode.com
+
+BUILD SUCCESSFUL in 30s
+19 actionable tasks: 1 executed, 18 up-to-date

@@ -1,0 +1,415 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :downloadAssetManifest SKIPPED
+> Task :downloadVanillaAssets UP-TO-DATE
+> Task :extractNatives2 UP-TO-DATE
+> Task :extractDependencyATs UP-TO-DATE
+> Task :generateForgeSrgMappings SKIPPED
+> Task :downloadVanillaJars SKIPPED
+> Task :mergeVanillaSidedJars SKIPPED
+> Task :deobfuscateMergedJarToSrg SKIPPED
+> Task :downloadFernflower SKIPPED
+> Task :decompileSrgJar SKIPPED
+> Task :cleanupDecompSrgJar SKIPPED
+> Task :patchDecompiledJar SKIPPED
+> Task :applySourceAccessTransformers SKIPPED
+> Task :remapDecompiledJar SKIPPED
+> Task :decompressDecompiledSources UP-TO-DATE
+> Task :compilePatchedMcJava UP-TO-DATE
+> Task :processPatchedMcResources UP-TO-DATE
+> Task :patchedMcClasses UP-TO-DATE
+> Task :compileApiJava NO-SOURCE
+> Task :processApiResources NO-SOURCE
+> Task :apiClasses UP-TO-DATE
+> Task :injectTags UP-TO-DATE
+> Task :compileInjectedTagsJava NO-SOURCE
+> Task :createMcLauncherFiles UP-TO-DATE
+> Task :compileMcLauncherJava UP-TO-DATE
+> Task :processInjectedTagsResources NO-SOURCE
+> Task :injectedTagsClasses UP-TO-DATE
+> Task :processMcLauncherResources NO-SOURCE
+> Task :mcLauncherClasses UP-TO-DATE
+> Task :syncSharedJava8 UP-TO-DATE
+> Task :syncSharedMain UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :generateLang UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+
+> Task :compileHandoffProbeJava
+Note: /home/ikuku/desktop/PeerCraft/docs/verification/network-handoff-1122/probe-src/net/peercraft/uitest/NetworkHandoffProbe.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :processHandoffProbeResources NO-SOURCE
+> Task :handoffProbeClasses
+> Task :handoffProbeBundle
+> Task :jar UP-TO-DATE
+> Task :packageMcLauncher UP-TO-DATE
+> Task :packagePatchedMc UP-TO-DATE
+
+> Task :runClient
+NETWORK_PROBE_DIRECTORY /tmp/peercraft-network-handoff-probe/game-56d64245-04df-4cff-8dd0-62aecea7165c
+[17:12:34] [main/INFO] [GradleStart]: userProperties: {}
+[17:12:34] [main/INFO] [GradleStart]: assetsDir: /home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/retro_futura_gradle/assets
+[17:12:34] [main/INFO] [GradleStart]: assetIndex: 1.12.2
+[17:12:34] [main/INFO] [GradleStart]: version: FML_DEV
+[17:12:34] [main/INFO] [GradleStart]: username: Developer
+[17:12:34] [main/INFO] [GradleStart]: Extra: [--gameDir, /tmp/peercraft-network-handoff-probe/game-56d64245-04df-4cff-8dd0-62aecea7165c, --uuid, 31c4910d-9b69-4725-8969-9ed53ac8a7dc, --width, 640, --height, 480]
+[17:12:34] [main/INFO] [GradleStart]: Found and added coremod: zone.rong.mixinbooter.MixinBooterPlugin
+[17:12:34] [main/INFO] [GradleStart]: Found and added cascading tweaker: org.spongepowered.asm.launch.MixinTweaker
+[17:12:34] [main/INFO] [GradleStart]: Found and added coremod: net.peercraft.forge1122.PeerCraftCoreMod
+[17:12:34] [main/INFO] [GradleStart]: Running with arguments: [--userProperties, {}, --assetsDir, /home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/retro_futura_gradle/assets, --assetIndex, 1.12.2, --accessToken{REDACTED}, --version, FML_DEV, --username, Developer, --tweakClass, net.minecraftforge.fml.common.launcher.FMLTweaker, --gameDir, /tmp/peercraft-network-handoff-probe/game-56d64245-04df-4cff-8dd0-62aecea7165c, --uuid, 31c4910d-9b69-4725-8969-9ed53ac8a7dc, --width, 640, --height, 480, --tweakClass, org.spongepowered.asm.launch.MixinTweaker, --tweakClass, net.minecraftforge.gradle.tweakers.CoremodTweaker]
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Using primary tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.launch.MixinTweaker
+[17:12:34] [main/INFO] [mixin]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=file:/home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar Service=LaunchWrapper Env=CLIENT
+/****************************************************************************************************************************************************************************************************************************************/
+/*                                                                                           SpongePowered MIXIN (Verbose debugging enabled)                                                                                            */
+/****************************************************************************************************************************************************************************************************************************************/
+/*                                         Code source : file:/home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar */
+/*                                    Internal Version : 0.8.5                                                                                                                                                                          */
+/*                                        Java Version : 1.8 (supports compatibility 6-8)                                                                                                                                               */
+/*                         Default Compatibility Level : JAVA_6                                                                                                                                                                         */
+/*                                Detected ASM Version : ASM 5.2 (ASM5)                                                                                                                                                                 */
+/*                          Detected ASM Supports Java : Up to Java 1.8 (class file version 52.0)                                                                                                                                       */
+/****************************************************************************************************************************************************************************************************************************************/
+/*                                        Service Name : LaunchWrapper                                                                                                                                                                  */
+/*                                 Mixin Service Class : org.spongepowered.asm.service.mojang.MixinServiceLaunchWrapper                                                                                                                 */
+/*                       Global Property Service Class : org.spongepowered.asm.service.mojang.Blackboard                                                                                                                                */
+/*                                 Logger Adapter Type : Log4j2 (via LaunchWrapper)                                                                                                                                                     */
+/****************************************************************************************************************************************************************************************************************************************/
+/*                                         mixin.debug : <true>                                                                                                                                                                         */
+/*                                  mixin.debug.export : - <true>                                                                                                                                                                       */
+/*                           mixin.debug.export.filter : - - <null>                                                                                                                                                                     */
+/*                        mixin.debug.export.decompile : - - <true>                                                                                                                                                                     */
+/*                  mixin.debug.export.decompile.async : - - - <true>                                                                                                                                                                   */
+/* mixin.debug.export.decompile.mergeGenericSignatures : - - - <true>                                                                                                                                                                   */
+/*                                  mixin.debug.verify : - <true>                                                                                                                                                                       */
+/*                                 mixin.debug.verbose : - <true>                                                                                                                                                                       */
+/*                         mixin.debug.countInjections : - <true>                                                                                                                                                                       */
+/*                                  mixin.debug.strict : - <false>                                                                                                                                                                      */
+/*                           mixin.debug.strict.unique : - - <false>                                                                                                                                                                    */
+/*                          mixin.debug.strict.targets : - - <false>                                                                                                                                                                    */
+/*                                mixin.debug.profiler : - <true>                                                                                                                                                                       */
+/*                           mixin.dumpTargetOnFailure : <false>                                                                                                                                                                        */
+/*                                        mixin.checks : <false>                                                                                                                                                                        */
+/*                             mixin.checks.interfaces : - <false>                                                                                                                                                                      */
+/*                      mixin.checks.interfaces.strict : - - <false>                                                                                                                                                                    */
+/*                             mixin.ignoreConstraints : <false>                                                                                                                                                                        */
+/*                                       mixin.hotSwap : <true>                                                                                                                                                                         */
+/*                                           mixin.env : <false>                                                                                                                                                                        */
+/*                                       mixin.env.obf : - <false>                                                                                                                                                                      */
+/*                             mixin.env.disableRefMap : - <false>                                                                                                                                                                      */
+/*                               mixin.env.remapRefMap : - <true>                                                                                                                                                                       */
+/*                       mixin.env.refMapRemappingFile : - <>                                                                                                                                                                           */
+/*                        mixin.env.refMapRemappingEnv : - <searge>                                                                                                                                                                     */
+/*                      mixin.env.allowPermissiveMatch : - <false>                                                                                                                                                                      */
+/*                            mixin.env.ignoreRequired : - <false>                                                                                                                                                                      */
+/*                               mixin.env.compatLevel : - <false>                                                                                                                                                                      */
+/*                          mixin.env.shiftByViolation : - <warn>                                                                                                                                                                       */
+/*                      mixin.initialiserInjectionMode : <default>                                                                                                                                                                      */
+/****************************************************************************************************************************************************************************************************************************************/
+/*                                       Detected Side : CLIENT                                                                                                                                                                         */
+/****************************************************************************************************************************************************************************************************************************************/
+[17:12:34] [main/INFO] [mixin]: Attempting to load Hot-Swap agent
+[17:12:34] [main/INFO] [mixin]: Attempting to load Fernflower decompiler (Threaded mode)
+[17:12:34] [main/INFO] [mixin]: Fernflower could not be loaded, exported classes will not be decompiled. NoClassDefFoundError: org/jetbrains/java/decompiler/main/extern/IResultSaver
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.CoremodTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLTweaker
+[17:12:34] [main/INFO] [FML]: Forge Mod Loader version 14.23.5.2847 for Minecraft 1.12.2 loading
+[17:12:34] [main/INFO] [FML]: Java is OpenJDK 64-Bit Server VM, version 1.8.0_504, running on Linux:amd64:7.2.9-1-cachyos, installed at /home/ikuku/.gradle/jdks/temurin-8-amd64-linux.2/jre
+[17:12:34] [main/ERROR] [FML]: Apache Maven library folder was not in the format expected. Using default libraries directory.
+[17:12:34] [main/ERROR] [FML]: Full: /home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/7dc72b6d6d8a6dced3d294ed54c2cc3515ade9f4/maven-artifact-3.5.3.jar
+[17:12:34] [main/ERROR] [FML]: Trimmed: /home/ikuku/desktop/peercraft/build/handoff-gradle-home/caches/modules-2/files-2.1/org.apache.maven/maven-artifact/3.5.3/
+[17:12:34] [main/INFO] [FML]: Managed to load a deobfuscated Minecraft name- we are in a deobfuscated environment. Skipping runtime deobfuscation
+[17:12:34] [main/INFO] [FML]: Detected deobfuscated environment, loading log configs for colored console logs.
+[17:12:34] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[PREINIT]
+2026-10-09 17:12:34,369 main WARN Disabling terminal, you're running in an unsupported environment.
+[17:12:34] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLCorePlugin (net.minecraftforge.fml.relauncher.FMLCorePlugin), we are in deobf and it's a forge core plugin
+[17:12:34] [main/INFO] [FML]: Ignoring missing certificate for coremod FMLForgePlugin (net.minecraftforge.classloading.FMLForgePlugin), we are in deobf and it's a forge core plugin
+[17:12:34] [main/INFO] [FML]: Found a command line coremod : net.peercraft.forge1122.PeerCraftCoreMod
+[17:12:34] [main/INFO] [FML]: Ignoring missing certificate for coremod PeerCraft (net.peercraft.forge1122.PeerCraftCoreMod), as this is probably a dev workspace
+[17:12:34] [main/INFO] [FML]: Found a command line coremod : zone.rong.mixinbooter.MixinBooterPlugin
+[17:12:34] [main/WARN] [FML]: The coremod zone.rong.mixinbooter.MixinBooterPlugin does not have a MCVersion annotation, it may cause issues with this version of Minecraft
+[17:12:34] [main/INFO] [FML]: Ignoring missing certificate for coremod MixinBooter (zone.rong.mixinbooter.MixinBooterPlugin), as this is probably a dev workspace
+[17:12:34] [main/INFO] [MixinBooter]: Initializing Mixins...
+[17:12:34] [main/INFO] [mixin]: Compatibility level set to JAVA_8
+[17:12:34] [main/INFO] [MixinBooter]: Initializing MixinExtras...
+[17:12:34] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[17:12:34] [main/INFO] [FML]: Searching /tmp/peercraft-network-handoff-probe/game-56d64245-04df-4cff-8dd0-62aecea7165c/mods for mods
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.launch.MixinTweaker
+[17:12:34] [main/INFO] [mixin]: Initialised Mixin FML Remapper Adapter with net.minecraftforge.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper@13e547a9
+[17:12:34] [main/INFO] [mixin]: Initialised Legacy FML Dev Remapper
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.CoremodTweaker
+[17:12:34] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.fml.relauncher.FMLCorePlugin
+[17:12:34] [main/INFO] [GradleStart]: Injecting location in coremod net.minecraftforge.classloading.FMLForgePlugin
+[17:12:34] [main/INFO] [GradleStart]: Injecting location in coremod net.peercraft.forge1122.PeerCraftCoreMod
+[17:12:34] [main/INFO] [GradleStart]: Injecting location in coremod zone.rong.mixinbooter.MixinBooterPlugin
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:12:34] [main/INFO] [MixinBooter]: Grabbing class net.peercraft.forge1122.PeerCraftCoreMod for its mixins.
+[17:12:34] [main/INFO] [MixinBooter]: Adding peercraft.forge.mixins.json mixin configuration.
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:12:34] [main/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[PREINIT]
+[17:12:34] [main/ERROR] [FML]: FML appears to be missing any signature data. This is not a good thing
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[17:12:34] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[17:12:35] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[17:12:35] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.gradle.tweakers.AccessTransformerTweaker
+[17:12:35] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.TerminalTweaker
+[17:12:35] [main/INFO] [LaunchWrapper]: Calling tweak class net.minecraftforge.fml.common.launcher.TerminalTweaker
+[17:12:35] [main/INFO] [mixin]: Preparing mixins for MixinEnvironment[DEFAULT]
+[17:12:35] [main/INFO] [mixin]: Selecting config mixin.mixinbooter.init.json
+[17:12:35] [main/INFO] [mixin]: Selecting config peercraft.forge.mixins.json
+[17:12:35] [main/INFO] [mixin]: Preparing mixin.mixinbooter.init.json (2)
+[17:12:35] [main/INFO] [mixin]: Preparing peercraft.forge.mixins.json (9)
+[17:12:35] [main/INFO] [LaunchWrapper]: Launching wrapped minecraft {net.minecraft.client.main.Main}
+[17:12:35] [main/INFO] [MixinExtras|Service]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.2.1-beta.2).
+[17:12:35] [main/INFO] [mixin]: Mixing WorldOpenFlowsMixin from peercraft.forge.mixins.json into net.minecraft.client.Minecraft
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$6(Lnet/minecraft/client/Minecraft;)V to md353058$lambda$peercraft$warnStaleHandoff$6$0 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$5(Ljava/lang/String;Lnet/minecraft/client/Minecraft;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to md353058$lambda$peercraft$warnStaleHandoff$5$1 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$4(Lnet/minecraft/client/Minecraft;Ljava/lang/Throwable;)V to md353058$lambda$peercraft$warnStaleHandoff$4$2 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$3(Lnet/minecraft/client/Minecraft;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to md353058$lambda$peercraft$warnStaleHandoff$3$3 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$2(Ljava/lang/Throwable;)V to md353058$lambda$peercraft$warnStaleHandoff$2$4 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$peercraft$warnStaleHandoff$1(Lnet/minecraft/client/Minecraft;Ljava/lang/String;Ljava/lang/String;Lnet/minecraft/world/WorldSettings;)V to md353058$lambda$peercraft$warnStaleHandoff$1$5 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$static$0()Ljava/lang/Boolean; to md353058$lambda$static$0$6 in peercraft.forge.mixins.json:WorldOpenFlowsMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Mixing OpenToLanMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method lambda$sendChat$0(Lnet/minecraft/util/text/ITextComponent;)V to md353058$lambda$sendChat$0$0 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Renaming synthetic method access$000(Lnet/minecraft/util/text/ITextComponent;)V to md353058$access$000$1 in peercraft.forge.mixins.json:OpenToLanMixin from mod unknown-owner
+[17:12:35] [main/INFO] [mixin]: Mixing PlayerDataMigrationMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[17:12:35] [Client thread/INFO] [minecraft/Minecraft]: Setting user: Developer
+[17:12:37] [Client thread/INFO] [minecraft/Minecraft]: LWJGL Version: 2.9.4
+[17:12:37] [Client thread/INFO] [FML]: Could not load splash.properties, will create a default one
+[17:12:37] [Client thread/INFO] [mixin]: Mixing CrashReportMixin from mixin.mixinbooter.init.json into net.minecraft.crash.CrashReport
+[17:12:37] [Client thread/INFO] [FML]: -- System Details --
+Details:
+	Minecraft Version: 1.12.2
+	Operating System: Linux (amd64) version 7.2.9-1-cachyos
+	Java Version: 1.8.0_504, Temurin
+	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode), Temurin
+	Memory: 234702648 bytes (223 MB) / 340787200 bytes (325 MB) up to 716177408 bytes (683 MB)
+	JVM Flags: 4 total; -XX:MaxDirectMemorySize=640m -XX:ActiveProcessorCount=2 -Xms128m -Xmx768m
+	IntCache: cache: 0, tcache: 0, allocated: 0, tallocated: 0
+	FML: 
+	Loaded coremods (and transformers): 
+MixinBooter (mixinbooter-8.9.jar)
+  
+PeerCraft (peercraft-handoff-probe-dev.jar)
+  
+	GL info: ' Vendor: 'AMD' Version: '4.6 (Compatibility Profile) Mesa 26.2.4-arch3.1' Renderer: 'AMD Radeon Graphics (radeonsi, renoir, ACO, DRM 3.64, 7.2.9-1-cachyos)'
+[17:12:37] [Client thread/INFO] [FML]: MinecraftForge v14.23.5.2847 Initialized
+[17:12:37] [Client thread/INFO] [FML]: Starts to replace vanilla recipe ingredients with ore ingredients.
+[17:12:37] [Client thread/INFO] [FML]: Invalid recipe found with multiple oredict ingredients in the same ingredient...
+[17:12:37] [Client thread/INFO] [FML]: Replaced 1227 ore ingredients
+[17:12:37] [Client thread/INFO] [mixin]: Mixing LoadControllerMixin from mixin.mixinbooter.init.json into net.minecraftforge.fml.common.LoadController
+[17:12:38] [Client thread/INFO] [MixinBooter]: Initializing MixinBooter's Mod Container.
+[17:12:38] [Client thread/INFO] [FML]: Searching /tmp/peercraft-network-handoff-probe/game-56d64245-04df-4cff-8dd0-62aecea7165c/mods for mods
+[17:12:39] [Client thread/INFO] [FML]: Forge Mod Loader has identified 7 mods to load
+[17:12:39] [Client thread/INFO] [mixin]: Ending MixinEnvironment[DEFAULT], applied 4 mixins
+[17:12:39] [Client thread/INFO] [mixin]: Checking for additional mixins for MixinEnvironment[DEFAULT]
+[17:12:39] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft, peercraft_network_handoff_probe] at CLIENT
+[17:12:39] [Client thread/INFO] [FML]: Attempting connection with missing mods [minecraft, mcp, mixinbooter, FML, forge, peercraft, peercraft_network_handoff_probe] at SERVER
+[17:12:39] [Client thread/INFO] [minecraft/SimpleReloadableResourceManager]: Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:PeerCraft, FMLFileResourcePack:PeerCraft network progress probe
+[17:12:39] [Client thread/INFO] [FML]: Processing ObjectHolder annotations
+[17:12:39] [Client thread/INFO] [FML]: Found 1168 ObjectHolder annotations
+[17:12:39] [Client thread/INFO] [FML]: Identifying ItemStackHolder annotations
+[17:12:39] [Client thread/INFO] [FML]: Found 0 ItemStackHolder annotations
+[17:12:39] [Client thread/INFO] [FML]: Configured a dormant chunk cache size of 0
+[17:12:39] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Starting version check at http://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+[17:12:39] [Client thread/INFO] [peercraft]: Hello PeerCraft world!
+[17:12:39] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:39] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:39] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:39] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:39] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:39] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:39] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:39] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:39] [Client thread/INFO] [FML]: Injecting itemstacks
+[17:12:39] [Client thread/INFO] [FML]: Itemstack injection complete
+[17:12:39] [Sound Library Loader/INFO] [minecraft/SoundManager]: Starting up SoundSystem...
+[17:12:39] [Thread-4/INFO] [minecraft/SoundManager]: Initializing LWJGL OpenAL
+[17:12:39] [Thread-4/INFO] [minecraft/SoundManager]: (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+[17:12:39] [Thread-4/INFO] [minecraft/SoundManager]: OpenAL initialized.
+[17:12:40] [Thread-3/INFO] [FML]: Using sync timing. 200 frames of Display.update took 109304662 nanos
+[17:12:40] [Sound Library Loader/INFO] [minecraft/SoundManager]: Sound engine started
+[17:12:40] [Client thread/INFO] [FML]: Max texture size: 16384
+[17:12:40] [Client thread/INFO] [minecraft/TextureMap]: Created: 512x512 textures-atlas
+[17:12:40] [Forge Version Check/INFO] [forge.VersionCheck]: [forge] Found status: OUTDATED Target: 14.23.5.2859
+[17:12:41] [Client thread/INFO] [FML]: Applying holder lookups
+[17:12:41] [Client thread/INFO] [FML]: Holder lookups applied
+[17:12:41] [Client thread/INFO] [peercraft]: [PeerCraft] Клиентский прокси не запускается в режиме host
+[17:12:41] [Client thread/INFO] [FML]: Injecting itemstacks
+[17:12:41] [Client thread/INFO] [FML]: Itemstack injection complete
+[17:12:41] [Client thread/INFO] [FML]: Forge Mod Loader has successfully loaded 7 mods
+[17:12:41] [Client thread/WARN] [mojang/NarratorLinux]: ERROR : Couldn't load Narrator library : Unable to load library 'fliteWrapper': Can't obtain InputStream for linux-x86-64/libfliteWrapper.so
+[17:12:42] [Realms Notification Availability checker #1/INFO] [mojang/RealmsClient]: Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: 0
+[17:12:42] [Client thread/INFO] [mixin]: Mixing HandoffLegacyPermissionsMixin from peercraft.forge.mixins.json into net.minecraft.server.management.PlayerList
+[17:12:42] [Client thread/INFO] [mixin]: Mixing PlayerDataLoadMixin from peercraft.forge.mixins.json into net.minecraft.server.management.PlayerList
+[17:12:42] [Client thread/INFO] [mixin]: Mixing PlayerDataSaveMixin from peercraft.forge.mixins.json into net.minecraft.server.integrated.IntegratedPlayerList
+[17:12:42] [Server thread/INFO] [peercraft]: Starting integrated minecraft server version 1.12.2
+[17:12:42] [Server thread/INFO] [peercraft]: Generating keypair
+[17:12:43] [Server thread/INFO] [FML]: Injecting existing registry data into this server instance
+[17:12:43] [Server thread/INFO] [FML]: Applying holder lookups
+[17:12:43] [Server thread/INFO] [FML]: Holder lookups applied
+[17:12:43] [Server thread/INFO] [FML]: Loading dimension 0 (Network progress) (net.minecraft.server.integrated.IntegratedServer@41d268a0)
+[17:12:43] [Server thread/INFO] [minecraft/AdvancementList]: Loaded 488 advancements
+[17:12:43] [Server thread/INFO] [FML]: Loading dimension -1 (Network progress) (net.minecraft.server.integrated.IntegratedServer@41d268a0)
+[17:12:43] [Server thread/INFO] [FML]: Loading dimension 1 (Network progress) (net.minecraft.server.integrated.IntegratedServer@41d268a0)
+[17:12:43] [Server thread/INFO] [minecraft/MinecraftServer]: Preparing start region for level 0
+[17:12:44] [Server thread/INFO] [peercraft]: [PeerCraft] одиночная игра запущенна
+[17:12:44] [Server thread/INFO] [FML]: Unloading dimension -1
+[17:12:44] [Server thread/INFO] [FML]: Unloading dimension 1
+[17:12:44] [Server thread/INFO] [peercraft]: Changing view distance to 4, from 10
+[17:12:44] [Netty Server IO #1/INFO] [mixin]: Mixing ServerLoginPacketListenerImplMixin from peercraft.forge.mixins.json into net.minecraft.server.network.NetHandlerLoginServer
+[17:12:44] [Netty Server IO #1/INFO] [mixin]: Renaming synthetic method lambda$peercraft$orderedForgeHandshake$0(Lnet/minecraft/network/NetworkManager;Lnet/minecraft/server/management/PlayerList;Lnet/minecraft/entity/player/EntityPlayerMP;)V to md353058$lambda$peercraft$orderedForgeHandshake$0$0 in peercraft.forge.mixins.json:ServerLoginPacketListenerImplMixin from mod unknown-owner
+[17:12:44] [Netty Local Client IO #0/INFO] [FML]: Server protocol version 2
+[17:12:44] [Netty Server IO #1/INFO] [FML]: Client protocol version 2
+[17:12:44] [Netty Server IO #1/INFO] [FML]: Client attempting to join with 7 mods : minecraft@1.12.2,peercraft@2.0.0,FML@8.0.99.99,forge@14.23.5.2847,peercraft_network_handoff_probe@1,mixinbooter@8.9,mcp@9.42
+[17:12:44] [Netty Local Client IO #0/INFO] [FML]: [Netty Local Client IO #0] Client side modded connection established
+[17:12:44] [Server thread/INFO] [FML]: [Server thread] Server side modded connection established
+[17:12:44] [Server thread/INFO] [minecraft/PlayerList]: Developer[local:E:9e224e82] logged in with entity id 0 at (-1829.5, 4.0, 1340.5)
+[17:12:44] [Server thread/INFO] [minecraft/MinecraftServer]: Developer joined the game
+[17:12:45] [Server thread/INFO] [peercraft]: Saving and pausing game...
+[17:12:45] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'Network progress'/overworld
+[17:12:45] [Client thread/INFO] [minecraft/NetworkSystem]: Using default channel type
+[17:12:45] [Client thread/INFO] [peercraft]: Started on 44049
+[17:12:45] [Client thread/INFO] [peercraft]: [PeerCraft P2P] Мир открыт для сети на порту 44049
+[17:12:45] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:60789 (буфер приёма: 4194304 байт)
+[17:12:45] [Client thread/INFO] [peercraft]: [P2PBridge] Регистрируемся на сервере знакомств 127.0.0.1:39859 (макс. игроков: 4)...
+[17:12:45] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Комната создана! Код для второго игрока: KK37GK
+[17:12:45] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] PeerCraft: room code for the second player —  KK37GK
+[17:13:00] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PReceiver] За 14 с: 2 датаграмм, 0 КиБ
+[17:13:05] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] peercraft.p2p.status.checking_direct
+[17:13:05] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] peercraft.p2p.status.direct_connected
+[17:13:08] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Подключаемся к локальному MC серверу 127.0.0.1:44049 (сессия -530245084537138565, пир 127.0.0.1:35997)...
+[17:13:08] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] УСПЕШНО подключились к локальному MC серверу (сессия -530245084537138565, 1 из 4 игроков)!
+[17:13:08] [Netty Server IO #3/INFO] [FML]: Client protocol version 2
+[17:13:08] [Netty Server IO #3/INFO] [FML]: Client attempting to join with 7 mods : minecraft@1.12.2,peercraft@2.0.0,FML@8.0.99.99,forge@14.23.5.2847,peercraft_network_handoff_probe@1,mixinbooter@8.9,mcp@9.42
+[17:13:08] [Server thread/INFO] [FML]: [Server thread] Server side modded connection established
+[17:13:08] [Server thread/INFO] [minecraft/PlayerList]: GuestDeveloper[/127.0.0.1:43730] logged in with entity id 32307 at (-1829.5, 4.0, 1332.5)
+[17:13:08] [Server thread/INFO] [minecraft/MinecraftServer]: GuestDeveloper joined the game
+[17:13:08] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] GuestDeveloper joined the game
+[17:13:09] [Server thread/INFO] [minecraft/MinecraftServer]: Developer has made the advancement [Diamonds!]
+[17:13:09] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] Developer has made the advancement [Diamonds!]
+[17:13:09] [Client thread/INFO] [minecraft/AdvancementList]: Loaded 19 advancements
+[17:13:09] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] (Хост) Джойнер 127.0.0.1:35997 закрыл сессию -530245084537138565 (FIN) — рвём соединение с локальным MC-сервером
+[17:13:09] [PeerCraft-MC-Reader/WARN] [peercraft]: [P2PBridge] Чтение из Minecraft-сервера остановлено (сессия -530245084537138565): java.net.SocketException: Socket closed
+[17:13:09] [Server thread/INFO] [minecraft/NetHandlerPlayServer]: GuestDeveloper lost connection: Disconnected
+[17:13:09] [Server thread/INFO] [minecraft/MinecraftServer]: GuestDeveloper left the game
+[17:13:09] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] GuestDeveloper left the game
+[17:13:10] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] peercraft.p2p.status.checking_direct
+[17:13:10] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] peercraft.p2p.status.direct_connected
+[17:13:10] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Подключаемся к локальному MC серверу 127.0.0.1:44049 (сессия -8156528463721289310, пир 127.0.0.1:51604)...
+[17:13:10] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] УСПЕШНО подключились к локальному MC серверу (сессия -8156528463721289310, 1 из 4 игроков)!
+[17:13:10] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PReceiver] За 10 с: 52 датаграмм, 30 КиБ
+[17:13:10] [Netty Server IO #0/INFO] [FML]: Client protocol version 2
+[17:13:10] [Netty Server IO #0/INFO] [FML]: Client attempting to join with 7 mods : minecraft@1.12.2,peercraft@2.0.0,FML@8.0.99.99,forge@14.23.5.2847,peercraft_network_handoff_probe@1,mixinbooter@8.9,mcp@9.42
+[17:13:10] [Server thread/INFO] [FML]: [Server thread] Server side modded connection established
+[17:13:10] [Server thread/INFO] [minecraft/PlayerList]: GuestDeveloper[/127.0.0.1:43738] logged in with entity id 35111 at (-1829.5, 4.0, 1332.5)
+[17:13:10] [Server thread/INFO] [minecraft/MinecraftServer]: GuestDeveloper joined the game
+[17:13:10] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] GuestDeveloper joined the game
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=minecraft parent= jar=minecraft.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=mcp parent= jar=minecraft.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=mixinbooter parent= jar=/home/ikuku/desktop/PeerCraft/build/handoff-gradle-home/caches/modules-2/files-2.1/zone.rong/mixinbooter/8.9/dfa664921d299a4e06a3cd65222a30fce2675e49/mixinbooter-8.9.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=FML parent= jar=/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/rfg/recompiled_minecraft-1.12.2.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=forge parent= jar=/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/rfg/recompiled_minecraft-1.12.2.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=peercraft parent= jar=/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/handoff-probe/peercraft-handoff-probe-dev.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:239]: NETWORK_HANDOFF_PROBE_DEPENDENCY id=peercraft_network_handoff_probe parent= jar=/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/handoff-probe/peercraft-handoff-probe-dev.jar
+[17:13:11] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:logManifestDependencies:240]: NETWORK_HANDOFF_PROBE_CAPTURE_SOURCE jar:file:/home/ikuku/desktop/PeerCraft/peercraft-forge-1122/build/handoff-probe/peercraft-handoff-probe-dev.jar!/net/peercraft/network/handoff/HostManifestCapture.class
+[17:13:11] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:11] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:11] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onAccepted:255]: NETWORK_HANDOFF_PROBE_ACCEPTED role=true
+[17:13:16] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:16] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:16] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] (Хост) Джойнер 127.0.0.1:51604 закрыл сессию -8156528463721289310 (FIN) — рвём соединение с локальным MC-сервером
+[17:13:16] [PeerCraft-MC-Reader/WARN] [peercraft]: [P2PBridge] Чтение из Minecraft-сервера остановлено (сессия -8156528463721289310): java.net.SocketException: Socket closed
+[17:13:16] [Server thread/INFO] [minecraft/NetHandlerPlayServer]: GuestDeveloper lost connection: Disconnected
+[17:13:16] [Server thread/INFO] [minecraft/MinecraftServer]: GuestDeveloper left the game
+[17:13:16] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] GuestDeveloper left the game
+[17:13:16] [Server thread/INFO] [minecraft/MinecraftServer]: Stopping server
+[17:13:16] [Server thread/INFO] [minecraft/MinecraftServer]: Saving players
+[17:13:16] [Server thread/INFO] [minecraft/MinecraftServer]: Saving worlds
+[17:13:16] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'Network progress'/overworld
+[17:13:16] [Server thread/INFO] [FML]: Unloading dimension 0
+[17:13:16] [Server thread/INFO] [FML]: Applying holder lookups
+[17:13:16] [Server thread/INFO] [FML]: Holder lookups applied
+[17:13:16] [PeerCraft-Handoff-IO/INFO] [peercraft]: [Handoff] Архив мира готов: peercraft-handoff-5c219bec-b71f-459d-8b4b-bb9ee4e94862-756b99db1b7.zip (355830 байт)
+[17:13:16] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:17] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:18] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:18] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:19] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:20] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:20] [PeerCraft-Handoff-Source/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe$4:onStatus:259]: NETWORK_HANDOFF_PROBE_STATUS role=true peercraft.handoff.status.transferring
+[17:13:20] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Локальный TCP-прокси успешно запущен на 127.0.0.1:35891
+[17:13:20] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Во втором Minecraft-клиенте подключайся к адресу 127.0.0.1:35891
+[17:13:20] [Client thread/INFO] [peercraft]: [P2PBridge] Запрошен запуск локального TCP-прокси на 127.0.0.1:0
+[17:13:20] [Client thread/INFO] [peercraft]: [PeerCraft Receiver] UDP сокет успешно запущен на 0.0.0.0:53117 (буфер приёма: 4194304 байт)
+[17:13:20] [Client thread/INFO] [minecraft/GuiConnecting]: Connecting to 127.0.0.1, 35891
+[17:14:13] [PeerCraft-LocalProxy/INFO] [peercraft]: [LocalProxy] Новое подключение от Minecraft клиента: /127.0.0.1:34404
+[17:14:13] [PeerCraft-LocalProxy/INFO] [peercraft]: [P2PBridge] Новая клиентская сессия 9124678746598204908 для /127.0.0.1:34404
+[17:14:13] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PReceiver] За 53 с: 16 датаграмм, 14 КиБ
+[17:14:13] [Netty Epoll Client IO #0/INFO] [FML]: Server protocol version 2
+[17:14:13] [Client thread/INFO] [FML]: Injecting existing registry data into this client instance
+[17:14:13] [Client thread/INFO] [FML]: Applying holder lookups
+[17:14:13] [Client thread/INFO] [FML]: Holder lookups applied
+[17:14:13] [Netty Epoll Client IO #0/INFO] [FML]: [Netty Epoll Client IO #0] Client side modded connection established
+[17:14:14] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] PeerCraft: direct connection
+[17:14:14] [Client thread/INFO] [minecraft/AdvancementList]: Loaded 19 advancements
+[17:14:14] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:tick:52]: NETWORK_HANDOFF_PROBE_CONSENT role=true
+[17:14:15] [Client thread/INFO] [FML]: Applying holder lookups
+[17:14:15] [Client thread/INFO] [FML]: Holder lookups applied
+[17:14:15] [PeerCraft-UDP-Processor/INFO] [peercraft]: [WorldTransfer] Начат приём архива мира: 359386 байт, 60 чанков
+[17:14:17] [Server thread/INFO] [peercraft]: Starting integrated minecraft server version 1.12.2
+[17:14:17] [Server thread/INFO] [peercraft]: Generating keypair
+[17:14:17] [Server thread/INFO] [FML]: Injecting existing registry data into this server instance
+[17:14:17] [Server thread/INFO] [FML]: Applying holder lookups
+[17:14:17] [Server thread/INFO] [FML]: Holder lookups applied
+[17:14:17] [Server thread/INFO] [FML]: Loading dimension 0 (Network progress-peercraft) (net.minecraft.server.integrated.IntegratedServer@24af50d0)
+[17:14:17] [Server thread/INFO] [minecraft/AdvancementList]: Loaded 488 advancements
+[17:14:17] [Server thread/INFO] [FML]: Loading dimension -1 (Network progress-peercraft) (net.minecraft.server.integrated.IntegratedServer@24af50d0)
+[17:14:17] [Server thread/INFO] [FML]: Loading dimension 1 (Network progress-peercraft) (net.minecraft.server.integrated.IntegratedServer@24af50d0)
+[17:14:17] [Server thread/INFO] [minecraft/MinecraftServer]: Preparing start region for level 0
+[17:14:17] [Server thread/INFO] [peercraft]: [PeerCraft] одиночная игра запущенна
+[17:14:17] [Server thread/INFO] [FML]: Unloading dimension -1
+[17:14:17] [Server thread/INFO] [FML]: Unloading dimension 1
+[17:14:17] [Server thread/INFO] [peercraft]: Changing view distance to 4, from 10
+[17:14:18] [Netty Local Client IO #1/INFO] [FML]: Server protocol version 2
+[17:14:18] [Netty Server IO #2/INFO] [FML]: Client protocol version 2
+[17:14:18] [Netty Server IO #2/INFO] [FML]: Client attempting to join with 7 mods : minecraft@1.12.2,peercraft@2.0.0,FML@8.0.99.99,forge@14.23.5.2847,peercraft_network_handoff_probe@1,mixinbooter@8.9,mcp@9.42
+[17:14:18] [Netty Local Client IO #1/INFO] [FML]: [Netty Local Client IO #1] Client side modded connection established
+[17:14:18] [Server thread/INFO] [FML]: [Server thread] Server side modded connection established
+[17:14:18] [Server thread/INFO] [minecraft/PlayerList]: Developer[local:E:c2d8ea45] logged in with entity id 43355 at (-1829.5, 4.0, 1340.5)
+[17:14:18] [Server thread/INFO] [minecraft/MinecraftServer]: Developer joined the game
+[17:14:18] [Server thread/INFO] [peercraft]: Saving and pausing game...
+[17:14:18] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'Network progress-peercraft'/overworld
+[17:14:18] [Client thread/INFO] [minecraft/NetworkSystem]: Using default channel type
+[17:14:18] [Client thread/INFO] [peercraft]: Started on 40369
+[17:14:18] [Client thread/INFO] [peercraft]: [PeerCraft P2P] Мир открыт для сети на порту 40369
+[17:14:18] [Client thread/INFO] [peercraft]: [P2PBridge] Регистрируемся на сервере знакомств 127.0.0.1:39859 (макс. игроков: 4)...
+[17:14:18] [Client thread/INFO] [peercraft]: [Handoff] Мир открыт для сети на порту 40369 — регистрируем комнату как новый хост
+[17:14:18] [PeerCraft-UDP-Processor/INFO] [peercraft]: [P2PBridge] Комната создана! Код для второго игрока: CHBMXC
+[17:14:18] [Client thread/INFO] [minecraft/AdvancementList]: Loaded 19 advancements
+[17:14:18] [Client thread/INFO] [minecraft/GuiNewChat]: [CHAT] PeerCraft: room code for the second player —  CHBMXC
+[17:14:19] [Server thread/INFO] [minecraft/MinecraftServer]: Stopping server
+[17:14:19] [Server thread/INFO] [minecraft/MinecraftServer]: Saving players
+[17:14:19] [Server thread/INFO] [minecraft/MinecraftServer]: Saving worlds
+[17:14:19] [Server thread/INFO] [minecraft/MinecraftServer]: Saving chunks for level 'Network progress-peercraft'/overworld
+[17:14:19] [Server thread/INFO] [FML]: Unloading dimension 0
+[17:14:19] [Server thread/INFO] [FML]: Applying holder lookups
+[17:14:19] [Server thread/INFO] [FML]: Holder lookups applied
+[17:14:19] [Client thread/INFO] [STDOUT]: [net.peercraft.uitest.NetworkHandoffProbe:done:300]: NETWORK_HANDOFF_PROBE_DONE role=host account=ca6b3cf9-8bb2-428d-9809-b624cc1837d0
+[17:14:19] [Client thread/INFO] [peercraft]: [P2PBridge] Мост и ресурсы остановлены.
+[17:14:19] [Client thread/INFO] [minecraft/Minecraft]: Stopping!
+[17:14:19] [Client thread/INFO] [minecraft/SoundManager]: SoundSystem shutting down...
+[17:14:19] [Client thread/WARN] [minecraft/SoundManager]: Author: Paul Lamb, www.paulscode.com
+
+BUILD SUCCESSFUL in 1m 57s
+20 actionable tasks: 3 executed, 17 up-to-date

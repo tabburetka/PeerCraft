@@ -1,0 +1,18 @@
+[12:09:14] [modsync-loopback-host-net/INFO]: [ModSync] HELLO от заходящего: загрузчик=FORGE, модов в списке=0 (хост-загрузчик=FORGE)
+[12:09:14] [modsync-loopback-joiner-net/INFO]: [ModSync] Манифест хоста: 1 записей, после фильтра к скачиванию 1.
+[12:09:14] [modsync-loopback-joiner-net/INFO]: [ModSync] К скачиванию: appleskin@3.0.10+mc26.1.2
+
+Test run finished after 888 ms
+[         2 containers found      ]
+[         0 containers skipped    ]
+[         2 containers started    ]
+[         0 containers aborted    ]
+[         2 containers successful ]
+[         0 containers failed     ]
+[         1 tests found           ]
+[         0 tests skipped         ]
+[         1 tests started         ]
+[         0 tests aborted         ]
+[         1 tests successful      ]
+[         0 tests failed          ]
+

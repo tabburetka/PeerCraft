@@ -12,21 +12,19 @@ a fresh creative flat world, captures the real local player's numeric ping, and 
 session screen through the actual pause-menu button.
 
 For the pause-layout check only, the fixture temporarily supplies an inert rendezvous client
-and the hosting flag. No room is registered and no packets are sent. Both session and handoff
-buttons must be visible, within bounds, on the same row and separated horizontally. The original
+and the hosting flag. No room is registered and no packets are sent. A single bottom handoff button must leave the native access-control button present and working.
+The fixture follows handoff → monitoring → handoff and checks the inactive local-world state. The original
 bridge fields are restored before leaving the production session screen open for review.
 
 Captures: `build/session-ui-262/game/screenshots/session-*.png`.
-Success markers: `SESSION_UI_HANDOFF_SEPARATION_PASSED`, `SESSION_UI_PAUSE_ENTRY_PASSED`,
+Success markers: `SESSION_UI_COMPACT_HOST_MENU_PASSED`, `SESSION_UI_HANDOFF_DISCOVERABLE_PASSED`, `SESSION_UI_PAUSE_ENTRY_PASSED`,
 `SESSION_UI_PREVIEW_READY` (finished; client stays open). The test-only entrypoint is bundled
 only by this init script, never by the normal build.
 
-The production panel reads Minecraft player latency and local average tick time. Packet loss,
-ping variation, file counters, remote tick telemetry and host ranking remain explicitly unavailable.
-The panel does not pause the server while measuring it. Manual handoff follows existing eligibility
-and confirmation settings. The same screen and pause-row behavior is implemented in all client
-source families. Minecraft 1.7.10 uses Forge's PLAYER_LIST event for numeric ping; later versions
-use their player-list ping rendering method.
+The production panel now includes route probes, transfer monitoring, remote tick reports,
+file upload controls and host comparison. See [session-monitor.md](../session-monitor.md) for
+measurement semantics, limitations and current checks. A local world's handoff action remains
+visible with an explanation when no PeerCraft internet session is active.
 
 ## Cross-version verification (2026-10-19)
 

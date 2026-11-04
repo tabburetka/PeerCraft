@@ -1,0 +1,690 @@
+[
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.16.5-3.4.3.jar",
+    "file": "peercraft-fabric-1.16.5-3.4.3.jar",
+    "sha256": "98959e68c5ca75621686d626744e7f7b573ac0083099df7f000a64be56a71312",
+    "size": 993640,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.16.5",
+      "gameVersions": [
+        8203,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.1-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.1-3.4.3.jar",
+    "sha256": "b86d83502e04ff05b4c9f36f661dfec4a13e728afad5f4a7bba331cfd19b2f33",
+    "size": 977083,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.1",
+      "gameVersions": [
+        11779,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.1-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.1-3.4.3.jar",
+    "sha256": "d6c04b57cf903b1e30cfdf797823aa31c01d4cf8eb42c8ed4aaa491fa3af4b32",
+    "size": 963086,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.1",
+      "gameVersions": [
+        11779,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.10-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.10-3.4.3.jar",
+    "sha256": "79f7dd11838e7f9d44c6128aa4c9ecc056903cfe72cb8cbaec35e2ef26a02eab",
+    "size": 977818,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.10",
+      "gameVersions": [
+        13964,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.10-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.10-3.4.3.jar",
+    "sha256": "ae3ba6d495a030dbc17525cb2b86790cf0d51aa65bb6d6819529bbecf2631615",
+    "size": 964017,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.10",
+      "gameVersions": [
+        13964,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.11-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.11-3.4.3.jar",
+    "sha256": "3830692352e25240401ec610319ed44e90a013cfc93248db19dff0d79cf07840",
+    "size": 977789,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.11",
+      "gameVersions": [
+        14406,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.11-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.11-3.4.3.jar",
+    "sha256": "13d6724c80d5a0a5caddab9aaeabf421af5724f28383ee291b275c95ac736264",
+    "size": 963982,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.11",
+      "gameVersions": [
+        14406,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.2-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.2-3.4.3.jar",
+    "sha256": "bab759ec29ef00f5b15f17cc955b678694415f9df6c25f21baf58562582be67b",
+    "size": 977084,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.2",
+      "gameVersions": [
+        12079,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.3-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.3-3.4.3.jar",
+    "sha256": "24b74a8e7cd018ac895e8c9743e84760276ddfcedac167190cf117b3b5a15b78",
+    "size": 977083,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.3",
+      "gameVersions": [
+        12084,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.3-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.3-3.4.3.jar",
+    "sha256": "d0bce9043d63c5c6e3f6ae40cdc0b7b20b7e9915b5d3a241f49cdbdd172f7703",
+    "size": 963085,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.3",
+      "gameVersions": [
+        12084,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.4-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.4-3.4.3.jar",
+    "sha256": "fc07d3df3ecee1609197c25852cbaa192331cc0d4d7518bffb93e5924bdcd29b",
+    "size": 977083,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.4",
+      "gameVersions": [
+        12281,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.4-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.4-3.4.3.jar",
+    "sha256": "94663cf464dccfcdbacad0f006ada46ef1de8b19947bff6499e44d99e940b281",
+    "size": 963086,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.4",
+      "gameVersions": [
+        12281,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.5-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.5-3.4.3.jar",
+    "sha256": "72de96be954943de1c99bbcf0118a6b150dc327c27a57c3184ff487fa329afcc",
+    "size": 977020,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.5",
+      "gameVersions": [
+        12934,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.5-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.5-3.4.3.jar",
+    "sha256": "4cb78f4d2fed1fa8ef67456f78b4a7ba6851095cd082252d8f0a1164e64597bb",
+    "size": 963032,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.5",
+      "gameVersions": [
+        12934,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.6-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.6-3.4.3.jar",
+    "sha256": "b2c494ce95f96028cc2cd58de2f9c86d2444a5926c20531ac8b1d4a8a56e8aaa",
+    "size": 976723,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.6",
+      "gameVersions": [
+        13422,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.6-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.6-3.4.3.jar",
+    "sha256": "d071db572d56ae52b6b4780fb2eed01268fd8fd3b3495dc2d5d399d62be832a9",
+    "size": 962773,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.6",
+      "gameVersions": [
+        13422,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.7-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.7-3.4.3.jar",
+    "sha256": "81a0e055437e992a2d95fabdf6c209180e0dcc70d9bd609da89c2c3d472b807c",
+    "size": 976723,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.7",
+      "gameVersions": [
+        13506,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.7-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.7-3.4.3.jar",
+    "sha256": "400a7d4541aa919eb842f29d21cfb23c6b9c67d421b01d7b05fa9c3e992a5523",
+    "size": 962774,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.7",
+      "gameVersions": [
+        13506,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.8-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.8-3.4.3.jar",
+    "sha256": "e329d60d746485bccd48b90dc2bb4543844072b8c6f5281b862d5dac4f8088d7",
+    "size": 976723,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.8",
+      "gameVersions": [
+        13620,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.8-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.8-3.4.3.jar",
+    "sha256": "66a930e3722226cb5c3f77103492efbe6933b64aea0da58fcc5eb3bf1b91f214",
+    "size": 962768,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.8",
+      "gameVersions": [
+        13620,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-1.21.9-3.4.3.jar",
+    "file": "peercraft-fabric-1.21.9-3.4.3.jar",
+    "sha256": "d2ff263887dcab62fb92fc17392da6d85c0ff743b498250e140056998bcad1f2",
+    "size": 977817,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 1.21.9",
+      "gameVersions": [
+        13927,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-1.21.9-3.4.3.jar",
+    "file": "peercraft-neoforge-1.21.9-3.4.3.jar",
+    "sha256": "85365c38619f6600d9ec957a6ae5e0d00c6fd1409bc8a00c3f78e0a436f9c1eb",
+    "size": 964021,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 1.21.9",
+      "gameVersions": [
+        13927,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-26.1-3.4.3.jar",
+    "file": "peercraft-fabric-26.1-3.4.3.jar",
+    "sha256": "95a92fc16fb5e79e6c9bffaa782471f3289e87e2c2df50ed646704203b3ed829",
+    "size": 975624,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 26.1",
+      "gameVersions": [
+        15933,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-26.1-3.4.3.jar",
+    "file": "peercraft-neoforge-26.1-3.4.3.jar",
+    "sha256": "983e913c38d3363c6a46b5fcc31ec06d7246dd11babd3baf324ba72ebd3c35ec",
+    "size": 966847,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 26.1",
+      "gameVersions": [
+        15933,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-26.1.1-3.4.3.jar",
+    "file": "peercraft-fabric-26.1.1-3.4.3.jar",
+    "sha256": "49d0c8dc04062c6547a1fc5aa49e1e04ff31cdc44101cf4312f42d894fe5541e",
+    "size": 975625,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 26.1.1",
+      "gameVersions": [
+        16021,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-26.1.1-3.4.3.jar",
+    "file": "peercraft-neoforge-26.1.1-3.4.3.jar",
+    "sha256": "3ccb3742b8a78a5631225bcb5da6d803eb6bc5294453e4eab8dfbed6e6c351d1",
+    "size": 966845,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 26.1.1",
+      "gameVersions": [
+        16021,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-26.1.2-3.4.3.jar",
+    "file": "peercraft-fabric-26.1.2-3.4.3.jar",
+    "sha256": "4b83ed1be987f6d7da5d3cba80c342be8f9da55edfd59eed6578a926a7266bb2",
+    "size": 975625,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 26.1.2",
+      "gameVersions": [
+        16082,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-26.1.2-3.4.3.jar",
+    "file": "peercraft-neoforge-26.1.2-3.4.3.jar",
+    "sha256": "a14aa5a5e5a645ef01725e282b73f86355f1776520d656fe28603e1c350b86f4",
+    "size": 966844,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 26.1.2",
+      "gameVersions": [
+        16082,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-fabric-26.2-3.4.3.jar",
+    "file": "peercraft-fabric-26.2-3.4.3.jar",
+    "sha256": "e48d2e43a090c1c7397817980cb4410ec9a5b6af005bd5fcec558af52d934d2f",
+    "size": 976332,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Fabric 26.2",
+      "gameVersions": [
+        16498,
+        7499,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "fabric-api",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-neoforge-26.2-3.4.3.jar",
+    "file": "peercraft-neoforge-26.2-3.4.3.jar",
+    "sha256": "ecb8043e18c3f11d64950b22ecf85861e302ece109b38c78e1d75c2151449c6f",
+    "size": 967549,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 NeoForge 26.2",
+      "gameVersions": [
+        16498,
+        10150,
+        9638
+      ],
+      "releaseType": "beta"
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-forge-1.12.2-3.4.3.jar",
+    "file": "peercraft-forge-1.12.2-3.4.3.jar",
+    "sha256": "f4012ecbc6d435faec03b06c19bd2026ab5e9373e9abfc5629b15eb875198735",
+    "size": 933437,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Forge 1.12.2",
+      "gameVersions": [
+        6756,
+        7498,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "mixin-booter",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "releases/3.4.3-beta/peercraft-forge-1.7.10-3.4.3.jar",
+    "file": "peercraft-forge-1.7.10-3.4.3.jar",
+    "sha256": "253e1ff7e2c53f27f589e4fe2531c556c0f806fb6c6f394f9b76883a4cb8d478",
+    "size": 932039,
+    "metadata": {
+      "changelog": "# PeerCraft 3.4.3 \u2014 Beta\n\nBugfix release on top of 3.4.2.\n\n- Fixed a crash on Fabric 1.16.5 during PeerCraft initialization: `NoSuchMethodError: org.apache.logging.log4j.spi.LoggerContextFactory.isClassLoaderDependent()`. The bundled SLF4J binding now matches the Log4j version shipped with Minecraft 1.16.5.\n\nNo other functional changes. Builds for other Minecraft versions and loaders are republished as 3.4.3 so that every version carries the same number.",
+      "changelogType": "markdown",
+      "displayName": "PeerCraft 3.4.3 Beta \u2014 Forge 1.7.10",
+      "gameVersions": [
+        4449,
+        7498,
+        9638
+      ],
+      "releaseType": "beta",
+      "relations": {
+        "projects": [
+          {
+            "slug": "unimixins",
+            "type": "requiredDependency"
+          }
+        ]
+      }
+    }
+  }
+]
