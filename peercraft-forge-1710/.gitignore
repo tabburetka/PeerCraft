@@ -6,3 +6,4 @@ run/
 *.ipr
 *.iws
 .idea/
+logs/

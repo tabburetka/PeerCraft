@@ -41,3 +41,6 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+logs/
+*.log
+*.log.gz
