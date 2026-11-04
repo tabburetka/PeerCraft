@@ -1,5 +1,6 @@
 package net.peercraft.network.rendezvous;
 
+import net.peercraft.network.RendezvousServerProcess;
 import net.peercraft.network.p2p.P2PSender;
 import net.peercraft.network.p2p.RawPacketListener;
 import org.junit.jupiter.api.AfterEach;
@@ -11,8 +12,6 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,69 +39,19 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RendezvousEndToEndTest {
 
-    private static final int SERVER_PORT = 51091;
-
-    private Process serverProcess;
-    private Path serverLog;
+    private RendezvousServerProcess server;
+    // Static: the join helpers below are static.
+    private static int serverPort;
 
     @BeforeEach
     void startServer() throws Exception {
-        Path jar = findServerJar();
-        org.junit.jupiter.api.Assumptions.assumeTrue(jar != null,
-                "rendezvous-server jar not built — run its own `./gradlew jar` first to enable this test");
-
-        // Own data dir and a log file: the server must not write into the version directory,
-        // and a failed punch is undiagnosable without its side of the exchange.
-        Path dataDir = Files.createTempDirectory("peercraft-rendezvous-e2e");
-        serverLog = dataDir.resolve("server.log");
-        System.out.println("rendezvous-server log: " + serverLog);
-        serverProcess = new ProcessBuilder("java",
-                "-Dpeercraft.analytics.httpPort=0",
-                "-Dpeercraft.rendezvous.dataDir=" + dataDir,
-                "-jar", jar.toString(), String.valueOf(SERVER_PORT))
-                .redirectErrorStream(true)
-                .redirectOutput(serverLog.toFile())
-                .start();
-
-        // Give the server a moment to bind before hammering it with test traffic.
-        long deadline = System.currentTimeMillis() + 3000;
-        while (!isServerUp() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
-        }
-        assertTrue(isServerUp(), "rendezvous-server subprocess did not come up in time");
+        server = RendezvousServerProcess.start();
+        serverPort = server.port;
     }
 
     @AfterEach
-    void stopServer() {
-        if (serverProcess != null) {
-            serverProcess.destroyForcibly();
-        }
-    }
-
-    private static boolean isServerUp() {
-        try (DatagramSocket probe = net.peercraft.network.control.SecureControlSocket.forServer()) {
-            probe.setSoTimeout(200);
-            byte[] register = RendezvousProtocol.encodeRegister(1, 0);
-            probe.send(new DatagramPacket(register, register.length, InetAddress.getByName("127.0.0.1"), SERVER_PORT));
-            byte[] buf = new byte[64];
-            probe.receive(new DatagramPacket(buf, buf.length));
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    private static Path findServerJar() throws IOException {
-        // Gradle runs each Stonecutter test from its version directory, not the root.
-        for (Path root = Path.of("").toAbsolutePath(); root != null; root = root.getParent()) {
-            Path libsDir = root.resolve("servers/rendezvous/build/libs");
-            if (!Files.isDirectory(libsDir)) continue;
-            try (var stream = Files.list(libsDir)) {
-                return stream.filter(p -> p.getFileName().toString().matches("rendezvous-server-[0-9.]+\\.jar"))
-                        .findFirst().orElse(null);
-            }
-        }
-        return null;
+    void stopServer() throws InterruptedException {
+        if (server != null) server.close();
     }
 
     @Test
@@ -127,7 +76,7 @@ class RendezvousEndToEndTest {
                 CompletableFuture<int[]> hostResult = new CompletableFuture<>(); // [success(1/0), port]
                 CompletableFuture<int[]> joinerResult = new CompletableFuture<>();
 
-                RendezvousClient hostClient = new RendezvousClient(hostSender, loopback, SERVER_PORT);
+                RendezvousClient hostClient = new RendezvousClient(hostSender, loopback, serverPort);
                 hostClientRef.set(hostClient);
                 hostClient.registerRoom(1, () -> 0,
                         (code, changed) -> roomCode.complete(code),
@@ -161,7 +110,7 @@ class RendezvousEndToEndTest {
                 String code = roomCode.get(10, TimeUnit.SECONDS);
                 assertEquals(6, code.length());
 
-                RendezvousClient joinerClient = new RendezvousClient(joinerSender, loopback, SERVER_PORT);
+                RendezvousClient joinerClient = new RendezvousClient(joinerSender, loopback, serverPort);
                 joinerListener.set(joinerClient);
                 joinerClient.joinRoom(code, registerAccount("Joiner"), new RendezvousClient.MatchCallback() {
                     @Override
@@ -233,7 +182,7 @@ class RendezvousEndToEndTest {
             try {
                 CompletableFuture<String> roomCode = new CompletableFuture<>();
 
-                RendezvousClient hostClient = new RendezvousClient(hostSender, loopback, SERVER_PORT);
+                RendezvousClient hostClient = new RendezvousClient(hostSender, loopback, serverPort);
                 hostClientRef.set(hostClient);
                 hostClient.registerRoom(2, () -> 0,
                         (code, changed) -> roomCode.complete(code),
@@ -294,7 +243,7 @@ class RendezvousEndToEndTest {
 
     private static CompletableFuture<int[]> joinAndPunch(P2PSender sender, InetAddress loopback, String code, byte[] sessionToken, AtomicReference<RawPacketListener> listenerRef) {
         CompletableFuture<int[]> result = new CompletableFuture<>();
-        RendezvousClient joinerClient = new RendezvousClient(sender, loopback, SERVER_PORT);
+        RendezvousClient joinerClient = new RendezvousClient(sender, loopback, serverPort);
         listenerRef.set(joinerClient);
         joinerClient.joinRoom(code, sessionToken, new RendezvousClient.MatchCallback() {
             @Override
@@ -325,7 +274,7 @@ class RendezvousEndToEndTest {
     /** The server refuses anonymous joins (REASON_ACCOUNT_REQUIRED): every joiner needs a session. */
     private static byte[] registerAccount(String name) throws Exception {
         net.peercraft.network.account.AccountClient client = new net.peercraft.network.account.AccountClient();
-        client.connect("127.0.0.1", SERVER_PORT);
+        client.connect("127.0.0.1", serverPort);
         CompletableFuture<byte[]> token = new CompletableFuture<>();
         client.registerUnlicensed(name, "hunter2".toCharArray(), new net.peercraft.network.account.AccountClient.AuthCallback() {
             @Override

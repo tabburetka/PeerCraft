@@ -1,19 +1,15 @@
 package net.peercraft.network.account;
 
+import net.peercraft.network.RendezvousServerProcess;
 import net.peercraft.network.rendezvous.RendezvousProtocol;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -28,76 +24,21 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class AccountEndToEndTest {
 
+    private RendezvousServerProcess server;
     private int serverPort;
-
-    private Process serverProcess;
-    private Path dataDir;
-    private Path serverLog;
 
     @BeforeEach
     void startServer() throws Exception {
-        Path jar = findServerJar();
-        Assumptions.assumeTrue(jar != null,
-                "rendezvous-server jar not built — run its own `./gradlew jar` first to enable this test");
-
         // Every version has its own server: concurrent matrix tests must not share accounts or rate limits.
-        try (DatagramSocket reservation = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            serverPort = reservation.getLocalPort();
-        }
-        dataDir = Files.createTempDirectory("peercraft-account-e2e");
-        serverLog = dataDir.resolve("server-startup.log");
-        serverProcess = new ProcessBuilder("java",
-                "-Dpeercraft.rendezvous.fakeMojang=true",
-                "-Dpeercraft.analytics.httpPort=0",
+        server = RendezvousServerProcess.start("peercraft.rendezvous.fakeMojang=true",
                 // Refuse plaintext: every exchange below must go through the encrypted channel.
-                "-Dpeercraft.rendezvous.requireEncryption=true",
-                "-Dpeercraft.rendezvous.dataDir=" + dataDir,
-                "-jar", jar.toString(), String.valueOf(serverPort))
-                .redirectErrorStream(true)
-                .redirectOutput(serverLog.toFile())
-                .start();
-
-        long deadline = System.currentTimeMillis() + 15_000;
-        while (serverProcess.isAlive() && !isServerUp() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
-        }
-        assertTrue(isServerUp(), () -> "rendezvous-server subprocess did not come up in time; "
-                + (serverProcess.isAlive() ? "process still alive" : "exit=" + serverProcess.exitValue())
-                + "; startup log: " + serverLog);
+                "peercraft.rendezvous.requireEncryption=true");
+        serverPort = server.port;
     }
 
     @AfterEach
     void stopServer() throws InterruptedException {
-        if (serverProcess != null) {
-            serverProcess.destroyForcibly();
-            assertTrue(serverProcess.waitFor(5, TimeUnit.SECONDS), "server subprocess did not stop");
-        }
-    }
-
-    private boolean isServerUp() {
-        try (DatagramSocket probe = net.peercraft.network.control.SecureControlSocket.forServer()) {
-            probe.setSoTimeout(500);
-            byte[] register = RendezvousProtocol.encodeRegister(1, 0);
-            probe.send(new DatagramPacket(register, register.length, InetAddress.getByName("127.0.0.1"), serverPort));
-            byte[] buf = new byte[64];
-            probe.receive(new DatagramPacket(buf, buf.length));
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    private static Path findServerJar() throws IOException {
-        // Gradle runs each Stonecutter test from its version directory, not the root.
-        for (Path root = Path.of("").toAbsolutePath(); root != null; root = root.getParent()) {
-            Path libsDir = root.resolve("servers/rendezvous/build/libs");
-            if (!Files.isDirectory(libsDir)) continue;
-            try (var stream = Files.list(libsDir)) {
-                return stream.filter(p -> p.getFileName().toString().matches("rendezvous-server-[0-9.]+\\.jar"))
-                        .findFirst().orElse(null);
-            }
-        }
-        return null;
+        if (server != null) server.close();
     }
 
     @Test

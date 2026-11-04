@@ -125,11 +125,23 @@ class SecureControlChannelTest {
             client.send(new DatagramPacket(new byte[]{1}, 1, LOOPBACK, port));
             assertArrayEquals(new byte[]{1}, receive(client));
             first.close();
-            try (SecureServerSocket second = new SecureServerSocket(port, identity, false)) {
+            try (SecureServerSocket second = rebind(port, identity)) {
                 echo(second);
                 client.send(new DatagramPacket(new byte[]{2, 3}, 2, LOOPBACK, port));
                 assertArrayEquals(new byte[]{3, 2}, receive(client), "the datagram the new server could not open is resent");
                 assertEquals(1, second.sessionCount());
+            }
+        }
+    }
+
+    /** Reopens a just-closed port; a parallel test (the full version matrix) may grab it first. */
+    private static SecureServerSocket rebind(int port, ControlIdentity identity) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return new SecureServerSocket(port, identity, false);
+            } catch (java.net.BindException taken) {
+                org.junit.jupiter.api.Assumptions.assumeTrue(attempt < 20, "port " + port + " was taken by another test");
+                Thread.sleep(50);
             }
         }
     }
