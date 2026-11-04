@@ -53,7 +53,7 @@ public class P2PReceiver {
     public boolean start(int port) {
         stop();
         try {
-            socket = new DatagramSocket(port);
+            socket = net.peercraft.network.control.SecureControlSocket.shared(port);
             socket.setReceiveBufferSize(SOCKET_BUFFER_SIZE_BYTES);
             // P2PSender borrows this exact socket (P2PBridge.restartReceiver constructs it right
             // after this call). Its send buffer has to be sized HERE, before the listen thread

@@ -126,6 +126,7 @@ public final class RendezvousClient implements RawPacketListener {
         this.sender = sender;
         this.rendezvousAddress = rendezvousAddress;
         this.rendezvousPort = rendezvousPort;
+        net.peercraft.network.control.SecureControlSocket.registerServer(rendezvousAddress, rendezvousPort);
     }
 
     // Stops both the REGISTER/JOIN retry loop and — more importantly — the keepalive loop.

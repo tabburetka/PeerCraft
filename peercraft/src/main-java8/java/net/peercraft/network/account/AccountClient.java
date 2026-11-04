@@ -371,7 +371,7 @@ public final class AccountClient {
             return;
         }
         try {
-            socket = new DatagramSocket();
+            socket = net.peercraft.network.control.SecureControlSocket.forServer();
             Thread listenThread = new Thread(this::listenLoop, "PeerCraft-AccountClient");
             listenThread.setDaemon(true);
             listenThread.start();

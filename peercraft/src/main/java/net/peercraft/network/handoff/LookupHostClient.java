@@ -51,7 +51,7 @@ public final class LookupHostClient {
 
     private void run(UUID accountId, String host, int port, long timeoutMillis, Callback cb) {
         long deadline = System.currentTimeMillis() + timeoutMillis;
-        try (DatagramSocket socket = new DatagramSocket()) {
+        try (DatagramSocket socket = net.peercraft.network.control.SecureControlSocket.forServer()) {
             socket.setSoTimeout((int) Math.min(RETRY_MILLIS, Math.max(200, timeoutMillis)));
             InetAddress addr = InetAddress.getByName(host);
             byte[] query = RendezvousProtocol.encodeLookupHost(accountId);

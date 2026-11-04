@@ -151,7 +151,7 @@ public final class RendezvousServer implements AutoCloseable {
     }
 
     void run() throws IOException {
-        try (DatagramSocket socket = new DatagramSocket(port)) {
+        try (DatagramSocket socket = openControlSocket()) {
             this.socket = socket;
             log("Listening on UDP port " + socket.getLocalPort());
             // Relay rollout postponed: do not start broker even with saved enabled=true.
@@ -213,6 +213,24 @@ public final class RendezvousServer implements AutoCloseable {
                 }
             }
         }
+    }
+
+    /**
+     * The UDP socket every handler talks through. It encrypts the control channel for clients
+     * that perform the handshake; plaintext from older clients is accepted unless
+     * {@code -Dpeercraft.rendezvous.requireEncryption=true}.
+     */
+    private DatagramSocket openControlSocket() throws IOException {
+        Path keyFile = Path.of(System.getProperty("peercraft.rendezvous.controlKey",
+                dataDir.resolve("control-identity.key").toString()));
+        boolean existed = Files.exists(keyFile);
+        net.peercraft.network.control.ControlIdentity identity = net.peercraft.network.control.ControlIdentity.loadOrCreate(keyFile);
+        boolean allowPlaintext = !Boolean.getBoolean("peercraft.rendezvous.requireEncryption");
+        if (!existed) logErr("Generated a NEW control-channel key at " + keyFile
+                + ": clients that pin the official key will refuse this server until it is replaced or re-pinned");
+        log("Control channel key " + identity.fingerprint() + " (public " + identity.publicKeyBase64() + "), plaintext clients "
+                + (allowPlaintext ? "allowed" : "refused"));
+        return new net.peercraft.network.control.SecureServerSocket(port, identity, allowPlaintext);
     }
 
     private void startRelay() {

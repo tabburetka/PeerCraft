@@ -49,6 +49,8 @@ class AccountEndToEndTest {
         serverProcess = new ProcessBuilder("java",
                 "-Dpeercraft.rendezvous.fakeMojang=true",
                 "-Dpeercraft.analytics.httpPort=0",
+                // Refuse plaintext: every exchange below must go through the encrypted channel.
+                "-Dpeercraft.rendezvous.requireEncryption=true",
                 "-Dpeercraft.rendezvous.dataDir=" + dataDir,
                 "-jar", jar.toString(), String.valueOf(serverPort))
                 .redirectErrorStream(true)
@@ -73,8 +75,8 @@ class AccountEndToEndTest {
     }
 
     private boolean isServerUp() {
-        try (DatagramSocket probe = new DatagramSocket()) {
-            probe.setSoTimeout(200);
+        try (DatagramSocket probe = net.peercraft.network.control.SecureControlSocket.forServer()) {
+            probe.setSoTimeout(500);
             byte[] register = RendezvousProtocol.encodeRegister(1, 0);
             probe.send(new DatagramPacket(register, register.length, InetAddress.getByName("127.0.0.1"), serverPort));
             byte[] buf = new byte[64];
@@ -275,7 +277,7 @@ class AccountEndToEndTest {
         var beginResult = new CompletableFuture<net.peercraft.network.rendezvous.AccountProtocol.ServerIdChallenge>();
         // Reach into the protocol directly for this one test, since exercising the full
         // loginLicensed() path would require a real com.mojang.authlib session service call.
-        try (DatagramSocket probe = new DatagramSocket()) {
+        try (DatagramSocket probe = net.peercraft.network.control.SecureControlSocket.forServer()) {
             probe.setSoTimeout(3000);
             byte[] begin = net.peercraft.network.rendezvous.AccountProtocol.encodeLicensedBegin("RealSteve");
             probe.send(new DatagramPacket(begin, begin.length, InetAddress.getByName("127.0.0.1"), serverPort));

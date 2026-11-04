@@ -23,6 +23,7 @@ public final class HandoffAuthorityClient {
     private final ConcurrentMap<Long, Pending> pending = new ConcurrentHashMap<>();
     private volatile boolean closed;
     public HandoffAuthorityClient(Sender sender, InetAddress address, int port) {
+        net.peercraft.network.control.SecureControlSocket.registerServer(address, port);
         this.sender = sender; this.address = address; this.port = port;
     }
     public HandoffAuthorityProtocol.Message call(HandoffAuthorityProtocol.Message m) throws IOException {

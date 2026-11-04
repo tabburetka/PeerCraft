@@ -202,7 +202,7 @@ public final class HandoffNetworkRecovery {
     private static final class Rpc implements AutoCloseable {
         final DatagramSocket socket; final HandoffAuthorityClient client; final Thread reader;
         Rpc(String host, int port) throws IOException {
-            InetAddress address = InetAddress.getByName(host); socket = new DatagramSocket(); socket.setSoTimeout(1000);
+            InetAddress address = InetAddress.getByName(host); socket = net.peercraft.network.control.SecureControlSocket.forServer(); socket.setSoTimeout(1000);
             client = new HandoffAuthorityClient((to, remotePort, bytes) -> {
                 try { socket.send(new DatagramPacket(bytes, bytes.length, to, remotePort)); }
                 catch (IOException ignored) { /* Bounded RPC retries resolve loss. */ }

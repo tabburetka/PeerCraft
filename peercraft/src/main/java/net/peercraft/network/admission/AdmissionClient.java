@@ -55,7 +55,7 @@ public final class AdmissionClient {
     private void run(){
         while(running) {
             checkTimeout(System.currentTimeMillis());
-            try(DatagramSocket socket=new DatagramSocket()) {
+            try(DatagramSocket socket=net.peercraft.network.control.SecureControlSocket.forServer()) {
                 String serverHost=PeerCraftConfig.rendezvousHost(); InetAddress server=InetAddress.getByName(serverHost);int port=PeerCraftConfig.rendezvousPort();
                 socket.connect(server,port);socket.setSoTimeout(250);
                 long next=0;

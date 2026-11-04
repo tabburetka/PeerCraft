@@ -190,7 +190,7 @@ public final class Telemetry {
                 InetAddress address = InetAddress.getByName(PeerCraftConfig.rendezvousHost());
                 byte[] bytes = TelemetryProtocol.encodeEvent(p.event);
                 for (int attempt = 0; attempt < 3 && current(p); attempt++) {
-                    try (DatagramSocket s = new DatagramSocket()) {
+                    try (DatagramSocket s = net.peercraft.network.control.SecureControlSocket.forServer()) {
                         s.connect(address, PeerCraftConfig.rendezvousPort());
                         s.setSoTimeout(1000);
                         synchronized (LOCK) {

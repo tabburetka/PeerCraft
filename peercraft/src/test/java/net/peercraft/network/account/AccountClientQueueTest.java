@@ -50,6 +50,8 @@ class AccountClientQueueTest {
                     while (!server.isClosed()) {
                         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                         server.receive(packet);
+                        // A legacy server ignores the encrypted-channel handshake; the client then falls back.
+                        if (net.peercraft.network.control.ControlProtocol.isControl(buffer, packet.getLength())) continue;
                         int type = RendezvousProtocol.messageType(buffer, packet.getLength());
                         byte[] reply;
                         if (type == AccountProtocol.TYPE_FRIEND_LIST) {

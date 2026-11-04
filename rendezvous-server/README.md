@@ -36,6 +36,29 @@ machine you run this on (same idea as forwarding a port for a vanilla Minecraft
 server, just UDP instead of TCP) — this is the *only* port-forward internet play
 needs; neither player's own machine requires one.
 
+## Encrypted control channel
+
+Clients and this server encrypt everything they exchange (account passwords, session and
+remember tokens, room join secrets) with an ECDH P-256 handshake and AES-128-GCM; see
+`peercraft/src/main/java/net/peercraft/network/control/ControlProtocol.java`. The server's
+long-term key lives in `<dataDir>/control-identity.key` (override the path with
+`-Dpeercraft.rendezvous.controlKey=...`) and is generated on first start if missing; the
+startup log prints its fingerprint and public key.
+
+- **Official server**: the mod pins the key of `connection.peercraft.ru`. Deploy the private
+  key that matches that pin (kept outside Git in `deploy/secrets/control-identity.key`) into
+  the data directory **before** starting the new jar, owned by the service user, mode 0600.
+  If the server logs "Generated a NEW control-channel key", stop it: pinned clients will
+  refuse to talk to it.
+- **Self-hosted servers**: no setup needed. Clients remember the key on first contact
+  (`config/peercraft/known-servers`) and refuse a different one later; clients can pin it
+  up front with `-Dpeercraft.rendezvous.serverKey=<base64 public key>`.
+- **Older clients** still speak plaintext and keep working. Once they are gone, start the
+  server with `-Dpeercraft.rendezvous.requireEncryption=true` to refuse plaintext.
+
+Deploy the server before releasing clients that pin its key: an older server ignores the
+handshake, and pinned clients never fall back to plaintext.
+
 ## Local analytics dashboard
 
 The same jar now collects aggregate statistics from requests it already receives.
