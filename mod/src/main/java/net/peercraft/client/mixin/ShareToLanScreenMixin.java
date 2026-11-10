@@ -5,11 +5,15 @@ import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 // 26.2 removed ShareToLanScreen; the "Open to LAN" flow (incl. a built-in online/LAN scope
-// toggle) moved to MultiplayerOptionsScreen. Both expose a protected init() to inject at TAIL.
-//? if <26.2
+// toggle) moved to MultiplayerOptionsScreen. 26.3 folded that into the scrollable
+// WorldOptionsScreen, whose multiplayer section is built by multiplayerOptions(LinearLayout, ...).
+//? if <26.2 {
 import net.minecraft.client.gui.screens.ShareToLanScreen;
-//? if >=26.2
-/*import net.minecraft.client.gui.screens.MultiplayerOptionsScreen;*/
+//?} else if <26.3 {
+/*import net.minecraft.client.gui.screens.MultiplayerOptionsScreen;
+*///?} else {
+/*import net.minecraft.client.gui.screens.WorldOptionsScreen;
+*///?}
 import net.minecraft.network.chat.Component;
 import net.peercraft.client.PeerCraftHostOptions;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,10 +25,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-//? if <26.2
+//? if <26.2 {
 @Mixin(ShareToLanScreen.class)
-//? if >=26.2
-/*@Mixin(MultiplayerOptionsScreen.class)*/
+//?} else if <26.3 {
+/*@Mixin(MultiplayerOptionsScreen.class)
+*///?} else {
+/*@Mixin(WorldOptionsScreen.class)
+*///?}
 public abstract class ShareToLanScreenMixin extends Screen {
     //? if >=1.21.1 && <26.1 {
     @org.spongepowered.asm.mixin.Unique
@@ -52,7 +59,8 @@ public abstract class ShareToLanScreenMixin extends Screen {
     }*/
     //?}
 
-    //? if >=26.2 {
+    // 26.3's WorldOptionsScreen is a scrollable all-settings screen: it keeps the vanilla look.
+    //? if >=26.2 && <26.3 {
     /*@Override
     public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         net.peercraft.client.gui.SteampunkSettingsTheme.renderLan(graphics, this.font, this.width, this.height,
@@ -76,6 +84,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
         super(title);
     }
 
+    //? if <26.3 {
     @Inject(method = "init", at = @At("TAIL"))
     private void peercraft$addInternetCheckbox(CallbackInfo ci) {
         // ---- Widget positions -------------------------------------------------------------
@@ -135,14 +144,47 @@ public abstract class ShareToLanScreenMixin extends Screen {
         int widgetH = Math.max(12, Math.min(20, rowPitch - 4));
         int blockHeight = rowPitch * (rows - 1) + widgetH;
         int blockTop = Math.max(bandTop, bandBottom - blockHeight);
-        int buttonWidth = colWidth;
         int internetX = colLeft, internetY = blockTop;
         int allowUnlicensedX = colLeft, allowUnlicensedY = blockTop + rowPitch;
         int friendsOnlyX = colLeft, friendsOnlyY = blockTop + rowPitch * 2;
         int publicRoomX = colRight, publicRoomY = blockTop + rowPitch * 2;
         int maxPlayersX = colLeft, maxPlayersY = blockTop + rowPitch * 3;
         int worldNameX = colRight, worldNameY = blockTop + rowPitch * 3;
-        int worldNameWidth = colWidth;
+
+        net.minecraft.client.gui.components.AbstractWidget[] widgets = peercraft$createHostWidgets(colWidth, widgetH);
+        widgets[0].setPosition(internetX, internetY);
+        widgets[1].setPosition(maxPlayersX, maxPlayersY);
+        widgets[2].setPosition(allowUnlicensedX, allowUnlicensedY);
+        widgets[3].setPosition(friendsOnlyX, friendsOnlyY);
+        widgets[4].setPosition(publicRoomX, publicRoomY);
+        widgets[5].setPosition(worldNameX, worldNameY);
+        for (net.minecraft.client.gui.components.AbstractWidget widget : widgets) {
+            this.addRenderableWidget(widget);
+        }
+    }
+    //?} else {
+    /*@Inject(method = "multiplayerOptions", at = @At("TAIL"))
+    private void peercraft$addHostOptions(net.minecraft.client.gui.layouts.LinearLayout layout,
+                                          net.minecraft.client.server.IntegratedServer server, CallbackInfo ci) {
+        // One more two-column grid in the multiplayer section, laid out like vanilla's own
+        // (150x20 cells, 8px columns, 4px rows); the scroll area positions it.
+        net.minecraft.client.gui.layouts.GridLayout grid = new net.minecraft.client.gui.layouts.GridLayout().columnSpacing(8).rowSpacing(4);
+        grid.defaultCellSetting().alignHorizontallyCenter();
+        net.minecraft.client.gui.layouts.GridLayout.RowHelper rows = grid.createRowHelper(2);
+        for (net.minecraft.client.gui.components.AbstractWidget widget : peercraft$createHostWidgets(150, 20)) {
+            rows.addChild(widget);
+        }
+        layout.addChild(grid);
+    }*/
+    //?}
+
+    /**
+     * The PeerCraft hosting widgets, unpositioned: internet play, max players, allow unlicensed,
+     * friends only, public room, world name. {@code width}/{@code height} size the cycle button
+     * and the text field (checkboxes size themselves).
+     */
+    @org.spongepowered.asm.mixin.Unique
+    private net.minecraft.client.gui.components.AbstractWidget[] peercraft$createHostWidgets(int width, int height) {
 
         int initialMaxPlayers = MAX_PLAYERS_OPTIONS.contains(PeerCraftHostOptions.maxPlayers) ? PeerCraftHostOptions.maxPlayers : MAX_PLAYERS_OPTIONS.get(MAX_PLAYERS_OPTIONS.size() - 1);
         // CycleButton.builder(Function) lost its no-initial-value overload in 1.21.11 —
@@ -155,16 +197,15 @@ public abstract class ShareToLanScreenMixin extends Screen {
         //?}
         CycleButton<Integer> maxPlayersButton = maxPlayersBuilder
                 .withValues(MAX_PLAYERS_OPTIONS)
-                .create(maxPlayersX, maxPlayersY, buttonWidth, widgetH, Component.translatable("peercraft.mixin.share_to_lan.max_players"),
+                .create(0, 0, width, height, Component.translatable("peercraft.mixin.share_to_lan.max_players"),
                         (button, value) -> PeerCraftHostOptions.maxPlayers = value);
 
         Checkbox allowUnlicensedCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.allow_unlicensed"), this.font)
-                .pos(allowUnlicensedX, allowUnlicensedY)
                 .selected(PeerCraftHostOptions.allowUnlicensedPlayers)
                 .onValueChange((checkbox, value) -> PeerCraftHostOptions.allowUnlicensedPlayers = value)
                 .build();
 
-        EditBox worldNameBox = new EditBox(this.font, worldNameX, worldNameY, worldNameWidth, widgetH, Component.translatable("peercraft.mixin.share_to_lan.world_name"));
+        EditBox worldNameBox = new EditBox(this.font, 0, 0, width, height, Component.translatable("peercraft.mixin.share_to_lan.world_name"));
         worldNameBox.setMaxLength(PeerCraftHostOptions.MAX_WORLD_NAME_LENGTH);
         worldNameBox.setHint(Component.translatable("peercraft.mixin.share_to_lan.world_name_hint"));
         worldNameBox.setValue(PeerCraftHostOptions.worldName);
@@ -190,7 +231,6 @@ public abstract class ShareToLanScreenMixin extends Screen {
         // gated to friends can't also be broadcast to every anonymous player, and the server
         // enforces this too (never trusts the client alone) — see RoomRegistry.register().
         Checkbox publicRoomCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.public_room"), this.font)
-                .pos(publicRoomX, publicRoomY)
                 .selected(PeerCraftHostOptions.publicRoom)
                 .onValueChange((checkbox, value) -> {
                     PeerCraftHostOptions.publicRoom = value;
@@ -202,7 +242,6 @@ public abstract class ShareToLanScreenMixin extends Screen {
                 .build();
 
         Checkbox friendsOnlyCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.friends_only"), this.font)
-                .pos(friendsOnlyX, friendsOnlyY)
                 .selected(PeerCraftHostOptions.friendsOnly)
                 .onValueChange((checkbox, value) -> {
                     PeerCraftHostOptions.friendsOnly = value;
@@ -222,7 +261,6 @@ public abstract class ShareToLanScreenMixin extends Screen {
         worldNameBox.visible = PeerCraftHostOptions.internetPlayRequested && PeerCraftHostOptions.publicRoom;
 
         Checkbox internetCheckbox = Checkbox.builder(Component.translatable("peercraft.mixin.share_to_lan.internet_play"), this.font)
-                .pos(internetX, internetY)
                 .selected(PeerCraftHostOptions.internetPlayRequested)
                 .onValueChange((checkbox, value) -> {
                     PeerCraftHostOptions.internetPlayRequested = value;
@@ -234,11 +272,7 @@ public abstract class ShareToLanScreenMixin extends Screen {
                 })
                 .build();
 
-        this.addRenderableWidget(internetCheckbox);
-        this.addRenderableWidget(maxPlayersButton);
-        this.addRenderableWidget(allowUnlicensedCheckbox);
-        this.addRenderableWidget(friendsOnlyCheckbox);
-        this.addRenderableWidget(publicRoomCheckbox);
-        this.addRenderableWidget(worldNameBox);
+        return new net.minecraft.client.gui.components.AbstractWidget[] {
+                internetCheckbox, maxPlayersButton, allowUnlicensedCheckbox, friendsOnlyCheckbox, publicRoomCheckbox, worldNameBox};
     }
 }

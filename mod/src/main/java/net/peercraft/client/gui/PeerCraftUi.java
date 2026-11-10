@@ -184,4 +184,14 @@ public final class PeerCraftUi {
                 .tooltip(Tooltip.create(Component.literal(tooltipText)))
                 .build();
     }
+
+    /** Opens {@code url} behind vanilla's "open this link?" prompt. */
+    static Button.OnPress confirmLink(net.minecraft.client.gui.screens.Screen parent, String url) {
+        // 26.3 takes a URI instead of a String.
+        //? if <26.3 {
+        return net.minecraft.client.gui.screens.ConfirmLinkScreen.confirmLink(parent, url);
+        //?} else {
+        /*return net.minecraft.client.gui.screens.ConfirmLinkScreen.confirmLink(parent, java.net.URI.create(url));
+        *///?}
+    }
 }

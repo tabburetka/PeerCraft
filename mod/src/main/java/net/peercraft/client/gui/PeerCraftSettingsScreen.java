@@ -14,7 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 //? if >=1.21.1 {
 import net.minecraft.util.FormattedCharSequence;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 //?}
 import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.config.PeerCraftSettings;
@@ -827,13 +827,13 @@ public class PeerCraftSettingsScreen extends Screen {
         //? if <1.21.9 {
         @Override
         public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN || keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-            scrollTo(this.scroll + (keyCode == GLFW.GLFW_KEY_PAGE_DOWN ? rowsShown() : -rowsShown()));
+        if (keyCode == InputConstants.KEY_PAGEDOWN || keyCode == InputConstants.KEY_PAGEUP) {
+            scrollTo(this.scroll + (keyCode == InputConstants.KEY_PAGEDOWN ? rowsShown() : -rowsShown()));
             return true;
         }
         if (!(getFocused() instanceof EditBox)) {
-            if (keyCode == GLFW.GLFW_KEY_HOME || keyCode == GLFW.GLFW_KEY_END) {
-                scrollTo(keyCode == GLFW.GLFW_KEY_HOME ? 0 : visibleRows().size());
+            if (keyCode == InputConstants.KEY_HOME || keyCode == InputConstants.KEY_END) {
+                scrollTo(keyCode == InputConstants.KEY_HOME ? 0 : visibleRows().size());
                 return true;
             }
         }
@@ -845,13 +845,13 @@ public class PeerCraftSettingsScreen extends Screen {
         /*        @Override
         public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int keyCode = event.key();
-        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN || keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-            scrollTo(this.scroll + (keyCode == GLFW.GLFW_KEY_PAGE_DOWN ? rowsShown() : -rowsShown()));
+        if (keyCode == InputConstants.KEY_PAGEDOWN || keyCode == InputConstants.KEY_PAGEUP) {
+            scrollTo(this.scroll + (keyCode == InputConstants.KEY_PAGEDOWN ? rowsShown() : -rowsShown()));
             return true;
         }
         if (!(getFocused() instanceof EditBox)) {
-            if (keyCode == GLFW.GLFW_KEY_HOME || keyCode == GLFW.GLFW_KEY_END) {
-                scrollTo(keyCode == GLFW.GLFW_KEY_HOME ? 0 : visibleRows().size());
+            if (keyCode == InputConstants.KEY_HOME || keyCode == InputConstants.KEY_END) {
+                scrollTo(keyCode == InputConstants.KEY_HOME ? 0 : visibleRows().size());
                 return true;
             }
         }

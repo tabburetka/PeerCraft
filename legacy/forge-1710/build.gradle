@@ -31,41 +31,6 @@ java {
 //                            by legacy-preprocess.gradle
 def peercraftDir = rootProject.file("../../mod")
 
-// 1.7.10 localization is key=value .lang, not JSON (that arrived in 1.13). Generate both files
-// from the shared JSON so translations stay single-sourced. NOTE: 1.7.10 language codes carry
-// an upper-case region ("en_US"), unlike 1.11+ ("en_us") — emit the file names to match, and
-// PeerCraftLang loads by the same code from Minecraft.gameSettings.language.
-def generatedLangDir = layout.buildDirectory.dir("generated/lang")
-def generateLang = tasks.register("generateLang") {
-	def langJsonDir = new File(peercraftDir, "src/main/resources/assets/peercraft/lang")
-	def outDir = generatedLangDir.get().dir("assets/peercraft/lang").asFile
-	inputs.dir(langJsonDir)
-	outputs.dir(outDir)
-	doLast {
-		outDir.mkdirs()
-		def slurper = new groovy.json.JsonSlurper()
-		[["en_us", "en_US"], ["ru_ru", "ru_RU"]].each { pair ->
-			def json = new File(langJsonDir, "${pair[0]}.json")
-			if (!json.exists()) return
-			def map = slurper.parse(json)
-			def sb = new StringBuilder()
-            // PeerCraftLang reads UTF-8 java.util.Properties; escape values so a newline
-            // does not split a confirmation into unrelated keys in the legacy .lang file.
-            map.each { k, v ->
-                def escaped = String.valueOf(v).replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-                sb.append(k).append('=').append(escaped).append('\n')
-            }
-            def decoded = new Properties()
-            decoded.load(new StringReader(sb.toString()))
-            map.each { k, v ->
-                if (decoded.getProperty(String.valueOf(k)) != String.valueOf(v))
-                    throw new GradleException("Legacy translation changed during serialization: ${k}")
-            }
-			new File(outDir, "${pair[1]}.lang").text = sb.toString()
-		}
-	}
-}
-
 sourceSets {
 	main {
 		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
@@ -78,7 +43,6 @@ sourceSets {
 		}
 		resources {
 			srcDir(new File(peercraftDir, "src/main/resources"))
-			srcDir(generatedLangDir)   // .lang files generated from the shared .json
 			// 1.7.10 wants key=value .lang, not JSON.
 			exclude "assets/peercraft/lang/*.json"
 			// The modern (JAVA_21) mixin JSONs from ../../mod/src/main/resources — this
@@ -207,7 +171,6 @@ if (project.use_mixin.toBoolean()) {
 }
 
 processResources {
-	dependsOn generateLang
 	inputs.property "mod_version", project.mod_version
 	inputs.property "mod_id", project.mod_id
 	filesMatching("mcmod.info") {
@@ -217,3 +180,4 @@ processResources {
 
 apply from: new File(rootProject.projectDir, '../../mod/gradle/modsync-helper.gradle')
 apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-preprocess.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-lang.gradle')

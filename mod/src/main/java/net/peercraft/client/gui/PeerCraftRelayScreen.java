@@ -7,7 +7,6 @@ import net.minecraft.client.gui.GuiGraphics;
 /*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.peercraft.config.PeerCraftConfig;
@@ -57,7 +56,7 @@ public class PeerCraftRelayScreen extends Screen {
                 Component.translatable("peercraft.gui.relay.check"), b -> onCheck(), false));
         addRenderableWidget(SteampunkSettingsTheme.action(x + half + 6, y, w - half - 6, h,
                 Component.translatable("peercraft.gui.relay.guide"),
-                ConfirmLinkScreen.confirmLink(this, PeerCraftConfig.relayGuideUrl()), false));
+                PeerCraftUi.confirmLink(this, PeerCraftConfig.relayGuideUrl()), false));
         y += dialog.buttonPitch();
         addRenderableWidget(SteampunkSettingsTheme.action(x, y, w, h,
                 Component.translatable("peercraft.gui.relay.save"), b -> onSave(), true));

@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.network.account.AccountClient;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 /** Rename for unlicensed accounts only — see AccountService.rename, which rejects licensed accounts server-side too. */
 public class PeerCraftRenameScreen extends Screen {
@@ -76,7 +76,7 @@ public class PeerCraftRenameScreen extends Screen {
         int keyCode = event.key();
     */
     //?}
-        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && this.saveButton.active) {
+        if ((keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) && this.saveButton.active) {
             onSave();
             return true;
         }

@@ -55,7 +55,7 @@ PeerCraft ships **one jar per Minecraft version per loader**. Download the file 
 | 1.21.1, 1.21.3 – 1.21.5, 1.21.8, 1.21.10, 1.21.11 | ✅ | ✅ | — |
 | 1.21.6, 1.21.7, 1.21.9 | ✅ | ✅ (`-beta`-tagged build only — still a real, working release, just never marked stable) | — |
 | 1.21.2 | ✅ | ❌ (NeoForge never released a build for this version — it moved straight to 1.21.3, out the next day) | — |
-| 26.1.2, 26.2 | ✅ | ✅ | — |
+| 26.1.2, 26.2, 26.3 | ✅ | ✅ | — |
 | 26.1, 26.1.1 | ✅ | ✅ (`-beta`-tagged build only — same as 1.21.6/1.21.7/1.21.9) | — |
 | 1.16.5 | 🧪 | — | — |
 | 1.12.2 | — | — | 🧪 (needs MixinBooter) |

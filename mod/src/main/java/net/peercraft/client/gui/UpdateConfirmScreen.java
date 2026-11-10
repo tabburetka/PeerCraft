@@ -4,7 +4,6 @@ package net.peercraft.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 //? if >=26.1
 /*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.peercraft.client.update.SelfUpdateInstaller;
@@ -53,7 +52,7 @@ public class UpdateConfirmScreen extends PeerCraftDialogScreen {
                             b -> { SelfUpdateInstaller.start(this.info); rebuildWidgets(); }, true, index++, count));
                 }
                 addRenderableWidget(dialogAction(Component.translatable("peercraft.update.confirm.open_page"),
-                        ConfirmLinkScreen.confirmLink(this.parent, this.info.url), !canDownload, index++, count));
+                        PeerCraftUi.confirmLink(this.parent, this.info.url), !canDownload, index++, count));
                 addRenderableWidget(dialogAction(Component.translatable("gui.cancel"), b -> back(), false, index, count));
                 break;
         }

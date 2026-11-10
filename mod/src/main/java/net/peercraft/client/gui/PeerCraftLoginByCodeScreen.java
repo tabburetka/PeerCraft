@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.peercraft.client.account.AccountSessionHolder;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.account.AccountLoginIdentifier;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.Locale;
 
@@ -92,7 +92,7 @@ public class PeerCraftLoginByCodeScreen extends Screen {
         int keyCode = event.key();
     */
     //?}
-        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && this.loginButton.active) {
+        if ((keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) && this.loginButton.active) {
             onLogin();
             return true;
         }

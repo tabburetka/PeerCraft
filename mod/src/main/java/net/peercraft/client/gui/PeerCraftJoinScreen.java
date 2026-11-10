@@ -235,7 +235,7 @@ public class PeerCraftJoinScreen extends Screen {
     //? if <1.21.9 {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+        if ((keyCode == com.mojang.blaze3d.platform.InputConstants.KEY_RETURN || keyCode == com.mojang.blaze3d.platform.InputConstants.KEY_NUMPADENTER)
                 && getFocused() == this.roomCodeBox && this.connectButton.active) {
             onConnect();
             return true;
@@ -246,7 +246,7 @@ public class PeerCraftJoinScreen extends Screen {
     /*    @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         int keyCode = event.key();
-        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+        if ((keyCode == com.mojang.blaze3d.platform.InputConstants.KEY_RETURN || keyCode == com.mojang.blaze3d.platform.InputConstants.KEY_NUMPADENTER)
                 && getFocused() == this.roomCodeBox && this.connectButton.active) {
             onConnect();
             return true;

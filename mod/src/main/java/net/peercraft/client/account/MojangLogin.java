@@ -1,7 +1,12 @@
 package net.peercraft.client.account;
 
 import com.mojang.authlib.GameProfile;
+// authlib 10 (26.3) renamed MinecraftSessionService to SessionService.
+//? if <26.3 {
 import com.mojang.authlib.minecraft.MinecraftSessionService;
+//?} else {
+/*import com.mojang.authlib.minecraft.SessionService;
+*///?}
 import net.peercraft.network.account.AccountClient;
 
 /** Licensed sign-in: binds this Minecraft version's authlib session service to {@link AccountClient}. */
@@ -9,7 +14,12 @@ public final class MojangLogin {
     private MojangLogin() {
     }
 
-    public static void start(GameProfile profile, String accessToken, MinecraftSessionService sessionService,
+    public static void start(GameProfile profile, String accessToken,
+                             //? if <26.3 {
+                             MinecraftSessionService sessionService,
+                             //?} else {
+                             /*SessionService sessionService,
+                             *///?}
                              AccountClient.AuthCallback cb) {
         // GameProfile became a record in 1.21.9 — getName()/getId() are now name()/id().
         //? if <1.21.9 {

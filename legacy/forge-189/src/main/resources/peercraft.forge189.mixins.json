@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "minVersion": "0.7.11",
+  "package": "net.peercraft.client.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "peercraft.mixins.refmap.json",
+  "mixins": [
+    "OpenToLanMixin",
+    "HandoffLegacyPermissionsMixin",
+    "ServerLoginPacketListenerImplMixin",
+		"OfficialSkinMixin",
+    "PlayerDataLoadMixin",
+    "PlayerDataMigrationMixin",
+    "PlayerDataSaveMixin",
+    "WorldOpenFlowsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "SessionPlayerTabMixin",
+    "ClosedConnectionPacketMixin",
+    "PeerCraftLegacyListThemeMixin",
+    "PeerCraftLegacyServerListMixin"
+  ]
+}

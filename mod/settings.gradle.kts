@@ -51,6 +51,7 @@ stonecutter {
 		// (same situation as 1.21.6/1.21.9) — still real, working releases.
 		mc("26.1", fabricBuildscript = unmapped)   // 26.1-26.1.2
 		mc("26.2", fabricBuildscript = unmapped)
+		mc("26.3", fabricBuildscript = unmapped)
 
 		vcsVersion = "1.21.1-fabric"
 	}

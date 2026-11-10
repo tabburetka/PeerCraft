@@ -187,7 +187,7 @@ public class PeerCraftAccountScreen extends Screen {
         //? if <1.21.9 {
         com.mojang.authlib.minecraft.MinecraftSessionService sessionService = mc.getMinecraftSessionService();
         //?} else {
-        /*com.mojang.authlib.minecraft.MinecraftSessionService sessionService = mc.services().sessionService();*/
+        /*var sessionService = mc.services().sessionService();*/
         //?}
         AccountClient.AuthCallback callback = new AccountClient.AuthCallback() {
             @Override

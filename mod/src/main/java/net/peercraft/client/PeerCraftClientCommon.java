@@ -132,7 +132,7 @@ public final class PeerCraftClientCommon {
             //? if <1.21.9 {
             com.mojang.authlib.minecraft.MinecraftSessionService service = mc.getMinecraftSessionService();
             //?} else {
-            /*com.mojang.authlib.minecraft.MinecraftSessionService service = mc.services().sessionService();*/
+            /*var service = mc.services().sessionService();*/
             //?}
             //? if >=1.17 {
             // Profile resolution may wait for Mojang HTTP; never join it on the render thread.

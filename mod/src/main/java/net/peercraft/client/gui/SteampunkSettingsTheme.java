@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
 import java.util.Objects;
@@ -313,7 +313,7 @@ public final class SteampunkSettingsTheme {
             //? if <1.21.9 {
             original.onPress();
             //?} else {
-            /*original.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));*/
+            /*original.onPress(new net.minecraft.client.input.KeyEvent(InputConstants.KEY_RETURN, 0, 0));*/
             //?}
         }
 
@@ -546,8 +546,8 @@ public final class SteampunkSettingsTheme {
         @Override
         public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
             if (this.active && this.visible && isFocused()
-                    && (keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT)) {
-                cycle(keyCode == GLFW.GLFW_KEY_LEFT ? -1 : 1);
+                    && (keyCode == InputConstants.KEY_LEFT || keyCode == InputConstants.KEY_RIGHT)) {
+                cycle(keyCode == InputConstants.KEY_LEFT ? -1 : 1);
                 playDownSound(Minecraft.getInstance().getSoundManager());
                 return true;
             }
@@ -558,8 +558,8 @@ public final class SteampunkSettingsTheme {
         public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
             int keyCode = event.key();
             if (this.active && this.visible && isFocused()
-                    && (keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT)) {
-                cycle(keyCode == GLFW.GLFW_KEY_LEFT ? -1 : 1);
+                    && (keyCode == InputConstants.KEY_LEFT || keyCode == InputConstants.KEY_RIGHT)) {
+                cycle(keyCode == InputConstants.KEY_LEFT ? -1 : 1);
                 playDownSound(Minecraft.getInstance().getSoundManager());
                 return true;
             }
@@ -650,7 +650,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
 import java.util.Objects;
@@ -933,7 +933,7 @@ public final class SteampunkSettingsTheme {
 
         private static void pressOriginal(Button original) {
 
-            original.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
+            original.onPress(new net.minecraft.client.input.KeyEvent(InputConstants.KEY_RETURN, 0, 0));
 
         }
 
@@ -1122,8 +1122,8 @@ public final class SteampunkSettingsTheme {
         public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
             int keyCode = event.key();
             if (this.active && this.visible && isFocused()
-                    && (keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT)) {
-                cycle(keyCode == GLFW.GLFW_KEY_LEFT ? -1 : 1);
+                    && (keyCode == InputConstants.KEY_LEFT || keyCode == InputConstants.KEY_RIGHT)) {
+                cycle(keyCode == InputConstants.KEY_LEFT ? -1 : 1);
                 playDownSound(Minecraft.getInstance().getSoundManager());
                 return true;
             }

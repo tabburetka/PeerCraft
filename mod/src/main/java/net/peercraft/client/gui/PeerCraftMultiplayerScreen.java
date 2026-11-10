@@ -12,7 +12,6 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
-import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,7 +24,7 @@ import net.peercraft.config.PeerCraftConfig;
 import net.peercraft.network.account.AccountClient;
 import net.peercraft.network.p2p.P2PBridge;
 import net.peercraft.network.rendezvous.AccountProtocol;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -219,12 +218,12 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
     private void peercraft$addFooterButtons() {
         this.feedbackButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
                 Component.literal("!"),
-                ConfirmLinkScreen.confirmLink(this, FEEDBACK_MAILTO), false));
+                PeerCraftUi.confirmLink(this, FEEDBACK_MAILTO), false));
         this.feedbackButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.feedback_tooltip")));
 
         this.donateButton = this.addRenderableWidget(SteampunkSettingsTheme.action(2, 0, FOOTER_BUTTON_WIDTH, FOOTER_BUTTON_HEIGHT,
                 Component.literal("$"),
-                ConfirmLinkScreen.confirmLink(this, DONATE_URL), false));
+                PeerCraftUi.confirmLink(this, DONATE_URL), false));
         this.donateButton.setTooltip(Tooltip.create(Component.translatable("peercraft.gui.title.donate_tooltip")));
 
         peercraft$layoutFooterButtons();
@@ -610,8 +609,8 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
         int keyCode = event.key();
     */
     //?}
-        if (keyCode == GLFW.GLFW_KEY_PAGE_UP || keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
-            int direction = keyCode == GLFW.GLFW_KEY_PAGE_UP ? -1 : 1;
+        if (keyCode == InputConstants.KEY_PAGEUP || keyCode == InputConstants.KEY_PAGEDOWN) {
+            int direction = keyCode == InputConstants.KEY_PAGEUP ? -1 : 1;
             if (currentTab == Tab.FRIENDS) {
                 friendsScroll = Math.max(0, Math.min(friendsMaxScroll(), friendsScroll + direction * Math.max(1, friendsVisibleRows())));
                 rebuildFriendRows(); return true;
@@ -624,7 +623,7 @@ public class PeerCraftMultiplayerScreen extends JoinMultiplayerScreen {
                 setDiscoverScroll(discoverScroll + direction * Math.max(1, discoverVisibleRows())); return true;
             }
         }
-        if (keyCode != GLFW.GLFW_KEY_ENTER && keyCode != GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode != InputConstants.KEY_RETURN && keyCode != InputConstants.KEY_NUMPADENTER) {
             return false;
         }
         if (this.currentTab == Tab.FRIENDS && this.addByCodeBox.isFocused() && this.addByCodeButton.active) {
