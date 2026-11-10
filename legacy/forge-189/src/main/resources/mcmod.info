@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "${mod_id}",
+    "name": "${mod_name}",
+    "description": "Play Minecraft with your friends over the real internet — P2P, no dedicated server, no port forwarding. Forge 1.8.9 backport.",
+    "version": "${mod_version}",
+    "mcversion": "1.8.9",
+    "url": "https://github.com/tabburetka/PeerCraft",
+    "authorList": ["tabburetka"],
+    "logoFile": "",
+    "screenshots": [],
+    "requiredMods": [],
+    "dependencies": []
+  }
+]

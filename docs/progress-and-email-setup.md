@@ -35,7 +35,7 @@ PeerCraft требует отдельной проверки и явного в�
 
 ## Настройка почты на сервере
 
-1. Скопируйте `rendezvous-server/deploy/email.properties.example` в `data/email.properties`
+1. Скопируйте `servers/rendezvous/deploy/email.properties.example` в `data/email.properties`
    внутри каталога данных действующего сервера. Укажите SMTP-хост, порт и адрес отправителя.
 2. Передайте `PEERCRAFT_SMTP_USER` и `PEERCRAFT_SMTP_PASSWORD` окружением службы сервера.
    Пароли не кладутся в файл настроек или клиентский мод.

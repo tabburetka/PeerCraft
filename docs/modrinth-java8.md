@@ -1,7 +1,7 @@
 # Modrinth downloads on Java 8
 
 Minecraft 1.7.10, 1.12.2 and 1.16.5 share `ModrinthCatalogClient` and
-`ModrinthDownloader` from `peercraft/src/modsync-java8`. Their client adapters
+`ModrinthDownloader` from `mod/src/core`. Their client adapters
 resolve an exact SHA-512 match to an HTTPS URL on `cdn.modrinth.com`.
 Only listed versions receive the existing public catalog label. That label is
 not a security verdict, and SHA-512 verifies byte identity, not mod safety.
@@ -24,7 +24,7 @@ Run from the repository root, with a JDK 8 and a Java 8 compatible Gson jar:
 ```bash
 export JAVA8_HOME=/path/to/jdk8
 export GSON_JAR=/path/to/gson.jar
-bash peercraft/tests/modrinth-java8/run.sh
+bash mod/tests/modrinth-java8/run.sh
 ```
 
 The standalone probe installs a process-local fake HTTPS transport for 34 checks
@@ -35,7 +35,7 @@ JRE's `bin/java`; compilation still uses `JAVA8_HOME`.
 For a live check, obtain a listed file's size and SHA-512 from Modrinth and run:
 
 ```bash
-bash peercraft/tests/modrinth-java8/run.sh live "$FILE_SIZE" "$FILE_SHA512"
+bash mod/tests/modrinth-java8/run.sh live "$FILE_SIZE" "$FILE_SHA512"
 ```
 
 This mode uses the production catalog lookup and downloader with real HTTPS,

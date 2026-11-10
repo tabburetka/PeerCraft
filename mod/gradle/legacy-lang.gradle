@@ -1,0 +1,42 @@
+// Pre-1.13 Minecraft reads key=value .lang files, not JSON. Generates them from the shared
+// mod/src/main/resources/assets/peercraft/lang/*.json so translations stay single-sourced, and
+// adds them to the main resources. Before 1.11 the file names carry an upper-case region
+// ("en_US.lang"); PeerCraftLang loads by the same code Minecraft reports.
+def legacyLangJsonDir = new File(rootProject.projectDir, '../../mod/src/main/resources/assets/peercraft/lang')
+def legacyLangDir = layout.buildDirectory.dir('generated/lang')
+def legacyLangVersion = (project.minecraft_version as String).tokenize('.').collect { it as int }
+def upperCaseRegion = legacyLangVersion[0] == 1 && legacyLangVersion[1] < 11
+
+def generateLang = tasks.register('generateLang') {
+	inputs.dir(legacyLangJsonDir)
+	inputs.property('upperCaseRegion', upperCaseRegion)
+	outputs.dir(legacyLangDir)
+	doLast {
+		def outDir = legacyLangDir.get().dir('assets/peercraft/lang').asFile
+		outDir.mkdirs()
+		def slurper = new groovy.json.JsonSlurper()
+		['en_us', 'ru_ru'].each { name ->
+			def json = new File(legacyLangJsonDir, "${name}.json")
+			if (!json.exists()) return
+			def map = slurper.parse(json)
+			def sb = new StringBuilder()
+			// PeerCraftLang reads UTF-8 java.util.Properties; escape values so a newline
+			// does not split a confirmation into unrelated keys in the legacy .lang file.
+			map.each { k, v ->
+				def escaped = String.valueOf(v).replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+				sb.append(k).append('=').append(escaped).append('\n')
+			}
+			def decoded = new Properties()
+			decoded.load(new StringReader(sb.toString()))
+			map.each { k, v ->
+				if (decoded.getProperty(String.valueOf(k)) != String.valueOf(v))
+					throw new GradleException("Legacy translation changed during serialization: ${k}")
+			}
+			def fileName = upperCaseRegion ? name.substring(0, 3) + name.substring(3).toUpperCase() : name
+			new File(outDir, "${fileName}.lang").setText(sb.toString(), 'UTF-8')
+		}
+	}
+}
+
+sourceSets.main.resources.srcDir(legacyLangDir)
+tasks.named('processResources') { dependsOn generateLang }

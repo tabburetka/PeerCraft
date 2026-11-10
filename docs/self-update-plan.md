@@ -85,7 +85,7 @@
 Шаг 6 в «Порядке выпуска» в `VERSIONING.md` заменяется на «запустить скрипт и запушить
 `update.json` и `update.json.sig`».
 
-### Этап 2. Общий код (Java 8, `peercraft/src/main/java/net/peercraft/client/update/`)
+### Этап 2. Общий код (Java 8, `mod/src/main/java/net/peercraft/client/update/`)
 - **`UpdateManifest`**:
   - разбирает v2: каналы и файлы;
   - `fileFor(version, buildKey)`;

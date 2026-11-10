@@ -1,0 +1,136 @@
+plugins {
+	id "java"
+	// 2.0.3's shaded plugin jar bundles Java 25 (major 69) classes that Gradle 8.8's bytecode
+	// instrumentation can't read; 1.4.9 is the last 1.4.x and the proven 1.12.2 toolchain.
+	id "com.gtnewhorizons.retrofuturagradle" version "1.4.9"
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+	archivesName = "${project.mod_id}-forge-${project.minecraft_version}"
+}
+
+// Decouple the JDK that runs Gradle (17/21) from the Java 8 used to compile & run the 1.12.2 mod.
+// RFG auto-provisions an Azul JDK 8 toolchain via the foojay resolver.
+java {
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(8))
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Shared code from ../../mod, layered onto this project's own src/main/java (the Forge
+// entrypoint, coremod and mixins):
+//   - src/core/java          Minecraft-agnostic logic (network, protocols, config, accounts),
+//                            Java 8 source shared verbatim with every target and the servers
+//   - src/common/java        Minecraft-agnostic client glue that calls into the platform layer
+//   - src/legacy-forge/java  the Forge client layer (GUI, mixins, mod sync, handoff) for every
+//                            RetroFuturaGradle backport, version-gated — resolved for 1.12.2
+//                            by legacy-preprocess.gradle
+def peercraftDir = rootProject.file("../../mod")
+
+sourceSets {
+	main {
+		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
+		// classes output dir, not the separate processResources dir — so in `runClient` the
+		// .lang / mcmod.info wouldn't be found. Emit resources alongside the classes.
+		output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+		java {
+			srcDir(new File(peercraftDir, "src/core/java"))
+			srcDir(new File(peercraftDir, "src/common/java"))
+		}
+		resources {
+			srcDir(new File(peercraftDir, "src/main/resources"))
+			// 1.12.2 wants key=value .lang, not JSON.
+			exclude "assets/peercraft/lang/*.json"
+			// The modern (JAVA_21) mixin JSONs from ../../mod/src/main/resources — this
+			// project ships its own peercraft.forge.mixins.json instead (different name, so it
+			// isn't caught here).
+			exclude "peercraft.mixins.json"
+			exclude "peercraft.client.mixins.json"
+		}
+	}
+}
+
+minecraft {
+	mcVersion.set(project.minecraft_version)
+	mcpMappingChannel.set(project.mapping_channel)
+	mcpMappingVersion.set(project.mapping_version)
+
+	username.set("Developer")
+	useDependencyAccessTransformers.set(true)
+
+	def jvmArgs = ["-ea:" + project.maven_group]
+	if (project.use_mixin.toBoolean()) {
+		jvmArgs << "-Dmixin.debug=true"
+		jvmArgs << "-Dmixin.debug.export=true"
+		jvmArgs << "-Dmixin.hotSwap=true"
+		// The MixinConfigs jar-manifest attr needs a real jar in mods/; in the dev run the
+		// coremod is what registers peercraft.forge.mixins.json with MixinBooter.
+		jvmArgs << "-Dfml.coreMods.load=net.peercraft.forge1122.PeerCraftCoreMod"
+	}
+	extraRunJvmArguments.addAll(jvmArgs)
+}
+
+repositories {
+	maven {
+		name = "GTNH Maven"
+		url = uri("https://nexus.gtnewhorizons.com/repository/public/")
+	}
+	maven {
+		name = "CleanroomMC Maven"
+		// Serves zone.rong:mixinbooter at the repo root (not under /releases).
+		url = uri("https://maven.cleanroommc.com")
+	}
+	mavenCentral()
+}
+
+dependencies {
+	// Shared PeerCraft code logs through org.slf4j. MC 1.12.2 ships Log4j 2 but no SLF4J
+	// facade; src/main/java/org/slf4j/ is a tiny in-jar shim over Log4j2 (no extra deps, no
+	// shading — there's no JiJ on Forge 1.12.2). gson + authlib come from Forge/MC at runtime.
+	compileOnly "com.google.code.gson:gson:2.8.0"
+	compileOnly "com.mojang:authlib:1.5.25"
+
+	if (project.use_mixin.toBoolean()) {
+		// modUtils.enableMixins wires the SpongePowered mixin tweaker/AP and names the refmap.
+		String mixin = modUtils.enableMixins(
+			"zone.rong:mixinbooter:${project.mixin_booter_version}",
+			"peercraft.mixins.refmap.json")
+		implementation(mixin) { transitive = false }
+		annotationProcessor "org.ow2.asm:asm-debug-all:5.2"
+		annotationProcessor "com.google.guava:guava:24.1.1-jre"
+		annotationProcessor "com.google.code.gson:gson:2.8.9"
+		annotationProcessor(mixin) { transitive = false }
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = "UTF-8"
+}
+
+if (project.use_mixin.toBoolean()) {
+	jar {
+		manifest {
+			// Production (jar in mods/): both routes to the mixin config are declared.
+			attributes(
+				"MixinConfigs": "peercraft.forge.mixins.json",
+				"FMLCorePlugin": "net.peercraft.forge1122.PeerCraftCoreMod",
+				"FMLCorePluginContainsFMLMod": "true",
+				"ForceLoadAsMod": "true")
+		}
+	}
+}
+
+processResources {
+	inputs.property "mod_version", project.mod_version
+	inputs.property "mod_id", project.mod_id
+	filesMatching("mcmod.info") {
+		expand("mod_version": project.mod_version, "mod_id": project.mod_id, "mod_name": project.mod_name)
+	}
+}
+
+apply from: new File(rootProject.projectDir, '../../mod/gradle/modsync-helper.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-preprocess.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-lang.gradle')

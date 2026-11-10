@@ -1,0 +1,26 @@
+// One dependency-free Java 8 helper embedded in every distribution, including the legacy builds.
+def helperBase = rootProject.name == 'peercraft' ? rootProject.projectDir : new File(rootProject.projectDir, '../../mod')
+def helperSource = new File(helperBase, 'src/modsync-helper/java')
+sourceSets.main.java.srcDir(helperSource)
+def helperClasses = layout.buildDirectory.dir('modsync-helper/classes')
+def compileHelper = tasks.register('compileModSyncHelper', JavaCompile) {
+    source = fileTree(helperSource) { include '**/*.java' }
+    classpath = files()
+    destinationDirectory = helperClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(8) }
+    sourceCompatibility = '8'
+    targetCompatibility = '8'
+    options.release.unset()
+    options.encoding = 'UTF-8'
+}
+def helperJar = tasks.register('modSyncHelperJar', Jar) {
+    dependsOn compileHelper
+    from helperClasses
+    archiveFileName = 'modsync-helper.jar'
+    destinationDirectory = layout.buildDirectory.dir('modsync-helper/resource/peercraft')
+    manifest { attributes 'Main-Class': 'net.peercraft.modsync.install.ModSyncInstaller' }
+}
+tasks.named('processResources') {
+    dependsOn helperJar
+    from(layout.buildDirectory.dir('modsync-helper/resource'))
+}

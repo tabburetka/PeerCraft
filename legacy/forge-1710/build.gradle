@@ -1,0 +1,183 @@
+plugins {
+	id "java"
+	// Same pin/rationale as the 1.12.2 backport: 2.0.x's shaded plugin jar bundles Java 25
+	// (major 69) classes that Gradle 8.8's bytecode instrumentation can't read. 1.4.9 is the
+	// last 1.4.x and a proven RFG toolchain; RFG's original target IS 1.7.10.
+	id "com.gtnewhorizons.retrofuturagradle" version "1.4.9"
+}
+
+version = project.mod_version
+group = project.maven_group
+base {
+	archivesName = "${project.mod_id}-forge-${project.minecraft_version}"
+}
+
+// Decouple the JDK that runs Gradle (17/21) from the Java 8 used to compile & run the 1.7.10 mod.
+// RFG auto-provisions an Azul JDK 8 toolchain via the foojay resolver.
+java {
+	toolchain {
+		languageVersion.set(JavaLanguageVersion.of(8))
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Shared code from ../../mod, layered onto this project's own src/main/java (the Forge
+// entrypoint, coremod and mixins):
+//   - src/core/java          Minecraft-agnostic logic (network, protocols, config, accounts),
+//                            Java 8 source shared verbatim with every target and the servers
+//   - src/common/java        Minecraft-agnostic client glue that calls into the platform layer
+//   - src/legacy-forge/java  the Forge client layer (GUI, mixins, mod sync, handoff) for every
+//                            RetroFuturaGradle backport, version-gated — resolved for 1.7.10
+//                            by legacy-preprocess.gradle
+def peercraftDir = rootProject.file("../../mod")
+
+sourceSets {
+	main {
+		// RFG's dev mod resource pack (FMLFileResourcePack) only serves assets/ from the
+		// classes output dir, not the separate processResources dir — so in `runClient` the
+		// .lang / mcmod.info wouldn't be found. Emit resources alongside the classes.
+		output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+		java {
+			srcDir(new File(peercraftDir, "src/core/java"))
+			srcDir(new File(peercraftDir, "src/common/java"))
+		}
+		resources {
+			srcDir(new File(peercraftDir, "src/main/resources"))
+			// 1.7.10 wants key=value .lang, not JSON.
+			exclude "assets/peercraft/lang/*.json"
+			// The modern (JAVA_21) mixin JSONs from ../../mod/src/main/resources — this
+			// project ships its own peercraft.forge1710.mixins.json instead (different name, so
+			// it isn't caught here).
+			exclude "peercraft.mixins.json"
+			exclude "peercraft.client.mixins.json"
+		}
+	}
+}
+
+minecraft {
+	mcVersion.set(project.minecraft_version)
+	mcpMappingChannel.set(project.mapping_channel)
+	mcpMappingVersion.set(project.mapping_version)
+
+	username.set("Developer")
+	useDependencyAccessTransformers.set(true)
+
+	def jvmArgs = ["-ea:" + project.maven_group]
+	if (project.use_mixin.toBoolean()) {
+		jvmArgs << "-Dmixin.debug=true"
+		jvmArgs << "-Dmixin.debug.export=true"
+		jvmArgs << "-Dmixin.hotSwap=true"
+		// The MixinConfigs jar-manifest attr needs a real jar in mods/; in the dev run the
+		// coremod is what registers peercraft.forge1710.mixins.json with the Mixin loader.
+		jvmArgs << "-Dfml.coreMods.load=net.peercraft.forge1710.PeerCraftCoreMod"
+	}
+	extraRunJvmArguments.addAll(jvmArgs)
+}
+
+repositories {
+	maven {
+		name = "GTNH Maven"
+		url = uri("https://nexus.gtnewhorizons.com/repository/public/")
+	}
+	mavenCentral()
+}
+
+dependencies {
+	// Shared PeerCraft code logs through org.slf4j. MC 1.7.10 ships Log4j 2 but no SLF4J
+	// facade; src/main/java/org/slf4j/ is a tiny in-jar shim over Log4j2 (no extra deps, no
+	// shading — there's no JiJ on Forge 1.7.10). gson + authlib come from Forge/MC at runtime,
+	// but 1.7.10 ships far older versions than 1.12.2.
+	compileOnly "com.google.code.gson:gson:2.2.4"
+	compileOnly "com.mojang:authlib:1.5.16"
+
+	if (project.use_mixin.toBoolean()) {
+		// UniMixins ":dev" jar = deobf, bundles the Mixin fork + SpongePowered annotation
+		// processor + GTNHMixins' IEarlyMixinLoader. modUtils.enableMixins wires the tweaker/AP
+		// and names the refmap (same call the 1.12.2 backport makes for MixinBooter).
+		// FINALISE AFTER FIRST runClient: exact coordinate/classifier and whether a separate
+		// annotationProcessor entry for the Mixin AP is needed may need tweaking — the refmap
+		// only proves itself at runtime, not at compile time.
+		String mixin = modUtils.enableMixins(
+			"io.github.legacymoddingmc:unimixins:${project.unimixins_version}:dev",
+			"peercraft.mixins.refmap.json")
+		implementation(mixin) { transitive = false }
+		annotationProcessor "org.ow2.asm:asm-debug-all:5.2"
+		annotationProcessor "com.google.guava:guava:24.1.1-jre"
+		annotationProcessor "com.google.code.gson:gson:2.8.9"
+		annotationProcessor(mixin) { transitive = false }
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = "UTF-8"
+}
+
+// ---------------------------------------------------------------------------------------
+// Lightweight mod-sync test suite — proves the loader-agnostic core (mod/src/core, as
+// compiled into this project's main output) works end to end WITHOUT a Minecraft runtime:
+// ModSyncLoopbackIntegrationTest cross-wires a joiner + host ModSyncCoordinator in one JVM
+// and runs the real handshake + chunked transfer + SHA-512 verify. `./gradlew
+// :peercraft-forge-1710:modsyncTest` (also wired into `check`).
+// NOTE: the other src/test modsync tests (ModSyncProtocolTest, FileReassemblerTest, …) are
+// Java 21 source (records / List.of / switch expressions) and only run on the 1.21.1-fabric
+// node; the loopback test here is written in Java 8 so it compiles on both.
+def modsyncTestSrc = layout.buildDirectory.dir("modsync-test/java")
+def syncModsyncTest = tasks.register("syncModsyncTest", Sync) {
+	from(new File(peercraftDir, "src/test/java"))
+	into(modsyncTestSrc)
+	include "net/peercraft/network/modsync/ModSyncLoopbackIntegrationTest.java"
+	include "net/peercraft/network/handoff/LegacyModSourceTest.java"
+	include "net/peercraft/network/handoff/HostManifestCaptureTest.java"
+}
+sourceSets {
+	modsyncTest {
+		java {
+			srcDir(syncModsyncTest)
+		}
+		compileClasspath += sourceSets.main.output
+		runtimeClasspath += sourceSets.main.output
+	}
+}
+dependencies {
+	modsyncTestImplementation platform("org.junit:junit-bom:5.10.2")
+	modsyncTestImplementation "org.junit.jupiter:junit-jupiter"
+	modsyncTestImplementation "com.google.code.gson:gson:2.2.4"
+	// The mod-sync core logs through the in-jar org.slf4j shim -> org.apache.logging.log4j.
+	// The MC/Forge classpath (which normally provides Log4j2) isn't on this lightweight test
+	// classpath, so bring a standalone Log4j2 just for the test JVM.
+	modsyncTestImplementation "org.apache.logging.log4j:log4j-api:2.17.1"
+	modsyncTestImplementation "org.apache.logging.log4j:log4j-core:2.17.1"
+}
+def modsyncTest = tasks.register("modsyncTest", Test) {
+	description = "Runs the loader-agnostic mod-sync unit + loopback tests (no Minecraft runtime)."
+	group = "verification"
+	testClassesDirs = sourceSets.modsyncTest.output.classesDirs
+	classpath = sourceSets.modsyncTest.runtimeClasspath
+	useJUnitPlatform()
+}
+tasks.named("check") { dependsOn(modsyncTest) }
+
+if (project.use_mixin.toBoolean()) {
+	jar {
+		manifest {
+			// Production (jar in mods/): both routes to the mixin config are declared.
+			attributes(
+				"MixinConfigs": "peercraft.forge1710.mixins.json",
+				"FMLCorePlugin": "net.peercraft.forge1710.PeerCraftCoreMod",
+				"FMLCorePluginContainsFMLMod": "true",
+				"ForceLoadAsMod": "true")
+		}
+	}
+}
+
+processResources {
+	inputs.property "mod_version", project.mod_version
+	inputs.property "mod_id", project.mod_id
+	filesMatching("mcmod.info") {
+		expand("mod_version": project.mod_version, "mod_id": project.mod_id, "mod_name": project.mod_name)
+	}
+}
+
+apply from: new File(rootProject.projectDir, '../../mod/gradle/modsync-helper.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-preprocess.gradle')
+apply from: new File(rootProject.projectDir, '../../mod/gradle/legacy-lang.gradle')
