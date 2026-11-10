@@ -1,0 +1,401 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.1-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.1-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.1-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.1-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.1-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.1-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.1-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.1-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.1-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.11-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.11-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.11-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.11-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.11-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.11-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.11-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.11-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.11-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.4-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.4-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.4-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.4-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.4-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.4-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.4-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.4-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.4-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.5-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.5-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.5-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.5-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.5-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.5-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.5-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.5-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.5-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.6-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.6-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.6-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.6-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.6-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.6-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.6-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.6-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.6-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.9-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.21.9-neoforge",
+        "order": 0
+      },
+      "projectName": "1.21.9-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.9-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.21.9-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.21.9-neoforge",
+        "order": 1
+      },
+      "projectName": "1.21.9-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/1.21.9-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/1.21.9-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.1-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 26.1-neoforge",
+        "order": 0
+      },
+      "projectName": "26.1-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.1-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.1-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 26.1-neoforge",
+        "order": 1
+      },
+      "projectName": "26.1-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.1-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.1-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.2-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 26.2-neoforge",
+        "order": 0
+      },
+      "projectName": "26.2-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.2-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.2-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 26.2-neoforge",
+        "order": 1
+      },
+      "projectName": "26.2-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.2-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.2-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.3-neoforge - Client",
+      "presentation": {
+        "group": "Mod Development - 26.3-neoforge",
+        "order": 0
+      },
+      "projectName": "26.3-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/build/moddev/clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/build/moddev/clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.3-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "26.3-neoforge - Server",
+      "presentation": {
+        "group": "Mod Development - 26.3-neoforge",
+        "order": 1
+      },
+      "projectName": "26.3-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/build/moddev/serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/build/moddev/serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dpeercraft%%/home/ikuku/desktop/PeerCraft/mod/versions/26.3-neoforge/bin/main"
+      ],
+      "cwd": "${workspaceFolder}/versions/26.3-neoforge/run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
